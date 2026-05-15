@@ -14,6 +14,7 @@ body {
   display: flex;
 }
 
+/* MENÚ LATERAL */
 .sidebar {
   width: 260px;
   background: #111827;
@@ -25,17 +26,19 @@ body {
   border-bottom: 1px solid #374151;
   padding-bottom: 20px;
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .logo h2 {
   margin: 0;
   font-size: 32px;
-  letter-spacing: 2px;
+  letter-spacing: 4px;
 }
 
 .logo p {
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   color: #d1d5db;
+  font-size: 15px;
 }
 
 .menu {
@@ -57,11 +60,13 @@ body {
   color: white;
 }
 
+/* CONTENIDO PRINCIPAL */
 .main {
   flex: 1;
   padding: 30px;
 }
 
+/* ENCABEZADO */
 .header {
   background: white;
   padding: 26px;
@@ -85,6 +90,7 @@ body {
   max-width: 700px;
 }
 
+/* BOTONES */
 .btn-primary {
   background: #2563eb;
   color: white;
@@ -99,6 +105,21 @@ body {
   background: #1d4ed8;
 }
 
+.btn-secondary {
+  background: #e5e7eb;
+  color: #374151;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: #d1d5db;
+}
+
+/* TARJETAS */
 .cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -130,6 +151,92 @@ body {
   color: #6b7280;
 }
 
+/* FORMULARIO DE PREDIOS */
+.form-panel {
+  background: white;
+  padding: 28px;
+  border-radius: 18px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
+}
+
+.form-panel h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 26px;
+  text-align: left;
+}
+
+.form-description {
+  color: #6b7280;
+  margin-top: 8px;
+  margin-bottom: 24px;
+  max-width: 850px;
+  text-align: left;
+}
+
+.property-form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 700;
+  color: #374151;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: white;
+  color: #111827;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.form-group input[readonly] {
+  background: #f3f4f6;
+  color: #2563eb;
+  font-weight: bold;
+}
+
+.form-group textarea {
+  min-height: 95px;
+  resize: vertical;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* TABLA */
 .panel {
   background: white;
   padding: 24px;
@@ -168,6 +275,17 @@ td {
   font-weight: bold;
 }
 
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .property-form {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 600px) {
   .app {
     flex-direction: column;
@@ -178,6 +296,10 @@ td {
   }
 
   .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .property-form {
     grid-template-columns: 1fr;
   }
 
