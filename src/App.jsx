@@ -8,14 +8,17 @@ function App() {
   const predioRef = useRef(null)
   const arriendoRef = useRef(null)
   const pagoArriendoRef = useRef(null)
+  const incrementoArriendoRef = useRef(null)
   const valorAnualRef = useRef(null)
   const pagoPredialRef = useRef(null)
 
   const [mostrarFormularioPredio, setMostrarFormularioPredio] = useState(false)
-  const [mostrarFormularioValorPredial, setMostrarFormularioValorPredial] = useState(false)
-  const [mostrarFormularioPredial, setMostrarFormularioPredial] = useState(false)
   const [mostrarFormularioArriendo, setMostrarFormularioArriendo] = useState(false)
   const [mostrarFormularioPagoArriendo, setMostrarFormularioPagoArriendo] = useState(false)
+  const [mostrarFormularioIncrementoArriendo, setMostrarFormularioIncrementoArriendo] = useState(false)
+  const [mostrarFormularioValorPredial, setMostrarFormularioValorPredial] = useState(false)
+  const [mostrarFormularioPredial, setMostrarFormularioPredial] = useState(false)
+  const [contratoSeleccionado, setContratoSeleccionado] = useState(null)
 
   const [ciudad, setCiudad] = useState('')
   const [barrio, setBarrio] = useState('')
@@ -23,7 +26,6 @@ function App() {
   const [matricula, setMatricula] = useState('')
   const [chip, setChip] = useState('')
   const [cedulaCatastral, setCedulaCatastral] = useState('')
-  const [saldoInicial, setSaldoInicial] = useState('')
   const [estado, setEstado] = useState('Activo')
   const [observaciones, setObservaciones] = useState('')
 
@@ -41,6 +43,36 @@ function App() {
   const [porcentajeTempPropietario, setPorcentajeTempPropietario] = useState('')
   const [propietariosTemporales, setPropietariosTemporales] = useState([])
 
+  const [codigoPredioArriendo, setCodigoPredioArriendo] = useState('')
+  const [nombreArrendatario, setNombreArrendatario] = useState('')
+  const [tipoDocumentoArrendatario, setTipoDocumentoArrendatario] = useState('Cédula de ciudadanía')
+  const [documentoArrendatario, setDocumentoArrendatario] = useState('')
+  const [telefonoArrendatario, setTelefonoArrendatario] = useState('')
+  const [correoArrendatario, setCorreoArrendatario] = useState('')
+  const [canonMensual, setCanonMensual] = useState('')
+  const [porcentajeIncrementoAnual, setPorcentajeIncrementoAnual] = useState('')
+  const [aplicaIva, setAplicaIva] = useState('No')
+  const [fechaInicioContrato, setFechaInicioContrato] = useState('')
+  const [fechaFinContrato, setFechaFinContrato] = useState('')
+  const [depositoArriendo, setDepositoArriendo] = useState('')
+  const [estadoContrato, setEstadoContrato] = useState('Activo')
+  const [observacionesArriendo, setObservacionesArriendo] = useState('')
+
+  const [codigoPredioPagoArriendo, setCodigoPredioPagoArriendo] = useState('')
+  const [mesPagoArriendo, setMesPagoArriendo] = useState('')
+  const [fechaPagoArriendo, setFechaPagoArriendo] = useState('')
+  const [valorPagadoArriendo, setValorPagadoArriendo] = useState('')
+  const [moraArriendo, setMoraArriendo] = useState('')
+  const [descuentoArriendo, setDescuentoArriendo] = useState('')
+  const [medioPagoArriendo, setMedioPagoArriendo] = useState('Transferencia')
+  const [reciboPagoArriendo, setReciboPagoArriendo] = useState('')
+  const [observacionesPagoArriendo, setObservacionesPagoArriendo] = useState('')
+
+  const [codigoPredioIncremento, setCodigoPredioIncremento] = useState('')
+  const [anioIncrementoArriendo, setAnioIncrementoArriendo] = useState(anioActual)
+  const [porcentajeNuevoIncremento, setPorcentajeNuevoIncremento] = useState('')
+  const [observacionesIncrementoArriendo, setObservacionesIncrementoArriendo] = useState('')
+
   const [codigoPredioValor, setCodigoPredioValor] = useState('')
   const [anioValorPredial, setAnioValorPredial] = useState(anioActual)
   const [valorAnualPredial, setValorAnualPredial] = useState('')
@@ -55,30 +87,6 @@ function App() {
   const [valorPagado, setValorPagado] = useState('')
   const [estadoPagoPredial, setEstadoPagoPredial] = useState('Pagado')
 
-  const [codigoPredioArriendo, setCodigoPredioArriendo] = useState('')
-  const [nombreArrendatario, setNombreArrendatario] = useState('')
-  const [tipoDocumentoArrendatario, setTipoDocumentoArrendatario] = useState('Cédula de ciudadanía')
-  const [documentoArrendatario, setDocumentoArrendatario] = useState('')
-  const [telefonoArrendatario, setTelefonoArrendatario] = useState('')
-  const [correoArrendatario, setCorreoArrendatario] = useState('')
-  const [canonMensual, setCanonMensual] = useState('')
-  const [fechaInicioContrato, setFechaInicioContrato] = useState('')
-  const [fechaFinContrato, setFechaFinContrato] = useState('')
-  const [depositoArriendo, setDepositoArriendo] = useState('')
-  const [estadoContrato, setEstadoContrato] = useState('Activo')
-  const [observacionesArriendo, setObservacionesArriendo] = useState('')
-
-  const [codigoPredioPagoArriendo, setCodigoPredioPagoArriendo] = useState('')
-  const [mesPagoArriendo, setMesPagoArriendo] = useState('')
-  const [fechaPagoArriendo, setFechaPagoArriendo] = useState('')
-  const [valorCanonArriendo, setValorCanonArriendo] = useState('')
-  const [valorPagadoArriendo, setValorPagadoArriendo] = useState('')
-  const [moraArriendo, setMoraArriendo] = useState('')
-  const [descuentoArriendo, setDescuentoArriendo] = useState('')
-  const [medioPagoArriendo, setMedioPagoArriendo] = useState('Transferencia')
-  const [reciboPagoArriendo, setReciboPagoArriendo] = useState('')
-  const [observacionesPagoArriendo, setObservacionesPagoArriendo] = useState('')
-
   const [predios, setPredios] = useState([
     {
       codigo: 'BOG-FON-0001',
@@ -86,10 +94,10 @@ function App() {
       barrio: 'Fontibón',
       direccion: 'Ejemplo de dirección',
       estado: 'Activo',
-      saldoInicial: 0,
       matricula: '50N-123456',
       chip: 'AAA0000',
       cedulaCatastral: '110010000000000',
+      observaciones: 'Predio de ejemplo',
       anioInicioPredial: 2025,
     },
   ])
@@ -115,11 +123,23 @@ function App() {
       telefono: '3100000000',
       correo: 'arrendatario@ejemplo.com',
       canonMensual: 1500000,
+      porcentajeIncrementoAnual: 10,
+      aplicaIva: 'Sí',
+      porcentajeIva: 19,
       fechaInicio: '2026-01-01',
       fechaFin: '2026-12-31',
       deposito: 1500000,
       estado: 'Activo',
       observaciones: 'Contrato de ejemplo',
+    },
+  ])
+
+  const [incrementosArriendo, setIncrementosArriendo] = useState([
+    {
+      codigoPredio: 'BOG-FON-0001',
+      anio: 2027,
+      porcentaje: 10,
+      observaciones: 'Incremento inicial registrado',
     },
   ])
 
@@ -129,8 +149,11 @@ function App() {
       arrendatario: 'Arrendatario de ejemplo',
       mes: '2026-01',
       fechaPago: '2026-01-05',
-      valorCanon: 1500000,
-      valorPagado: 1500000,
+      canonBase: 1500000,
+      incrementoAplicado: 0,
+      iva: 285000,
+      canonCausado: 1785000,
+      valorPagado: 1785000,
       mora: 0,
       descuento: 0,
       medioPago: 'Transferencia',
@@ -201,13 +224,6 @@ function App() {
     return `${prefijo}-${consecutivo}`
   }, [ciudad, barrio, predios])
 
-  const totalTemporalPropietarios = propietariosTemporales.reduce(
-    (total, propietario) => total + Number(propietario.porcentaje),
-    0
-  )
-
-  const porcentajeFaltante = 100 - totalTemporalPropietarios
-
   const formatearDinero = (valor) => {
     if (valor === null || valor === undefined) return 'Sin registrar'
 
@@ -220,10 +236,11 @@ function App() {
 
   const cerrarFormularios = () => {
     setMostrarFormularioPredio(false)
-    setMostrarFormularioValorPredial(false)
-    setMostrarFormularioPredial(false)
     setMostrarFormularioArriendo(false)
     setMostrarFormularioPagoArriendo(false)
+    setMostrarFormularioIncrementoArriendo(false)
+    setMostrarFormularioValorPredial(false)
+    setMostrarFormularioPredial(false)
   }
 
   const irASeccion = (referencia) => {
@@ -234,6 +251,75 @@ function App() {
       })
     }, 150)
   }
+
+  const totalTemporalPropietarios = propietariosTemporales.reduce(
+    (total, propietario) => total + Number(propietario.porcentaje || 0),
+    0
+  )
+
+  const porcentajeFaltante = 100 - totalTemporalPropietarios
+
+  const obtenerContratoActivoPorPredio = (codigoPredio) => {
+    return contratosArriendo.find(
+      (contrato) =>
+        contrato.codigoPredio === codigoPredio && contrato.estado === 'Activo'
+    )
+  }
+
+  const calcularCanonArriendo = (contrato, mes) => {
+    if (!contrato || !mes) {
+      return {
+        canonBase: 0,
+        incrementoAplicado: 0,
+        iva: 0,
+        canonCausado: 0,
+      }
+    }
+
+    const anioPago = Number(mes.substring(0, 4))
+    const anioInicio = Number(contrato.fechaInicio.substring(0, 4))
+    let canonBase = Number(contrato.canonMensual || 0)
+    let incrementoAplicado = 0
+
+    for (let anio = anioInicio + 1; anio <= anioPago; anio++) {
+      const incrementoDelAnio = incrementosArriendo.find(
+        (incremento) =>
+          incremento.codigoPredio === contrato.codigoPredio &&
+          Number(incremento.anio) === Number(anio)
+      )
+
+      const porcentaje =
+        incrementoDelAnio?.porcentaje ??
+        Number(contrato.porcentajeIncrementoAnual || 0)
+
+      canonBase = Math.round(canonBase * (1 + porcentaje / 100))
+
+      if (anio === anioPago) {
+        incrementoAplicado = porcentaje
+      }
+    }
+
+    const iva = contrato.aplicaIva === 'Sí' ? Math.round(canonBase * 0.19) : 0
+    const canonCausado = canonBase + iva
+
+    return {
+      canonBase,
+      incrementoAplicado,
+      iva,
+      canonCausado,
+    }
+  }
+
+  const contratoSeleccionadoPagoArriendo = useMemo(() => {
+    return obtenerContratoActivoPorPredio(codigoPredioPagoArriendo)
+  }, [codigoPredioPagoArriendo, contratosArriendo])
+
+  const canonCalculadoPagoArriendo = useMemo(() => {
+    return calcularCanonArriendo(
+      contratoSeleccionadoPagoArriendo,
+      mesPagoArriendo
+    )
+  }, [contratoSeleccionadoPagoArriendo, mesPagoArriendo, incrementosArriendo])
 
   const limpiarPropietarioTemporal = () => {
     setNombreTempPropietario('')
@@ -251,7 +337,6 @@ function App() {
     setMatricula('')
     setChip('')
     setCedulaCatastral('')
-    setSaldoInicial('')
     setEstado('Activo')
     setObservaciones('')
     setUltimoAnioPredialPagado('')
@@ -271,6 +356,8 @@ function App() {
     setTelefonoArrendatario('')
     setCorreoArrendatario('')
     setCanonMensual('')
+    setPorcentajeIncrementoAnual('')
+    setAplicaIva('No')
     setFechaInicioContrato('')
     setFechaFinContrato('')
     setDepositoArriendo('')
@@ -282,7 +369,6 @@ function App() {
     setCodigoPredioPagoArriendo('')
     setMesPagoArriendo('')
     setFechaPagoArriendo('')
-    setValorCanonArriendo('')
     setValorPagadoArriendo('')
     setMoraArriendo('')
     setDescuentoArriendo('')
@@ -317,18 +403,16 @@ function App() {
       return
     }
 
-    const nuevoPropietarioTemporal = {
-      nombre: nombreTempPropietario,
-      tipoDocumento: tipoDocTempPropietario,
-      numeroDocumento: docTempPropietario,
-      telefono: telTempPropietario,
-      correo: correoTempPropietario,
-      porcentaje: porcentajeNuevo,
-    }
-
     setPropietariosTemporales([
       ...propietariosTemporales,
-      nuevoPropietarioTemporal,
+      {
+        nombre: nombreTempPropietario,
+        tipoDocumento: tipoDocTempPropietario,
+        numeroDocumento: docTempPropietario,
+        telefono: telTempPropietario,
+        correo: correoTempPropietario,
+        porcentaje: porcentajeNuevo,
+      },
     ])
 
     limpiarPropietarioTemporal()
@@ -376,7 +460,6 @@ function App() {
       barrio,
       direccion,
       estado,
-      saldoInicial: Number(saldoInicial) || 0,
       matricula,
       chip,
       cedulaCatastral,
@@ -435,10 +518,11 @@ function App() {
       !telefonoArrendatario ||
       !correoArrendatario ||
       !canonMensual ||
+      !porcentajeIncrementoAnual ||
       !fechaInicioContrato
     ) {
       alert(
-        'Complete predio, arrendatario, documento, teléfono, correo, canon mensual y fecha de inicio.'
+        'Complete predio, arrendatario, documento, teléfono, correo, canon mensual, incremento anual y fecha de inicio.'
       )
       return
     }
@@ -462,6 +546,9 @@ function App() {
       telefono: telefonoArrendatario,
       correo: correoArrendatario,
       canonMensual: Number(canonMensual) || 0,
+      porcentajeIncrementoAnual: Number(porcentajeIncrementoAnual) || 0,
+      aplicaIva,
+      porcentajeIva: aplicaIva === 'Sí' ? 19 : 0,
       fechaInicio: fechaInicioContrato,
       fechaFin: fechaFinContrato,
       deposito: Number(depositoArriendo) || 0,
@@ -479,17 +566,14 @@ function App() {
       !codigoPredioPagoArriendo ||
       !mesPagoArriendo ||
       !fechaPagoArriendo ||
-      !valorCanonArriendo ||
       !valorPagadoArriendo
     ) {
-      alert('Complete predio, mes, fecha de pago, valor canon y valor pagado.')
+      alert('Complete predio, mes, fecha de pago y valor pagado.')
       return
     }
 
-    const contratoActivo = contratosArriendo.find(
-      (contrato) =>
-        contrato.codigoPredio === codigoPredioPagoArriendo &&
-        contrato.estado === 'Activo'
+    const contratoActivo = obtenerContratoActivoPorPredio(
+      codigoPredioPagoArriendo
     )
 
     if (!contratoActivo) {
@@ -497,12 +581,18 @@ function App() {
       return
     }
 
+    const { canonBase, incrementoAplicado, iva, canonCausado } =
+      calcularCanonArriendo(contratoActivo, mesPagoArriendo)
+
     const nuevoPagoArriendo = {
       codigoPredio: codigoPredioPagoArriendo,
       arrendatario: contratoActivo.arrendatario,
       mes: mesPagoArriendo,
       fechaPago: fechaPagoArriendo,
-      valorCanon: Number(valorCanonArriendo) || 0,
+      canonBase,
+      incrementoAplicado,
+      iva,
+      canonCausado,
       valorPagado: Number(valorPagadoArriendo) || 0,
       mora: Number(moraArriendo) || 0,
       descuento: Number(descuentoArriendo) || 0,
@@ -514,6 +604,39 @@ function App() {
     setPagosArriendo([nuevoPagoArriendo, ...pagosArriendo])
     limpiarFormularioPagoArriendo()
     setMostrarFormularioPagoArriendo(false)
+  }
+
+  const guardarIncrementoArriendo = () => {
+    if (
+      !codigoPredioIncremento ||
+      !anioIncrementoArriendo ||
+      !porcentajeNuevoIncremento
+    ) {
+      alert('Complete predio, año y porcentaje de incremento.')
+      return
+    }
+
+    const nuevoIncremento = {
+      codigoPredio: codigoPredioIncremento,
+      anio: Number(anioIncrementoArriendo),
+      porcentaje: Number(porcentajeNuevoIncremento),
+      observaciones: observacionesIncrementoArriendo,
+    }
+
+    const listaSinRepetido = incrementosArriendo.filter(
+      (incremento) =>
+        !(
+          incremento.codigoPredio === codigoPredioIncremento &&
+          Number(incremento.anio) === Number(anioIncrementoArriendo)
+        )
+    )
+
+    setIncrementosArriendo([nuevoIncremento, ...listaSinRepetido])
+    setCodigoPredioIncremento('')
+    setAnioIncrementoArriendo(anioActual)
+    setPorcentajeNuevoIncremento('')
+    setObservacionesIncrementoArriendo('')
+    setMostrarFormularioIncrementoArriendo(false)
   }
 
   const guardarValorPredialAnual = () => {
@@ -724,6 +847,15 @@ function App() {
         0
       )
 
+      const propietariosDelPredio = propietarios.filter(
+        (propietario) => propietario.codigoPredio === predio.codigo
+      )
+
+      const totalParticipacion = propietariosDelPredio.reduce(
+        (total, propietario) => total + Number(propietario.porcentaje),
+        0
+      )
+
       const tienePendientesActualizar = movimientos.some(
         (mov) => mov.estadoMovimiento === 'Falta actualizar valor'
       )
@@ -735,15 +867,6 @@ function App() {
       } else if (saldoPendiente > 0) {
         estadoGeneral = 'Con saldo pendiente'
       }
-
-      const propietariosDelPredio = propietarios.filter(
-        (propietario) => propietario.codigoPredio === predio.codigo
-      )
-
-      const totalParticipacion = propietariosDelPredio.reduce(
-        (total, propietario) => total + Number(propietario.porcentaje),
-        0
-      )
 
       return {
         predio,
@@ -762,6 +885,100 @@ function App() {
     })
   }, [predios, valoresPrediales, pagosPrediales, propietarios, anioActual])
 
+  const extractosArriendo = useMemo(() => {
+    return contratosArriendo.map((contrato) => {
+      const pagosDelContrato = pagosArriendo
+        .filter((pago) => pago.codigoPredio === contrato.codigoPredio)
+        .sort((a, b) => a.mes.localeCompare(b.mes))
+
+      const movimientos = pagosDelContrato.map((pago) => {
+        const canonBase = Number(pago.canonBase || pago.valorCanon || 0)
+        const incrementoAplicado = Number(pago.incrementoAplicado || 0)
+        const iva = Number(pago.iva || 0)
+        const canonCausado = Number(pago.canonCausado || canonBase + iva)
+        const valorPagado = Number(pago.valorPagado || 0)
+        const mora = Number(pago.mora || 0)
+        const descuento = Number(pago.descuento || 0)
+        const saldoDeuda = canonCausado + mora - descuento - valorPagado
+
+        let estadoMovimiento = 'Pagado'
+
+        if (saldoDeuda > 0 && valorPagado > 0) {
+          estadoMovimiento = 'Abono registrado'
+        }
+
+        if (saldoDeuda > 0 && valorPagado === 0) {
+          estadoMovimiento = 'Pendiente'
+        }
+
+        return {
+          mes: pago.mes,
+          fechaPago: pago.fechaPago,
+          recibo: pago.recibo || 'Sin recibo',
+          canonBase,
+          incrementoAplicado,
+          iva,
+          canonCausado,
+          pagado: valorPagado,
+          mora,
+          descuento,
+          saldoDeuda,
+          estadoMovimiento,
+        }
+      })
+
+      const totalCanonBase = movimientos.reduce(
+        (total, mov) => total + Number(mov.canonBase || 0),
+        0
+      )
+
+      const totalIva = movimientos.reduce(
+        (total, mov) => total + Number(mov.iva || 0),
+        0
+      )
+
+      const totalCanonCausado = movimientos.reduce(
+        (total, mov) => total + Number(mov.canonCausado || 0),
+        0
+      )
+
+      const totalPagado = movimientos.reduce(
+        (total, mov) => total + Number(mov.pagado || 0),
+        0
+      )
+
+      const totalMora = movimientos.reduce(
+        (total, mov) => total + Number(mov.mora || 0),
+        0
+      )
+
+      const totalDescuento = movimientos.reduce(
+        (total, mov) => total + Number(mov.descuento || 0),
+        0
+      )
+
+      const saldoDeudaTotal = movimientos.reduce(
+        (total, mov) => total + Number(mov.saldoDeuda || 0),
+        0
+      )
+
+      return {
+        contrato,
+        movimientos: movimientos.sort((a, b) => b.mes.localeCompare(a.mes)),
+        resumen: {
+          totalCanonBase,
+          totalIva,
+          totalCanonCausado,
+          totalPagado,
+          totalMora,
+          totalDescuento,
+          saldoDeudaTotal,
+          estadoGeneral: saldoDeudaTotal > 0 ? 'Con deuda' : 'Al día',
+        },
+      }
+    })
+  }, [contratosArriendo, pagosArriendo])
+
   return (
     <div className="app">
       <aside className="sidebar no-print">
@@ -776,6 +993,7 @@ function App() {
           <a href="#" className="menu-item"><span>◎</span>Propietarios</a>
           <a href="#" className="menu-item"><span>≡</span>Arriendos</a>
           <a href="#" className="menu-item"><span>$</span>Pagos Arriendo</a>
+          <a href="#" className="menu-item"><span>%</span>Incrementos</a>
           <a href="#" className="menu-item"><span>▣</span>Pagos Prediales</a>
           <a href="#" className="menu-item"><span>□</span>Estados de cuenta</a>
         </nav>
@@ -791,8 +1009,7 @@ function App() {
             <div>
               <h1>INH Control de Predios y Arriendos</h1>
               <p>
-                Sistema para administrar predios, propietarios, contratos,
-                pagos de arriendo, valores prediales y estados de cuenta.
+                Sistema para administrar contratos, pagos de arriendo, IVA, incrementos anuales, predios y estados de cuenta.
               </p>
             </div>
           </div>
@@ -832,6 +1049,18 @@ function App() {
             >
               <span>+</span>
               Pago arriendo
+            </button>
+
+            <button
+              className="btn-gold"
+              onClick={() => {
+                cerrarFormularios()
+                setMostrarFormularioIncrementoArriendo(true)
+                irASeccion(incrementoArriendoRef)
+              }}
+            >
+              <span>+</span>
+              Actualizar incremento
             </button>
 
             <button
@@ -889,10 +1118,8 @@ function App() {
           <div className="stat-card">
             <div className="stat-icon">≡</div>
             <h3>Arriendos activos</h3>
-            <strong>
-              {contratosArriendo.filter((c) => c.estado === 'Activo').length}
-            </strong>
-            <p>{formatearDinero(totalCanonActivo)} mensual</p>
+            <strong>{contratosArriendo.filter((c) => c.estado === 'Activo').length}</strong>
+            <p>{formatearDinero(totalCanonActivo)} canon base</p>
           </div>
 
           <div className="stat-card">
@@ -918,7 +1145,7 @@ function App() {
             </div>
 
             <p className="form-description">
-              Registre el contrato de arriendo asociado a un predio.
+              Registre el canon inicial, el incremento anual y si el contrato aplica IVA del 19%.
             </p>
 
             <div className="property-form">
@@ -926,15 +1153,10 @@ function App() {
 
               <div className="form-group">
                 <label>Predio</label>
-                <select
-                  value={codigoPredioArriendo}
-                  onChange={(e) => setCodigoPredioArriendo(e.target.value)}
-                >
+                <select value={codigoPredioArriendo} onChange={(e) => setCodigoPredioArriendo(e.target.value)}>
                   <option value="">Seleccione un predio</option>
                   {predios.map((predio, index) => (
-                    <option key={index} value={predio.codigo}>
-                      {predio.codigo} - {predio.barrio}
-                    </option>
+                    <option key={index} value={predio.codigo}>{predio.codigo} - {predio.barrio}</option>
                   ))}
                 </select>
               </div>
@@ -943,20 +1165,12 @@ function App() {
 
               <div className="form-group">
                 <label>Nombre del arrendatario</label>
-                <input
-                  type="text"
-                  value={nombreArrendatario}
-                  onChange={(e) => setNombreArrendatario(e.target.value)}
-                  placeholder="Ej: Carlos Gómez"
-                />
+                <input type="text" value={nombreArrendatario} onChange={(e) => setNombreArrendatario(e.target.value)} placeholder="Ej: Carlos Gómez" />
               </div>
 
               <div className="form-group">
                 <label>Tipo documento</label>
-                <select
-                  value={tipoDocumentoArrendatario}
-                  onChange={(e) => setTipoDocumentoArrendatario(e.target.value)}
-                >
+                <select value={tipoDocumentoArrendatario} onChange={(e) => setTipoDocumentoArrendatario(e.target.value)}>
                   <option>Cédula de ciudadanía</option>
                   <option>NIT</option>
                   <option>Cédula de extranjería</option>
@@ -966,76 +1180,62 @@ function App() {
 
               <div className="form-group">
                 <label>Número documento</label>
-                <input
-                  type="text"
-                  value={documentoArrendatario}
-                  onChange={(e) => setDocumentoArrendatario(e.target.value)}
-                />
+                <input type="text" value={documentoArrendatario} onChange={(e) => setDocumentoArrendatario(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label>Teléfono</label>
-                <input
-                  type="text"
-                  value={telefonoArrendatario}
-                  onChange={(e) => setTelefonoArrendatario(e.target.value)}
-                />
+                <input type="text" value={telefonoArrendatario} onChange={(e) => setTelefonoArrendatario(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label>Correo</label>
-                <input
-                  type="email"
-                  value={correoArrendatario}
-                  onChange={(e) => setCorreoArrendatario(e.target.value)}
-                />
+                <input type="email" value={correoArrendatario} onChange={(e) => setCorreoArrendatario(e.target.value)} />
               </div>
 
               <div className="form-section-title full">Datos económicos del contrato</div>
 
               <div className="form-group">
-                <label>Canon mensual</label>
-                <input
-                  type="number"
-                  value={canonMensual}
-                  onChange={(e) => setCanonMensual(e.target.value)}
-                  placeholder="Ej: 1500000"
-                />
+                <label>Canon mensual inicial</label>
+                <input type="number" value={canonMensual} onChange={(e) => setCanonMensual(e.target.value)} placeholder="Ej: 1500000" />
+              </div>
+
+              <div className="form-group">
+                <label>Incremento anual por defecto (%)</label>
+                <input type="number" value={porcentajeIncrementoAnual} onChange={(e) => setPorcentajeIncrementoAnual(e.target.value)} placeholder="Ej: 10" />
+              </div>
+
+              <div className="form-group">
+                <label>¿Aplica IVA?</label>
+                <select value={aplicaIva} onChange={(e) => setAplicaIva(e.target.value)}>
+                  <option>No</option>
+                  <option>Sí</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>IVA aplicado</label>
+                <input type="text" value={aplicaIva === 'Sí' ? '19%' : 'No aplica'} readOnly />
               </div>
 
               <div className="form-group">
                 <label>Depósito</label>
-                <input
-                  type="number"
-                  value={depositoArriendo}
-                  onChange={(e) => setDepositoArriendo(e.target.value)}
-                />
+                <input type="number" value={depositoArriendo} onChange={(e) => setDepositoArriendo(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label>Fecha inicio</label>
-                <input
-                  type="date"
-                  value={fechaInicioContrato}
-                  onChange={(e) => setFechaInicioContrato(e.target.value)}
-                />
+                <input type="date" value={fechaInicioContrato} onChange={(e) => setFechaInicioContrato(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label>Fecha finalización</label>
-                <input
-                  type="date"
-                  value={fechaFinContrato}
-                  onChange={(e) => setFechaFinContrato(e.target.value)}
-                />
+                <input type="date" value={fechaFinContrato} onChange={(e) => setFechaFinContrato(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label>Estado del contrato</label>
-                <select
-                  value={estadoContrato}
-                  onChange={(e) => setEstadoContrato(e.target.value)}
-                >
+                <select value={estadoContrato} onChange={(e) => setEstadoContrato(e.target.value)}>
                   <option>Activo</option>
                   <option>Finalizado</option>
                   <option>Suspendido</option>
@@ -1044,28 +1244,12 @@ function App() {
 
               <div className="form-group full">
                 <label>Observaciones</label>
-                <textarea
-                  value={observacionesArriendo}
-                  onChange={(e) => setObservacionesArriendo(e.target.value)}
-                ></textarea>
+                <textarea value={observacionesArriendo} onChange={(e) => setObservacionesArriendo(e.target.value)}></textarea>
               </div>
 
               <div className="form-actions full">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setMostrarFormularioArriendo(false)}
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={guardarContratoArriendo}
-                >
-                  Guardar contrato
-                </button>
+                <button type="button" className="btn-secondary" onClick={() => setMostrarFormularioArriendo(false)}>Cancelar</button>
+                <button type="button" className="btn-primary" onClick={guardarContratoArriendo}>Guardar contrato</button>
               </div>
             </div>
           </section>
@@ -1079,7 +1263,7 @@ function App() {
             </div>
 
             <p className="form-description">
-              Registre los pagos mensuales realizados por el arrendatario.
+              El canon base, el IVA y el canon causado se calculan automáticamente según el año del pago.
             </p>
 
             <div className="property-form">
@@ -1087,94 +1271,62 @@ function App() {
 
               <div className="form-group">
                 <label>Predio</label>
-                <select
-                  value={codigoPredioPagoArriendo}
-                  onChange={(e) => {
-                    const codigo = e.target.value
-                    setCodigoPredioPagoArriendo(codigo)
-
-                    const contrato = contratosArriendo.find(
-                      (item) => item.codigoPredio === codigo && item.estado === 'Activo'
-                    )
-
-                    if (contrato) {
-                      setValorCanonArriendo(contrato.canonMensual)
-                    }
-                  }}
-                >
+                <select value={codigoPredioPagoArriendo} onChange={(e) => setCodigoPredioPagoArriendo(e.target.value)}>
                   <option value="">Seleccione un predio</option>
-                  {contratosArriendo
-                    .filter((contrato) => contrato.estado === 'Activo')
-                    .map((contrato, index) => (
-                      <option key={index} value={contrato.codigoPredio}>
-                        {contrato.codigoPredio} - {contrato.arrendatario}
-                      </option>
-                    ))}
+                  {contratosArriendo.filter((contrato) => contrato.estado === 'Activo').map((contrato, index) => (
+                    <option key={index} value={contrato.codigoPredio}>{contrato.codigoPredio} - {contrato.arrendatario}</option>
+                  ))}
                 </select>
               </div>
 
               <div className="form-group">
                 <label>Mes pagado</label>
-                <input
-                  type="month"
-                  value={mesPagoArriendo}
-                  onChange={(e) => setMesPagoArriendo(e.target.value)}
-                />
+                <input type="month" value={mesPagoArriendo} onChange={(e) => setMesPagoArriendo(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label>Fecha de pago</label>
-                <input
-                  type="date"
-                  value={fechaPagoArriendo}
-                  onChange={(e) => setFechaPagoArriendo(e.target.value)}
-                />
+                <input type="date" value={fechaPagoArriendo} onChange={(e) => setFechaPagoArriendo(e.target.value)} />
               </div>
 
               <div className="form-group">
-                <label>Valor canon</label>
-                <input
-                  type="number"
-                  value={valorCanonArriendo}
-                  onChange={(e) => setValorCanonArriendo(e.target.value)}
-                />
+                <label>Canon base calculado</label>
+                <input type="text" value={formatearDinero(canonCalculadoPagoArriendo.canonBase)} readOnly />
+              </div>
+
+              <div className="form-group">
+                <label>Incremento aplicado</label>
+                <input type="text" value={`${canonCalculadoPagoArriendo.incrementoAplicado}%`} readOnly />
+              </div>
+
+              <div className="form-group">
+                <label>IVA 19%</label>
+                <input type="text" value={formatearDinero(canonCalculadoPagoArriendo.iva)} readOnly />
+              </div>
+
+              <div className="form-group">
+                <label>Canon causado</label>
+                <input type="text" value={formatearDinero(canonCalculadoPagoArriendo.canonCausado)} readOnly />
               </div>
 
               <div className="form-group">
                 <label>Valor pagado</label>
-                <input
-                  type="number"
-                  value={valorPagadoArriendo}
-                  onChange={(e) => setValorPagadoArriendo(e.target.value)}
-                />
+                <input type="number" value={valorPagadoArriendo} onChange={(e) => setValorPagadoArriendo(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label>Mora</label>
-                <input
-                  type="number"
-                  value={moraArriendo}
-                  onChange={(e) => setMoraArriendo(e.target.value)}
-                  placeholder="0"
-                />
+                <input type="number" value={moraArriendo} onChange={(e) => setMoraArriendo(e.target.value)} placeholder="0" />
               </div>
 
               <div className="form-group">
                 <label>Descuento</label>
-                <input
-                  type="number"
-                  value={descuentoArriendo}
-                  onChange={(e) => setDescuentoArriendo(e.target.value)}
-                  placeholder="0"
-                />
+                <input type="number" value={descuentoArriendo} onChange={(e) => setDescuentoArriendo(e.target.value)} placeholder="0" />
               </div>
 
               <div className="form-group">
                 <label>Medio de pago</label>
-                <select
-                  value={medioPagoArriendo}
-                  onChange={(e) => setMedioPagoArriendo(e.target.value)}
-                >
+                <select value={medioPagoArriendo} onChange={(e) => setMedioPagoArriendo(e.target.value)}>
                   <option>Transferencia</option>
                   <option>Efectivo</option>
                   <option>Consignación</option>
@@ -1186,321 +1338,73 @@ function App() {
 
               <div className="form-group">
                 <label>Número de recibo</label>
-                <input
-                  type="text"
-                  value={reciboPagoArriendo}
-                  onChange={(e) => setReciboPagoArriendo(e.target.value)}
-                  placeholder="Ej: ARR-2026-001"
-                />
+                <input type="text" value={reciboPagoArriendo} onChange={(e) => setReciboPagoArriendo(e.target.value)} />
               </div>
 
               <div className="form-group full">
                 <label>Observaciones</label>
-                <textarea
-                  value={observacionesPagoArriendo}
-                  onChange={(e) => setObservacionesPagoArriendo(e.target.value)}
-                ></textarea>
+                <textarea value={observacionesPagoArriendo} onChange={(e) => setObservacionesPagoArriendo(e.target.value)}></textarea>
               </div>
 
               <div className="form-actions full">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setMostrarFormularioPagoArriendo(false)}
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={guardarPagoArriendo}
-                >
-                  Guardar pago de arriendo
-                </button>
+                <button type="button" className="btn-secondary" onClick={() => setMostrarFormularioPagoArriendo(false)}>Cancelar</button>
+                <button type="button" className="btn-primary" onClick={guardarPagoArriendo}>Guardar pago de arriendo</button>
               </div>
             </div>
           </section>
         )}
 
-        {mostrarFormularioPredio && (
-          <section ref={predioRef} className="form-panel no-print">
+        {mostrarFormularioIncrementoArriendo && (
+          <section ref={incrementoArriendoRef} className="form-panel no-print">
             <div className="section-title">
-              <div className="section-icon">▦</div>
-              <h2>Registro de nuevo inmueble</h2>
+              <div className="section-icon">%</div>
+              <h2>Actualizar incremento anual de arriendo</h2>
             </div>
 
             <p className="form-description">
-              Para guardar el inmueble, los propietarios deben sumar exactamente 100%.
+              Registre el porcentaje de incremento para un año específico. Este cambio no modifica años anteriores.
             </p>
 
             <div className="property-form">
-              <div className="form-section-title full">Datos principales del predio</div>
+              <div className="form-section-title full">Incremento por año</div>
 
-              <div className="form-group">
-                <label>Código del predio</label>
-                <input type="text" value={codigoPredio} readOnly placeholder="Se genera automáticamente" />
-              </div>
-
-              <div className="form-group">
-                <label>Ciudad</label>
-                <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Barrio</label>
-                <input type="text" value={barrio} onChange={(e) => setBarrio(e.target.value)} />
-              </div>
-
-              <div className="form-group full">
-                <label>Dirección</label>
-                <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} />
-              </div>
-
-              <div className="form-section-title full">Información jurídica y catastral</div>
-
-              <div className="form-group">
-                <label>Matrícula inmobiliaria</label>
-                <input type="text" value={matricula} onChange={(e) => setMatricula(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>CHIP</label>
-                <input type="text" value={chip} onChange={(e) => setChip(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Cédula catastral</label>
-                <input type="text" value={cedulaCatastral} onChange={(e) => setCedulaCatastral(e.target.value)} />
-              </div>
-
-              <div className="form-section-title full">Propietarios del inmueble</div>
-
-              <div className="form-group">
-                <label>Nombre propietario</label>
-                <input type="text" value={nombreTempPropietario} onChange={(e) => setNombreTempPropietario(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Tipo documento</label>
-                <select value={tipoDocTempPropietario} onChange={(e) => setTipoDocTempPropietario(e.target.value)}>
-                  <option>Cédula de ciudadanía</option>
-                  <option>NIT</option>
-                  <option>Cédula de extranjería</option>
-                  <option>Pasaporte</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Número documento</label>
-                <input type="text" value={docTempPropietario} onChange={(e) => setDocTempPropietario(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Teléfono</label>
-                <input type="text" value={telTempPropietario} onChange={(e) => setTelTempPropietario(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Correo</label>
-                <input type="email" value={correoTempPropietario} onChange={(e) => setCorreoTempPropietario(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Porcentaje</label>
-                <input type="number" value={porcentajeTempPropietario} onChange={(e) => setPorcentajeTempPropietario(e.target.value)} />
-              </div>
-
-              <div className="form-actions full">
-                <button type="button" className="btn-gold" onClick={agregarPropietarioTemporal}>
-                  Agregar propietario
-                </button>
-              </div>
-
-              <div className="temp-owners full">
-                <h3>Propietarios agregados</h3>
-                <p>Total asignado: <strong>{totalTemporalPropietarios}%</strong></p>
-                <p>Falta por asignar: <strong>{porcentajeFaltante}%</strong></p>
-
-                {propietariosTemporales.length === 0 && (
-                  <p>No hay propietarios agregados todavía.</p>
-                )}
-
-                {propietariosTemporales.map((propietario, index) => (
-                  <div className="temp-owner-row" key={index}>
-                    <span>{propietario.nombre}</span>
-                    <span>{propietario.numeroDocumento}</span>
-                    <span>{propietario.porcentaje}%</span>
-                    <button type="button" onClick={() => eliminarPropietarioTemporal(index)}>
-                      Eliminar
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="form-section-title full">Información inicial de predial</div>
-
-              <div className="form-group">
-                <label>Último año predial pagado</label>
-                <input type="number" value={ultimoAnioPredialPagado} onChange={(e) => setUltimoAnioPredialPagado(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Recibo último pago</label>
-                <input type="text" value={reciboUltimoPredial} onChange={(e) => setReciboUltimoPredial(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Fecha último pago</label>
-                <input type="date" value={fechaUltimoPagoPredial} onChange={(e) => setFechaUltimoPagoPredial(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Valor impuesto último año</label>
-                <input type="number" value={valorImpuestoUltimoPredial} onChange={(e) => setValorImpuestoUltimoPredial(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Valor pagado último año</label>
-                <input type="number" value={valorPagadoUltimoPredial} onChange={(e) => setValorPagadoUltimoPredial(e.target.value)} />
-              </div>
-
-              <div className="form-section-title full">Observaciones</div>
-
-              <div className="form-group full">
-                <label>Observaciones del predio</label>
-                <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)}></textarea>
-              </div>
-
-              <div className="form-actions full">
-                <button type="button" className="btn-secondary" onClick={() => setMostrarFormularioPredio(false)}>
-                  Cancelar
-                </button>
-
-                <button type="button" className="btn-primary" onClick={guardarPredio}>
-                  Guardar inmueble
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {mostrarFormularioValorPredial && (
-          <section ref={valorAnualRef} className="form-panel no-print">
-            <div className="section-title">
-              <div className="section-icon">□</div>
-              <h2>Registrar valor predial anual</h2>
-            </div>
-
-            <div className="property-form">
               <div className="form-group">
                 <label>Predio</label>
-                <select value={codigoPredioValor} onChange={(e) => setCodigoPredioValor(e.target.value)}>
+                <select value={codigoPredioIncremento} onChange={(e) => setCodigoPredioIncremento(e.target.value)}>
                   <option value="">Seleccione un predio</option>
-                  {predios.map((predio, index) => (
-                    <option key={index} value={predio.codigo}>
-                      {predio.codigo} - {predio.barrio}
-                    </option>
+                  {contratosArriendo.map((contrato, index) => (
+                    <option key={index} value={contrato.codigoPredio}>{contrato.codigoPredio} - {contrato.arrendatario}</option>
                   ))}
                 </select>
               </div>
 
               <div className="form-group">
-                <label>Año</label>
-                <input type="number" value={anioValorPredial} onChange={(e) => setAnioValorPredial(e.target.value)} />
+                <label>Año de aplicación</label>
+                <input type="number" value={anioIncrementoArriendo} onChange={(e) => setAnioIncrementoArriendo(e.target.value)} />
               </div>
 
               <div className="form-group">
-                <label>Valor a pagar</label>
-                <input type="number" value={valorAnualPredial} onChange={(e) => setValorAnualPredial(e.target.value)} />
+                <label>Nuevo porcentaje de incremento</label>
+                <input type="number" value={porcentajeNuevoIncremento} onChange={(e) => setPorcentajeNuevoIncremento(e.target.value)} placeholder="Ej: 12" />
               </div>
 
-              <div className="form-group">
-                <label>Fecha límite</label>
-                <input type="date" value={fechaLimitePredial} onChange={(e) => setFechaLimitePredial(e.target.value)} />
+              <div className="form-group full">
+                <label>Observaciones</label>
+                <textarea value={observacionesIncrementoArriendo} onChange={(e) => setObservacionesIncrementoArriendo(e.target.value)}></textarea>
               </div>
 
               <div className="form-actions full">
-                <button type="button" className="btn-primary" onClick={guardarValorPredialAnual}>
-                  Guardar valor anual
-                </button>
+                <button type="button" className="btn-secondary" onClick={() => setMostrarFormularioIncrementoArriendo(false)}>Cancelar</button>
+                <button type="button" className="btn-primary" onClick={guardarIncrementoArriendo}>Guardar incremento</button>
               </div>
             </div>
           </section>
         )}
 
-        {mostrarFormularioPredial && (
-          <section ref={pagoPredialRef} className="form-panel no-print">
-            <div className="section-title">
-              <div className="section-icon">▣</div>
-              <h2>Registro de pago predial</h2>
-            </div>
-
-            <div className="property-form">
-              <div className="form-group">
-                <label>Predio</label>
-                <select value={codigoPredioPago} onChange={(e) => setCodigoPredioPago(e.target.value)}>
-                  <option value="">Seleccione un predio</option>
-                  {predios.map((predio, index) => (
-                    <option key={index} value={predio.codigo}>
-                      {predio.codigo} - {predio.barrio}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Año</label>
-                <input type="number" value={anioPredial} onChange={(e) => setAnioPredial(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Número recibo</label>
-                <input type="text" value={numeroRecibo} onChange={(e) => setNumeroRecibo(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Fecha pago</label>
-                <input type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Descuento</label>
-                <input type="number" value={descuento} onChange={(e) => setDescuento(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Intereses</label>
-                <input type="number" value={intereses} onChange={(e) => setIntereses(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Valor pagado</label>
-                <input type="number" value={valorPagado} onChange={(e) => setValorPagado(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Estado pago</label>
-                <select value={estadoPagoPredial} onChange={(e) => setEstadoPagoPredial(e.target.value)}>
-                  <option>Pagado</option>
-                  <option>Pendiente</option>
-                  <option>En mora</option>
-                </select>
-              </div>
-
-              <div className="form-actions full">
-                <button type="button" className="btn-primary" onClick={guardarPagoPredial}>
-                  Guardar pago
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="owners-panel no-print">
+        <section className="rent-increments-panel no-print">
           <div className="section-title">
-            <div className="section-icon">◎</div>
-            <h2>Propietarios por predio</h2>
+            <div className="section-icon">%</div>
+            <h2>Historial de incrementos de arriendo</h2>
           </div>
 
           <div className="simple-table-wrapper">
@@ -1508,23 +1412,19 @@ function App() {
               <thead>
                 <tr>
                   <th>Predio</th>
-                  <th>Propietario</th>
-                  <th>Documento</th>
-                  <th>Teléfono</th>
-                  <th>Correo</th>
-                  <th>Porcentaje</th>
+                  <th>Año</th>
+                  <th>Incremento</th>
+                  <th>Observaciones</th>
                 </tr>
               </thead>
 
               <tbody>
-                {propietarios.map((propietario, index) => (
+                {incrementosArriendo.map((incremento, index) => (
                   <tr key={index}>
-                    <td>{propietario.codigoPredio}</td>
-                    <td>{propietario.nombre}</td>
-                    <td>{propietario.tipoDocumento} - {propietario.numeroDocumento}</td>
-                    <td>{propietario.telefono}</td>
-                    <td>{propietario.correo}</td>
-                    <td><span className="status active">{propietario.porcentaje}%</span></td>
+                    <td>{incremento.codigoPredio}</td>
+                    <td>{incremento.anio}</td>
+                    <td>{incremento.porcentaje}%</td>
+                    <td>{incremento.observaciones || 'Sin observaciones'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1532,104 +1432,18 @@ function App() {
           </div>
         </section>
 
-        <section className="contracts-panel no-print">
-          <div className="section-title">
-            <div className="section-icon">≡</div>
-            <h2>Contratos de arriendo</h2>
-          </div>
-
-          <div className="simple-table-wrapper">
-            <table className="simple-table">
-              <thead>
-                <tr>
-                  <th>Predio</th>
-                  <th>Arrendatario</th>
-                  <th>Documento</th>
-                  <th>Teléfono</th>
-                  <th>Canon mensual</th>
-                  <th>Inicio</th>
-                  <th>Fin</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {contratosArriendo.map((contrato, index) => (
-                  <tr key={index}>
-                    <td>{contrato.codigoPredio}</td>
-                    <td>{contrato.arrendatario}</td>
-                    <td>{contrato.tipoDocumento} - {contrato.numeroDocumento}</td>
-                    <td>{contrato.telefono}</td>
-                    <td>{formatearDinero(contrato.canonMensual)}</td>
-                    <td>{contrato.fechaInicio}</td>
-                    <td>{contrato.fechaFin || 'Sin fecha'}</td>
-                    <td>
-                      <span className={contrato.estado === 'Activo' ? 'status active' : 'status inactive'}>
-                        {contrato.estado}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="rent-payments-panel no-print">
-          <div className="section-title">
-            <div className="section-icon">$</div>
-            <h2>Historial de pagos de arriendo</h2>
-          </div>
-
-          <div className="simple-table-wrapper">
-            <table className="simple-table">
-              <thead>
-                <tr>
-                  <th>Predio</th>
-                  <th>Arrendatario</th>
-                  <th>Mes</th>
-                  <th>Fecha pago</th>
-                  <th>Canon</th>
-                  <th>Pagado</th>
-                  <th>Mora</th>
-                  <th>Descuento</th>
-                  <th>Medio</th>
-                  <th>Recibo</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {pagosArriendo.map((pago, index) => (
-                  <tr key={index}>
-                    <td>{pago.codigoPredio}</td>
-                    <td>{pago.arrendatario}</td>
-                    <td>{pago.mes}</td>
-                    <td>{pago.fechaPago}</td>
-                    <td>{formatearDinero(pago.valorCanon)}</td>
-                    <td>{formatearDinero(pago.valorPagado)}</td>
-                    <td>{formatearDinero(pago.mora)}</td>
-                    <td>{formatearDinero(pago.descuento)}</td>
-                    <td>{pago.medioPago}</td>
-                    <td>{pago.recibo || 'Sin recibo'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="extractos-container">
+        <section className="rent-extracts-container">
           <div className="section-title no-print">
-            <div className="section-icon">□</div>
-            <h2>Estados de cuenta predial</h2>
+            <div className="section-icon">$</div>
+            <h2>Estados de cuenta de arriendos</h2>
           </div>
 
-          {extractosPrediales.map((extracto, index) => (
+          {extractosArriendo.map((extracto, index) => (
             <article className="extracto-card" key={index}>
               <div className="extracto-header">
                 <div>
-                  <h2>Estado de Cuenta Predial</h2>
-                  <h3>Predio: {extracto.predio.codigo}</h3>
+                  <h2>Estado de Cuenta de Arriendo</h2>
+                  <h3>Predio: {extracto.contrato.codigoPredio}</h3>
                   <p>Fecha de generación: <strong>{new Date().toLocaleDateString('es-CO')}</strong></p>
                 </div>
 
@@ -1639,58 +1453,29 @@ function App() {
               </div>
 
               <div className="extracto-info">
-                <div><span>Ciudad</span><strong>{extracto.predio.ciudad}</strong></div>
-                <div><span>Barrio</span><strong>{extracto.predio.barrio}</strong></div>
-                <div><span>Dirección</span><strong>{extracto.predio.direccion}</strong></div>
-                <div><span>Matrícula</span><strong>{extracto.predio.matricula || 'Sin registrar'}</strong></div>
-                <div><span>CHIP</span><strong>{extracto.predio.chip || 'Sin registrar'}</strong></div>
-                <div><span>Cédula catastral</span><strong>{extracto.predio.cedulaCatastral || 'Sin registrar'}</strong></div>
-              </div>
-
-              <div className="extracto-propietarios">
-                <h3>Propietarios del inmueble</h3>
-
-                <table className="propietarios-extracto-table">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Documento</th>
-                      <th>Teléfono</th>
-                      <th>Correo</th>
-                      <th>Participación</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {extracto.propietarios.map((propietario, propietarioIndex) => (
-                      <tr key={propietarioIndex}>
-                        <td>{propietario.nombre}</td>
-                        <td>{propietario.tipoDocumento} - {propietario.numeroDocumento}</td>
-                        <td>{propietario.telefono}</td>
-                        <td>{propietario.correo}</td>
-                        <td>{propietario.porcentaje}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <p className="total-participacion">
-                  Total participación registrada: <strong>{extracto.totalParticipacion}%</strong>
-                </p>
+                <div><span>Arrendatario</span><strong>{extracto.contrato.arrendatario}</strong></div>
+                <div><span>Documento</span><strong>{extracto.contrato.tipoDocumento} - {extracto.contrato.numeroDocumento}</strong></div>
+                <div><span>Teléfono</span><strong>{extracto.contrato.telefono}</strong></div>
+                <div><span>Correo</span><strong>{extracto.contrato.correo}</strong></div>
+                <div><span>Canon inicial</span><strong>{formatearDinero(extracto.contrato.canonMensual)}</strong></div>
+                <div><span>Incremento defecto</span><strong>{extracto.contrato.porcentajeIncrementoAnual}%</strong></div>
+                <div><span>IVA</span><strong>{extracto.contrato.aplicaIva === 'Sí' ? 'Sí - 19%' : 'No aplica'}</strong></div>
+                <div><span>Fecha inicio</span><strong>{extracto.contrato.fechaInicio}</strong></div>
+                <div><span>Fecha finalización</span><strong>{extracto.contrato.fechaFin || 'Sin fecha'}</strong></div>
               </div>
 
               <div className="resumen-extracto">
-                <div><span>Total impuesto</span><strong>{formatearDinero(extracto.resumen.totalImpuesto)}</strong></div>
-                <div><span>Total descuentos</span><strong>{formatearDinero(extracto.resumen.totalDescuento)}</strong></div>
-                <div><span>Total intereses</span><strong>{formatearDinero(extracto.resumen.totalIntereses)}</strong></div>
+                <div><span>Total canon base</span><strong>{formatearDinero(extracto.resumen.totalCanonBase)}</strong></div>
+                <div><span>Total IVA</span><strong>{formatearDinero(extracto.resumen.totalIva)}</strong></div>
+                <div><span>Total causado</span><strong>{formatearDinero(extracto.resumen.totalCanonCausado)}</strong></div>
                 <div><span>Total pagado</span><strong>{formatearDinero(extracto.resumen.totalPagado)}</strong></div>
-                <div><span>Saldo pendiente</span><strong>{formatearDinero(extracto.resumen.saldoPendiente)}</strong></div>
+                <div><span>Saldo deuda</span><strong>{formatearDinero(extracto.resumen.saldoDeudaTotal)}</strong></div>
                 <div><span>Estado general</span><strong>{extracto.resumen.estadoGeneral}</strong></div>
               </div>
 
               <div className="extracto-actions no-print">
                 <button className="btn-primary" onClick={() => window.print()}>
-                  Imprimir estado de cuenta
+                  Imprimir estado de cuenta de arriendo
                 </button>
               </div>
 
@@ -1698,15 +1483,17 @@ function App() {
                 <table className="extracto-table">
                   <thead>
                     <tr>
-                      <th>Año</th>
-                      <th>Fecha límite</th>
+                      <th>Mes</th>
                       <th>Fecha pago</th>
                       <th>Recibo</th>
-                      <th>Valor a pagar</th>
+                      <th>Canon base</th>
+                      <th>Incremento</th>
+                      <th>IVA</th>
+                      <th>Canon causado</th>
+                      <th>Pagado</th>
+                      <th>Mora</th>
                       <th>Descuento</th>
-                      <th>Intereses</th>
-                      <th>Valor pagado</th>
-                      <th>Saldo</th>
+                      <th>Saldo deuda</th>
                       <th>Estado</th>
                     </tr>
                   </thead>
@@ -1714,25 +1501,19 @@ function App() {
                   <tbody>
                     {extracto.movimientos.map((movimiento, movIndex) => (
                       <tr key={movIndex}>
-                        <td>{movimiento.anio}</td>
-                        <td>{movimiento.fechaLimite}</td>
+                        <td>{movimiento.mes}</td>
                         <td>{movimiento.fechaPago}</td>
                         <td>{movimiento.recibo}</td>
-                        <td>{formatearDinero(movimiento.valorAPagar)}</td>
+                        <td>{formatearDinero(movimiento.canonBase)}</td>
+                        <td>{movimiento.incrementoAplicado}%</td>
+                        <td>{formatearDinero(movimiento.iva)}</td>
+                        <td>{formatearDinero(movimiento.canonCausado)}</td>
+                        <td>{formatearDinero(movimiento.pagado)}</td>
+                        <td>{formatearDinero(movimiento.mora)}</td>
                         <td>{formatearDinero(movimiento.descuento)}</td>
-                        <td>{formatearDinero(movimiento.intereses)}</td>
-                        <td>{formatearDinero(movimiento.valorPagado)}</td>
-                        <td>{formatearDinero(movimiento.saldoPendiente)}</td>
+                        <td>{formatearDinero(movimiento.saldoDeuda)}</td>
                         <td>
-                          <span
-                            className={
-                              movimiento.estadoMovimiento === 'Pagado / Al día'
-                                ? 'status active'
-                                : movimiento.estadoMovimiento === 'Falta actualizar valor'
-                                ? 'status inactive'
-                                : 'status warning'
-                            }
-                          >
+                          <span className={movimiento.estadoMovimiento === 'Pagado' ? 'status active' : movimiento.estadoMovimiento === 'Pendiente' ? 'status inactive' : 'status warning'}>
                             {movimiento.estadoMovimiento}
                           </span>
                         </td>
@@ -1740,12 +1521,6 @@ function App() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-
-              <div className="extracto-footer">
-                <p>
-                  Este estado de cuenta es generado por el sistema INH Control Predial con base en los registros ingresados.
-                </p>
               </div>
             </article>
           ))}
@@ -1756,10 +1531,7 @@ function App() {
             type="button"
             onClick={() => {
               cerrarFormularios()
-              window.scrollTo({
-                top: 0,
-                behavior: 'smooth',
-              })
+              window.scrollTo({ top: 0, behavior: 'smooth' })
             }}
           >
             Inicio

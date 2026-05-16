@@ -13,6 +13,10 @@
   background: linear-gradient(180deg, #03152f 0%, #06244d 100%);
   color: white;
   padding: 22px 20px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .brand-box {
@@ -213,7 +217,7 @@
 .cards {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: repeat(5, minmax(160px, 1fr));
   gap: 24px;
   margin-bottom: 26px;
 }
@@ -250,20 +254,20 @@
 .stat-card strong {
   display: block;
   margin: 15px 0 8px;
-  font-size: 52px;
+  font-size: 44px;
   color: #0e1b42;
   line-height: 1;
 }
 
 .stat-card strong.money {
   color: #2463ff;
-  font-size: 34px;
+  font-size: 26px;
 }
 
 .stat-card p {
   margin: 0;
   color: #4b5563;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -380,54 +384,21 @@
   gap: 12px;
 }
 
-/* TEMP PROPIETARIOS */
-.temp-owners {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 16px;
-}
-
-.temp-owners h3 {
-  margin: 0 0 10px;
-  color: #0e1b42;
-}
-
-.temp-owners p {
-  margin: 6px 0;
-  color: #374151;
-}
-
-.temp-owner-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
-  gap: 10px;
-  align-items: center;
-  background: white;
-  border: 1px solid #e5e7eb;
-  padding: 10px;
-  border-radius: 10px;
-  margin-top: 8px;
-}
-
-.temp-owner-row button {
-  border: none;
-  background: #f8e1e1;
-  color: #b42318;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-/* PROPIETARIOS */
-.owners-panel {
+/* TABLAS Y PANELES */
+.rent-increments-panel,
+.rent-extracts-container {
   background: white;
   border-radius: 22px;
   padding: 26px;
   margin-bottom: 26px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
   border-top: 5px solid #d7a125;
+}
+
+.rent-extracts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
 .simple-table-wrapper {
@@ -458,12 +429,6 @@
 }
 
 /* EXTRACTOS */
-.extractos-container {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-}
-
 .extracto-card {
   background: white;
   border-radius: 22px;
@@ -587,45 +552,6 @@
   white-space: nowrap;
 }
 
-/* PROPIETARIOS EN EXTRACTO */
-.extracto-propietarios {
-  margin-bottom: 20px;
-}
-
-.extracto-propietarios h3 {
-  margin: 0 0 10px;
-  color: #0e1b42;
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.propietarios-extracto-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 10px;
-}
-
-.propietarios-extracto-table th {
-  background: #06244d;
-  color: white;
-  padding: 10px;
-  text-align: left;
-  font-size: 13px;
-}
-
-.propietarios-extracto-table td {
-  padding: 10px;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 13px;
-  color: #1f2937;
-}
-
-.total-participacion {
-  margin: 8px 0 0;
-  color: #374151;
-  font-weight: 700;
-}
-
 .status {
   display: inline-block;
   padding: 7px 14px;
@@ -649,16 +575,40 @@
   color: #9a6700;
 }
 
-.extracto-footer {
-  margin-top: 18px;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 12px;
-  color: #6b7280;
-  font-size: 13px;
+/* BOTÓN FLOTANTE DE INICIO */
+.floating-menu {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 999;
+  background: rgba(3, 21, 47, 0.95);
+  padding: 10px;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(242, 193, 78, 0.6);
+}
+
+.floating-menu button {
+  border: none;
+  background: #f2c14e;
+  color: #0e1b42;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.floating-menu button:hover {
+  background: #d7a125;
 }
 
 /* RESPONSIVE */
 @media (max-width: 1250px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .property-form {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -686,6 +636,8 @@
     width: 100%;
     min-width: 100%;
     min-height: auto;
+    height: auto;
+    position: relative;
   }
 
   .hero-content {
@@ -707,10 +659,6 @@
 
   .extracto-header {
     flex-direction: column;
-  }
-
-  .temp-owner-row {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -741,24 +689,18 @@
   .btn-secondary {
     width: 100%;
   }
+
+  .floating-menu {
+    right: 12px;
+    bottom: 12px;
+  }
 }
 
-/* IMPRESIÓN FORMAL */
+/* IMPRESIÓN */
 @media print {
   @page {
     size: A4 landscape;
     margin: 10mm;
-  }
-
-  * {
-    box-shadow: none !important;
-    text-shadow: none !important;
-  }
-
-  body {
-    background: white !important;
-    color: #111827 !important;
-    font-size: 10px;
   }
 
   .no-print,
@@ -767,270 +709,38 @@
   .alert-panel,
   .cards,
   .form-panel,
-  .owners-panel,
-  .extracto-actions,
-  .section-title.no-print {
+  .rent-increments-panel,
+  .rent-extracts-container .section-title.no-print,
+  .floating-menu {
     display: none !important;
   }
 
   .app {
     display: block !important;
     background: white !important;
-    width: 100% !important;
-    min-height: auto !important;
   }
 
   .main {
     padding: 0 !important;
     width: 100% !important;
-    overflow: visible !important;
-  }
-
-  .extractos-container {
-    display: block !important;
   }
 
   .extracto-card {
-    width: 100% !important;
-    margin: 0 0 10mm 0 !important;
-    padding: 7mm !important;
-    border: 1px solid #cbd5e1 !important;
-    border-top: 4px solid #0e1b42 !important;
+    box-shadow: none !important;
     border-radius: 0 !important;
-    background: white !important;
     page-break-after: always;
-  }
-
-  .extracto-header {
-    display: flex !important;
-    align-items: flex-start !important;
-    justify-content: space-between !important;
-    border-bottom: 1px solid #0e1b42 !important;
-    padding-bottom: 7px !important;
-    margin-bottom: 7px !important;
-  }
-
-  .extracto-header h2 {
-    font-size: 16px !important;
-    margin: 0 0 3px 0 !important;
-    color: #0e1b42 !important;
-    letter-spacing: 0.4px;
-  }
-
-  .extracto-header h3 {
-    font-size: 13px !important;
-    margin: 0 0 3px 0 !important;
-    color: #111827 !important;
-  }
-
-  .extracto-header p {
-    font-size: 9px !important;
-    margin: 0 !important;
-    color: #374151 !important;
-  }
-
-  .extracto-logo-box {
-    width: 90px !important;
-    height: 38px !important;
-    padding: 3px !important;
-    border-radius: 0 !important;
-    background: #0e1b42 !important;
-  }
-
-  .extracto-logo-box img {
-    width: 80px !important;
-    height: auto !important;
-  }
-
-  .extracto-info {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 5px !important;
-    margin-bottom: 7px !important;
-  }
-
-  .extracto-info div,
-  .resumen-extracto div {
-    border: 1px solid #d1d5db !important;
-    border-radius: 0 !important;
-    padding: 4px 5px !important;
-    background: white !important;
-  }
-
-  .extracto-info span,
-  .resumen-extracto span {
-    font-size: 7px !important;
-    color: #6b7280 !important;
-    margin-bottom: 1px !important;
-    text-transform: uppercase;
-  }
-
-  .extracto-info strong,
-  .resumen-extracto strong {
-    font-size: 9px !important;
-    color: #111827 !important;
-  }
-
-  .extracto-propietarios {
-    margin-bottom: 7px !important;
-  }
-
-  .extracto-propietarios h3 {
-    font-size: 11px !important;
-    margin: 0 0 5px !important;
-    color: #0e1b42 !important;
-  }
-
-  .propietarios-extracto-table th {
-    background: #0e1b42 !important;
-    color: white !important;
-    font-size: 7px !important;
-    padding: 4px 3px !important;
-    border: 1px solid #0e1b42 !important;
-  }
-
-  .propietarios-extracto-table td {
-    font-size: 7px !important;
-    padding: 4px 3px !important;
-    border: 1px solid #d1d5db !important;
-    color: #111827 !important;
-  }
-
-  .total-participacion {
-    font-size: 8px !important;
-    margin: 4px 0 0 !important;
-  }
-
-  .resumen-extracto {
-    display: grid !important;
-    grid-template-columns: repeat(6, 1fr) !important;
-    gap: 5px !important;
-    margin-bottom: 7px !important;
-  }
-
-  .extracto-table-wrapper {
-    overflow: visible !important;
+    padding: 7mm !important;
   }
 
   .extracto-table {
-    width: 100% !important;
     min-width: 100% !important;
-    border-collapse: collapse !important;
     table-layout: fixed !important;
   }
 
-  .extracto-table th {
-    background: #0e1b42 !important;
-    color: white !important;
-    font-size: 7px !important;
-    padding: 4px 3px !important;
-    border: 1px solid #0e1b42 !important;
-    white-space: normal !important;
-  }
-
+  .extracto-table th,
   .extracto-table td {
     font-size: 7px !important;
     padding: 4px 3px !important;
-    border: 1px solid #d1d5db !important;
-    color: #111827 !important;
-    white-space: normal !important;
-    word-break: normal !important;
-  }
-
-  .status {
-    padding: 2px 4px !important;
-    border-radius: 0 !important;
-    font-size: 7px !important;
-    font-weight: 700 !important;
-    display: inline-block !important;
     white-space: normal !important;
   }
-
-  .status.active {
-    background: white !important;
-    color: #166534 !important;
-    border: 1px solid #166534 !important;
-  }
-
-  .status.inactive {
-    background: white !important;
-    color: #b42318 !important;
-    border: 1px solid #b42318 !important;
-  }
-
-  .status.warning {
-    background: white !important;
-    color: #9a6700 !important;
-    border: 1px solid #9a6700 !important;
-  }
-
-  .extracto-footer {
-    margin-top: 7px !important;
-    padding-top: 5px !important;
-    border-top: 1px solid #d1d5db !important;
-  }
-
-  .extracto-footer p {
-    font-size: 7px !important;
-    color: #6b7280 !important;
-    margin: 0 !important;
-  }
-}
-.extracto-footer p {
-  font-size: 7px !important;
-  color: #6b7280 !important;
-  margin: 0 !important;
-}
-}
-
-/* CONTRATOS DE ARRIENDO */
-.contracts-panel {
-  background: white;
-  border-radius: 22px;
-  padding: 26px;
-  margin-bottom: 26px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  border-top: 5px solid #d7a125;
-}
-/* BOTÓN FLOTANTE DE INICIO */
-.floating-menu {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 999;
-  background: rgba(3, 21, 47, 0.95);
-  padding: 10px;
-  border-radius: 18px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(242, 193, 78, 0.6);
-}
-
-.floating-menu button {
-  border: none;
-  background: #f2c14e;
-  color: #0e1b42;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-weight: 900;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.floating-menu button:hover {
-  background: #d7a125;
-}
-
-@media print {
-  .floating-menu {
-    display: none !important;
-  }
-}
-/* PAGOS DE ARRIENDO */
-.rent-payments-panel {
-  background: white;
-  border-radius: 22px;
-  padding: 26px;
-  margin-bottom: 26px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  border-top: 5px solid #d7a125;
 }
