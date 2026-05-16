@@ -58,6 +58,11 @@
   border-radius: 14px;
   font-size: 20px;
   font-weight: 800;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
 }
 
 .menu-item span {
@@ -742,5 +747,289 @@
     font-size: 7px !important;
     padding: 4px 3px !important;
     white-space: normal !important;
+  }
+}
+/* ORGANIZACIÓN DE PROPIETARIOS EN EXTRACTO */
+.extracto-propietarios {
+  margin: 22px 0;
+  padding: 18px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+}
+
+.extracto-propietarios h3 {
+  margin: 0 0 14px;
+  color: #0e1b42;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.propietarios-extracto-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.propietarios-extracto-table th {
+  background: #06244d;
+  color: white;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 900;
+  border: 1px solid #06244d;
+}
+
+.propietarios-extracto-table td {
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  color: #1f2937;
+  vertical-align: top;
+}
+
+.total-participacion {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  background: white;
+  border-left: 5px solid #d7a125;
+  border-radius: 10px;
+  color: #0e1b42;
+  font-weight: 800;
+}
+
+/* IMPRESIÓN DE PROPIETARIOS EN EXTRACTO */
+@media print {
+  .extracto-propietarios {
+    margin: 8px 0 !important;
+    padding: 6px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 0 !important;
+    background: white !important;
+  }
+
+  .extracto-propietarios h3 {
+    font-size: 11px !important;
+    margin: 0 0 5px !important;
+    color: #0e1b42 !important;
+  }
+
+  .propietarios-extracto-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+  }
+
+  .propietarios-extracto-table th {
+    background: #0e1b42 !important;
+    color: white !important;
+    font-size: 7px !important;
+    padding: 4px 3px !important;
+    border: 1px solid #0e1b42 !important;
+    white-space: normal !important;
+  }
+
+  .propietarios-extracto-table td {
+    font-size: 7px !important;
+    padding: 4px 3px !important;
+    border: 1px solid #d1d5db !important;
+    color: #111827 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .total-participacion {
+    font-size: 8px !important;
+    margin: 4px 0 0 !important;
+    padding: 4px !important;
+    border-left: 2px solid #0e1b42 !important;
+  }
+}
+/* ORGANIZACIÓN DEL EXTRACTO DE ARRIENDOS */
+.rent-extracts-container .extracto-card {
+  background: white;
+  border-radius: 22px;
+  padding: 28px;
+  margin-bottom: 28px;
+  border-top: 5px solid #d7a125;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.rent-extracts-container .extracto-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  border-bottom: 2px solid #d7a125;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+}
+
+.rent-extracts-container .extracto-header h2 {
+  color: #0e1b42;
+  font-size: 26px;
+  font-weight: 900;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.rent-extracts-container .extracto-header h3 {
+  color: #06244d;
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+
+.rent-extracts-container .extracto-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.rent-extracts-container .extracto-info div,
+.rent-extracts-container .resumen-extracto div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.rent-extracts-container .extracto-info span,
+.rent-extracts-container .resumen-extracto span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.rent-extracts-container .extracto-info strong,
+.rent-extracts-container .resumen-extracto strong {
+  color: #0e1b42;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.rent-extracts-container .resumen-extracto {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.rent-extracts-container .extracto-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.rent-extracts-container .extracto-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1250px;
+}
+
+.rent-extracts-container .extracto-table th {
+  background: #06244d;
+  color: white;
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.rent-extracts-container .extracto-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.rent-extracts-container .extracto-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
+/* IMPRESIÓN DEL EXTRACTO DE ARRIENDOS */
+@media print {
+  .rent-extracts-container .extracto-card {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-top: 4px solid #0e1b42 !important;
+    padding: 7mm !important;
+    page-break-after: always;
+  }
+
+  .rent-extracts-container .extracto-header {
+    border-bottom: 1px solid #0e1b42 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 7px !important;
+  }
+
+  .rent-extracts-container .extracto-header h2 {
+    font-size: 15px !important;
+    margin-bottom: 3px !important;
+  }
+
+  .rent-extracts-container .extracto-header h3 {
+    font-size: 12px !important;
+    margin-bottom: 3px !important;
+  }
+
+  .rent-extracts-container .extracto-header p {
+    font-size: 8px !important;
+  }
+
+  .rent-extracts-container .extracto-info {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 5px !important;
+    margin-bottom: 7px !important;
+  }
+
+  .rent-extracts-container .resumen-extracto {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 5px !important;
+    margin-bottom: 7px !important;
+  }
+
+  .rent-extracts-container .extracto-info div,
+  .rent-extracts-container .resumen-extracto div {
+    border-radius: 0 !important;
+    padding: 4px 5px !important;
+    background: white !important;
+  }
+
+  .rent-extracts-container .extracto-info span,
+  .rent-extracts-container .resumen-extracto span {
+    font-size: 7px !important;
+    margin-bottom: 1px !important;
+  }
+
+  .rent-extracts-container .extracto-info strong,
+  .rent-extracts-container .resumen-extracto strong {
+    font-size: 8px !important;
+  }
+
+  .rent-extracts-container .extracto-table {
+    min-width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .rent-extracts-container .extracto-table th,
+  .rent-extracts-container .extracto-table td {
+    font-size: 6.5px !important;
+    padding: 4px 3px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .rent-extracts-container .extracto-actions {
+    display: none !important;
   }
 }
