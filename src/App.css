@@ -222,7 +222,7 @@
 .cards {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(5, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 24px;
   margin-bottom: 26px;
 }
@@ -276,6 +276,23 @@
   line-height: 1.35;
 }
 
+.pending-card {
+  border-top: 4px solid #b42318;
+}
+
+.pending-card .stat-icon {
+  background: linear-gradient(180deg, #7f1d1d 0%, #450a0a 100%);
+  color: #f2c14e;
+}
+
+.pending-card h3 {
+  color: #7f1d1d;
+}
+
+.pending-card strong.money {
+  color: #b42318;
+}
+
 /* TITULOS */
 .section-title {
   display: flex;
@@ -305,12 +322,17 @@
 }
 
 /* FORMULARIO */
-.form-panel {
+.form-panel,
+.panel,
+.property-detail-panel,
+.contract-detail-panel,
+.extracts-container {
   background: white;
   border-radius: 22px;
   padding: 26px;
   margin-bottom: 26px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-top: 5px solid #d7a125;
 }
 
 .form-description {
@@ -389,23 +411,92 @@
   gap: 12px;
 }
 
-/* TABLAS Y PANELES */
-.rent-increments-panel,
-.rent-extracts-container {
+/* DETALLES */
+.detail-grid,
+.contract-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.detail-grid div,
+.contract-detail-grid div {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #f9fafb;
+}
+
+.detail-grid span,
+.contract-detail-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.detail-grid strong,
+.contract-detail-grid strong {
+  color: #0e1b42;
+  font-size: 15px;
+}
+
+.full-detail {
+  grid-column: 1 / -1;
+}
+
+.btn-small {
+  border: none;
+  background: #0d2f64;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-small:hover {
+  background: #06244d;
+}
+
+/* TEMP PROPIETARIOS */
+.temp-owners {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.temp-owners h3 {
+  margin: 0 0 10px;
+  color: #0e1b42;
+}
+
+.temp-owner-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
   background: white;
-  border-radius: 22px;
-  padding: 26px;
-  margin-bottom: 26px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  border-top: 5px solid #d7a125;
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  border-radius: 10px;
+  margin-top: 8px;
 }
 
-.rent-extracts-container {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
+.temp-owner-row button {
+  border: none;
+  background: #f8e1e1;
+  color: #b42318;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
+/* TABLAS */
 .simple-table-wrapper {
   overflow-x: auto;
 }
@@ -440,6 +531,7 @@
   padding: 28px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
   border-top: 5px solid #d7a125;
+  margin-bottom: 28px;
 }
 
 .extracto-header {
@@ -557,6 +649,54 @@
   white-space: nowrap;
 }
 
+/* PROPIETARIOS EN EXTRACTO */
+.extracto-propietarios {
+  margin: 22px 0;
+  padding: 18px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+}
+
+.extracto-propietarios h3 {
+  margin: 0 0 14px;
+  color: #0e1b42;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.propietarios-extracto-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.propietarios-extracto-table th {
+  background: #06244d;
+  color: white;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.propietarios-extracto-table td {
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.total-participacion {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  background: white;
+  border-left: 5px solid #d7a125;
+  border-radius: 10px;
+  color: #0e1b42;
+  font-weight: 800;
+}
+
 .status {
   display: inline-block;
   padding: 7px 14px;
@@ -580,7 +720,7 @@
   color: #9a6700;
 }
 
-/* BOTÓN FLOTANTE DE INICIO */
+/* BOTÓN FLOTANTE */
 .floating-menu {
   position: fixed;
   right: 22px;
@@ -610,11 +750,9 @@
 
 /* RESPONSIVE */
 @media (max-width: 1250px) {
-  .cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .property-form {
+  .property-form,
+  .detail-grid,
+  .contract-detail-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -645,25 +783,20 @@
     position: relative;
   }
 
-  .hero-content {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .property-form {
-    grid-template-columns: 1fr;
-  }
-
-  .extracto-info {
-    grid-template-columns: 1fr;
-  }
-
+  .property-form,
+  .detail-grid,
+  .contract-detail-grid,
+  .extracto-info,
   .resumen-extracto {
     grid-template-columns: 1fr;
   }
 
   .extracto-header {
     flex-direction: column;
+  }
+
+  .temp-owner-row {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -672,23 +805,11 @@
     padding: 14px;
   }
 
-  .cards {
-    grid-template-columns: 1fr;
-  }
-
   .hero-card h1 {
     font-size: 24px;
   }
 
-  .brand-logo {
-    width: 220px;
-    max-width: 220px;
-  }
-
-  .hero-actions {
-    width: 100%;
-  }
-
+  .hero-actions,
   .btn-primary,
   .btn-gold,
   .btn-secondary {
@@ -714,8 +835,7 @@
   .alert-panel,
   .cards,
   .form-panel,
-  .rent-increments-panel,
-  .rent-extracts-container .section-title.no-print,
+  .panel,
   .floating-menu {
     display: none !important;
   }
@@ -743,293 +863,12 @@
   }
 
   .extracto-table th,
-  .extracto-table td {
-    font-size: 7px !important;
-    padding: 4px 3px !important;
-    white-space: normal !important;
-  }
-}
-/* ORGANIZACIÓN DE PROPIETARIOS EN EXTRACTO */
-.extracto-propietarios {
-  margin: 22px 0;
-  padding: 18px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-}
-
-.extracto-propietarios h3 {
-  margin: 0 0 14px;
-  color: #0e1b42;
-  font-size: 20px;
-  font-weight: 900;
-}
-
-.propietarios-extracto-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.propietarios-extracto-table th {
-  background: #06244d;
-  color: white;
-  padding: 12px 14px;
-  text-align: left;
-  font-size: 14px;
-  font-weight: 900;
-  border: 1px solid #06244d;
-}
-
-.propietarios-extracto-table td {
-  padding: 12px 14px;
-  border: 1px solid #e5e7eb;
-  font-size: 14px;
-  color: #1f2937;
-  vertical-align: top;
-}
-
-.total-participacion {
-  margin: 14px 0 0;
-  padding: 10px 14px;
-  background: white;
-  border-left: 5px solid #d7a125;
-  border-radius: 10px;
-  color: #0e1b42;
-  font-weight: 800;
-}
-
-/* IMPRESIÓN DE PROPIETARIOS EN EXTRACTO */
-@media print {
-  .extracto-propietarios {
-    margin: 8px 0 !important;
-    padding: 6px !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 0 !important;
-    background: white !important;
-  }
-
-  .extracto-propietarios h3 {
-    font-size: 11px !important;
-    margin: 0 0 5px !important;
-    color: #0e1b42 !important;
-  }
-
-  .propietarios-extracto-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    table-layout: fixed !important;
-  }
-
-  .propietarios-extracto-table th {
-    background: #0e1b42 !important;
-    color: white !important;
-    font-size: 7px !important;
-    padding: 4px 3px !important;
-    border: 1px solid #0e1b42 !important;
-    white-space: normal !important;
-  }
-
+  .extracto-table td,
+  .propietarios-extracto-table th,
   .propietarios-extracto-table td {
     font-size: 7px !important;
     padding: 4px 3px !important;
-    border: 1px solid #d1d5db !important;
-    color: #111827 !important;
     white-space: normal !important;
     word-break: break-word !important;
-  }
-
-  .total-participacion {
-    font-size: 8px !important;
-    margin: 4px 0 0 !important;
-    padding: 4px !important;
-    border-left: 2px solid #0e1b42 !important;
-  }
-}
-/* ORGANIZACIÓN DEL EXTRACTO DE ARRIENDOS */
-.rent-extracts-container .extracto-card {
-  background: white;
-  border-radius: 22px;
-  padding: 28px;
-  margin-bottom: 28px;
-  border-top: 5px solid #d7a125;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-}
-
-.rent-extracts-container .extracto-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  border-bottom: 2px solid #d7a125;
-  padding-bottom: 18px;
-  margin-bottom: 20px;
-}
-
-.rent-extracts-container .extracto-header h2 {
-  color: #0e1b42;
-  font-size: 26px;
-  font-weight: 900;
-  margin: 0 0 8px;
-  text-transform: uppercase;
-}
-
-.rent-extracts-container .extracto-header h3 {
-  color: #06244d;
-  font-size: 20px;
-  margin: 0 0 6px;
-}
-
-.rent-extracts-container .extracto-info {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 22px;
-}
-
-.rent-extracts-container .extracto-info div,
-.rent-extracts-container .resumen-extracto div {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px 14px;
-}
-
-.rent-extracts-container .extracto-info span,
-.rent-extracts-container .resumen-extracto span {
-  display: block;
-  color: #6b7280;
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 5px;
-}
-
-.rent-extracts-container .extracto-info strong,
-.rent-extracts-container .resumen-extracto strong {
-  color: #0e1b42;
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.rent-extracts-container .resumen-extracto {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 14px;
-  margin-bottom: 22px;
-}
-
-.rent-extracts-container .extracto-table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.rent-extracts-container .extracto-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 1250px;
-}
-
-.rent-extracts-container .extracto-table th {
-  background: #06244d;
-  color: white;
-  padding: 12px 10px;
-  text-align: left;
-  font-size: 13px;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.rent-extracts-container .extracto-table td {
-  padding: 12px 10px;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 13px;
-  color: #1f2937;
-  white-space: nowrap;
-}
-
-.rent-extracts-container .extracto-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 18px;
-}
-
-/* IMPRESIÓN DEL EXTRACTO DE ARRIENDOS */
-@media print {
-  .rent-extracts-container .extracto-card {
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    border: 1px solid #cbd5e1 !important;
-    border-top: 4px solid #0e1b42 !important;
-    padding: 7mm !important;
-    page-break-after: always;
-  }
-
-  .rent-extracts-container .extracto-header {
-    border-bottom: 1px solid #0e1b42 !important;
-    padding-bottom: 6px !important;
-    margin-bottom: 7px !important;
-  }
-
-  .rent-extracts-container .extracto-header h2 {
-    font-size: 15px !important;
-    margin-bottom: 3px !important;
-  }
-
-  .rent-extracts-container .extracto-header h3 {
-    font-size: 12px !important;
-    margin-bottom: 3px !important;
-  }
-
-  .rent-extracts-container .extracto-header p {
-    font-size: 8px !important;
-  }
-
-  .rent-extracts-container .extracto-info {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 5px !important;
-    margin-bottom: 7px !important;
-  }
-
-  .rent-extracts-container .resumen-extracto {
-    grid-template-columns: repeat(6, 1fr) !important;
-    gap: 5px !important;
-    margin-bottom: 7px !important;
-  }
-
-  .rent-extracts-container .extracto-info div,
-  .rent-extracts-container .resumen-extracto div {
-    border-radius: 0 !important;
-    padding: 4px 5px !important;
-    background: white !important;
-  }
-
-  .rent-extracts-container .extracto-info span,
-  .rent-extracts-container .resumen-extracto span {
-    font-size: 7px !important;
-    margin-bottom: 1px !important;
-  }
-
-  .rent-extracts-container .extracto-info strong,
-  .rent-extracts-container .resumen-extracto strong {
-    font-size: 8px !important;
-  }
-
-  .rent-extracts-container .extracto-table {
-    min-width: 100% !important;
-    table-layout: fixed !important;
-  }
-
-  .rent-extracts-container .extracto-table th,
-  .rent-extracts-container .extracto-table td {
-    font-size: 6.5px !important;
-    padding: 4px 3px !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-  }
-
-  .rent-extracts-container .extracto-actions {
-    display: none !important;
   }
 }

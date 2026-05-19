@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import './App.css'
 
 function App() {
@@ -6,23 +6,15 @@ function App() {
 
   const [seccionActiva, setSeccionActiva] = useState('inicio')
 
-  const inicioRef = useRef(null)
-  const predioRef = useRef(null)
-  const arriendoRef = useRef(null)
-  const pagoArriendoRef = useRef(null)
-  const incrementoArriendoRef = useRef(null)
-  const valorAnualRef = useRef(null)
-  const pagoPredialRef = useRef(null)
-
   const [mostrarFormularioPredio, setMostrarFormularioPredio] = useState(false)
-  const [mostrarFormularioArriendo, setMostrarFormularioArriendo] = useState(false)
+  const [mostrarFormularioContrato, setMostrarFormularioContrato] = useState(false)
   const [mostrarFormularioPagoArriendo, setMostrarFormularioPagoArriendo] = useState(false)
-  const [mostrarFormularioIncrementoArriendo, setMostrarFormularioIncrementoArriendo] = useState(false)
+  const [mostrarFormularioIncremento, setMostrarFormularioIncremento] = useState(false)
   const [mostrarFormularioValorPredial, setMostrarFormularioValorPredial] = useState(false)
-  const [mostrarFormularioPredial, setMostrarFormularioPredial] = useState(false)
+  const [mostrarFormularioPagoPredial, setMostrarFormularioPagoPredial] = useState(false)
 
-  const [contratoSeleccionado, setContratoSeleccionado] = useState(null)
   const [predioSeleccionado, setPredioSeleccionado] = useState(null)
+  const [contratoSeleccionado, setContratoSeleccionado] = useState(null)
 
   const [ciudad, setCiudad] = useState('')
   const [barrio, setBarrio] = useState('')
@@ -30,8 +22,8 @@ function App() {
   const [matricula, setMatricula] = useState('')
   const [chip, setChip] = useState('')
   const [cedulaCatastral, setCedulaCatastral] = useState('')
-  const [estado, setEstado] = useState('Activo')
-  const [observaciones, setObservaciones] = useState('')
+  const [estadoPredio, setEstadoPredio] = useState('Activo')
+  const [observacionesPredio, setObservacionesPredio] = useState('')
 
   const [ultimoAnioPredialPagado, setUltimoAnioPredialPagado] = useState('')
   const [reciboUltimoPredial, setReciboUltimoPredial] = useState('')
@@ -39,28 +31,28 @@ function App() {
   const [valorImpuestoUltimoPredial, setValorImpuestoUltimoPredial] = useState('')
   const [valorPagadoUltimoPredial, setValorPagadoUltimoPredial] = useState('')
 
-  const [nombreTempPropietario, setNombreTempPropietario] = useState('')
-  const [tipoDocTempPropietario, setTipoDocTempPropietario] = useState('Cédula de ciudadanía')
-  const [docTempPropietario, setDocTempPropietario] = useState('')
-  const [telTempPropietario, setTelTempPropietario] = useState('')
-  const [correoTempPropietario, setCorreoTempPropietario] = useState('')
-  const [porcentajeTempPropietario, setPorcentajeTempPropietario] = useState('')
+  const [nombrePropietarioTemp, setNombrePropietarioTemp] = useState('')
+  const [tipoDocPropietarioTemp, setTipoDocPropietarioTemp] = useState('Cédula de ciudadanía')
+  const [docPropietarioTemp, setDocPropietarioTemp] = useState('')
+  const [telefonoPropietarioTemp, setTelefonoPropietarioTemp] = useState('')
+  const [correoPropietarioTemp, setCorreoPropietarioTemp] = useState('')
+  const [porcentajePropietarioTemp, setPorcentajePropietarioTemp] = useState('')
   const [propietariosTemporales, setPropietariosTemporales] = useState([])
 
-  const [codigoPredioArriendo, setCodigoPredioArriendo] = useState('')
+  const [codigoPredioContrato, setCodigoPredioContrato] = useState('')
   const [nombreArrendatario, setNombreArrendatario] = useState('')
-  const [tipoDocumentoArrendatario, setTipoDocumentoArrendatario] = useState('Cédula de ciudadanía')
-  const [documentoArrendatario, setDocumentoArrendatario] = useState('')
+  const [tipoDocArrendatario, setTipoDocArrendatario] = useState('Cédula de ciudadanía')
+  const [docArrendatario, setDocArrendatario] = useState('')
   const [telefonoArrendatario, setTelefonoArrendatario] = useState('')
   const [correoArrendatario, setCorreoArrendatario] = useState('')
   const [canonMensual, setCanonMensual] = useState('')
-  const [porcentajeIncrementoAnual, setPorcentajeIncrementoAnual] = useState('')
+  const [incrementoAnual, setIncrementoAnual] = useState('')
   const [aplicaIva, setAplicaIva] = useState('No')
   const [fechaInicioContrato, setFechaInicioContrato] = useState('')
   const [fechaFinContrato, setFechaFinContrato] = useState('')
-  const [depositoArriendo, setDepositoArriendo] = useState('')
+  const [depositoContrato, setDepositoContrato] = useState('')
   const [estadoContrato, setEstadoContrato] = useState('Activo')
-  const [observacionesArriendo, setObservacionesArriendo] = useState('')
+  const [observacionesContrato, setObservacionesContrato] = useState('')
 
   const [codigoPredioPagoArriendo, setCodigoPredioPagoArriendo] = useState('')
   const [mesPagoArriendo, setMesPagoArriendo] = useState('')
@@ -73,22 +65,22 @@ function App() {
   const [observacionesPagoArriendo, setObservacionesPagoArriendo] = useState('')
 
   const [codigoPredioIncremento, setCodigoPredioIncremento] = useState('')
-  const [anioIncrementoArriendo, setAnioIncrementoArriendo] = useState(anioActual)
-  const [porcentajeNuevoIncremento, setPorcentajeNuevoIncremento] = useState('')
-  const [observacionesIncrementoArriendo, setObservacionesIncrementoArriendo] = useState('')
+  const [anioIncremento, setAnioIncremento] = useState(anioActual)
+  const [porcentajeIncremento, setPorcentajeIncremento] = useState('')
+  const [observacionesIncremento, setObservacionesIncremento] = useState('')
 
-  const [codigoPredioValor, setCodigoPredioValor] = useState('')
+  const [codigoPredioValorPredial, setCodigoPredioValorPredial] = useState('')
   const [anioValorPredial, setAnioValorPredial] = useState(anioActual)
-  const [valorAnualPredial, setValorAnualPredial] = useState('')
+  const [valorPredialAnual, setValorPredialAnual] = useState('')
   const [fechaLimitePredial, setFechaLimitePredial] = useState('')
 
-  const [codigoPredioPago, setCodigoPredioPago] = useState('')
-  const [anioPredial, setAnioPredial] = useState(anioActual)
-  const [numeroRecibo, setNumeroRecibo] = useState('')
-  const [fechaPago, setFechaPago] = useState('')
-  const [descuento, setDescuento] = useState('')
-  const [intereses, setIntereses] = useState('')
-  const [valorPagado, setValorPagado] = useState('')
+  const [codigoPredioPagoPredial, setCodigoPredioPagoPredial] = useState('')
+  const [anioPagoPredial, setAnioPagoPredial] = useState(anioActual)
+  const [numeroReciboPredial, setNumeroReciboPredial] = useState('')
+  const [fechaPagoPredial, setFechaPagoPredial] = useState('')
+  const [descuentoPredial, setDescuentoPredial] = useState('')
+  const [interesesPredial, setInteresesPredial] = useState('')
+  const [valorPagadoPredial, setValorPagadoPredial] = useState('')
   const [estadoPagoPredial, setEstadoPagoPredial] = useState('Pagado')
 
   const [predios, setPredios] = useState([
@@ -97,10 +89,10 @@ function App() {
       ciudad: 'Bogotá',
       barrio: 'Fontibón',
       direccion: 'Ejemplo de dirección',
-      estado: 'Activo',
       matricula: '50N-123456',
       chip: 'AAA0000',
       cedulaCatastral: '110010000000000',
+      estado: 'Activo',
       observaciones: 'Predio de ejemplo',
       anioInicioPredial: 2025,
     },
@@ -127,7 +119,7 @@ function App() {
       telefono: '3100000000',
       correo: 'arrendatario@ejemplo.com',
       canonMensual: 1500000,
-      porcentajeIncrementoAnual: 10,
+      incrementoAnual: 10,
       aplicaIva: 'Sí',
       porcentajeIva: 19,
       fechaInicio: '2026-01-01',
@@ -188,93 +180,80 @@ function App() {
     },
   ])
 
-  const normalizarTexto = (texto) => texto.trim().toLowerCase()
-
-  const obtenerCodigoCiudad = (nombreCiudad) => {
-    const ciudadLimpia = normalizarTexto(nombreCiudad)
-
-    if (ciudadLimpia === 'bogotá' || ciudadLimpia === 'bogota') return 'BOG'
-    if (ciudadLimpia === 'villavicencio') return 'VIL'
-    if (ciudadLimpia === 'medellín' || ciudadLimpia === 'medellin') return 'MED'
-    if (ciudadLimpia === 'cali') return 'CAL'
-    if (ciudadLimpia === 'barranquilla') return 'BAQ'
-
-    return ciudadLimpia.replace(/[^a-z]/g, '').substring(0, 3).toUpperCase()
-  }
-
-  const obtenerCodigoBarrio = (nombreBarrio) => {
-    return normalizarTexto(nombreBarrio)
-      .replace(/[^a-z]/g, '')
-      .substring(0, 3)
-      .toUpperCase()
-  }
-
-  const codigoPredio = useMemo(() => {
-    if (!ciudad || !barrio) return ''
-
-    const codigoCiudad = obtenerCodigoCiudad(ciudad)
-    const codigoBarrio = obtenerCodigoBarrio(barrio)
-
-    if (!codigoCiudad || !codigoBarrio) return ''
-
-    const prefijo = `${codigoCiudad}-${codigoBarrio}`
-
-    const prediosSimilares = predios.filter((predio) =>
-      predio.codigo.startsWith(prefijo)
-    )
-
-    const consecutivo = String(prediosSimilares.length + 1).padStart(4, '0')
-
-    return `${prefijo}-${consecutivo}`
-  }, [ciudad, barrio, predios])
-
   const formatearDinero = (valor) => {
-    if (valor === null || valor === undefined) return 'Sin registrar'
-
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
       maximumFractionDigits: 0,
-    }).format(valor || 0)
+    }).format(Number(valor || 0))
   }
 
-  const cerrarFormularios = () => {
-    setMostrarFormularioPredio(false)
-    setMostrarFormularioArriendo(false)
-    setMostrarFormularioPagoArriendo(false)
-    setMostrarFormularioIncrementoArriendo(false)
-    setMostrarFormularioValorPredial(false)
-    setMostrarFormularioPredial(false)
+  const normalizarTexto = (texto) => texto.trim().toLowerCase()
+
+  const obtenerCodigoCiudad = (texto) => {
+    const ciudadLimpia = normalizarTexto(texto)
+
+    if (ciudadLimpia === 'bogotá' || ciudadLimpia === 'bogota') return 'BOG'
+    if (ciudadLimpia === 'medellín' || ciudadLimpia === 'medellin') return 'MED'
+    if (ciudadLimpia === 'cali') return 'CAL'
+    if (ciudadLimpia === 'barranquilla') return 'BAQ'
+    if (ciudadLimpia === 'villavicencio') return 'VIL'
+
+    return ciudadLimpia.replace(/[^a-z]/g, '').substring(0, 3).toUpperCase()
   }
 
-  const cambiarSeccion = (seccion) => {
-    cerrarFormularios()
-    setContratoSeleccionado(null)
-    setPredioSeleccionado(null)
-    setSeccionActiva(seccion)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  const obtenerCodigoBarrio = (texto) => {
+    return normalizarTexto(texto).replace(/[^a-z]/g, '').substring(0, 3).toUpperCase()
   }
 
-  const irASeccion = (referencia) => {
-    setTimeout(() => {
-      referencia.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
-    }, 150)
+  const codigoPredioAutomatico = () => {
+    if (!ciudad || !barrio) return ''
+
+    const prefijo = `${obtenerCodigoCiudad(ciudad)}-${obtenerCodigoBarrio(barrio)}`
+    const cantidad = predios.filter((predio) => predio.codigo.startsWith(prefijo)).length + 1
+    return `${prefijo}-${String(cantidad).padStart(4, '0')}`
   }
 
-  const totalTemporalPropietarios = propietariosTemporales.reduce(
+  const totalPorcentajeTemporal = propietariosTemporales.reduce(
     (total, propietario) => total + Number(propietario.porcentaje || 0),
     0
   )
 
-  const porcentajeFaltante = 100 - totalTemporalPropietarios
+  const porcentajeFaltante = 100 - totalPorcentajeTemporal
 
-  const obtenerContratoActivoPorPredio = (codigoPredio) => {
+  const cerrarFormularios = () => {
+    setMostrarFormularioPredio(false)
+    setMostrarFormularioContrato(false)
+    setMostrarFormularioPagoArriendo(false)
+    setMostrarFormularioIncremento(false)
+    setMostrarFormularioValorPredial(false)
+    setMostrarFormularioPagoPredial(false)
+  }
+
+  const cambiarSeccion = (seccion) => {
+    cerrarFormularios()
+    setPredioSeleccionado(null)
+    setContratoSeleccionado(null)
+    setSeccionActiva(seccion)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const abrirFormulario = (seccion, formulario) => {
+    cambiarSeccion(seccion)
+
+    setTimeout(() => {
+      if (formulario === 'predio') setMostrarFormularioPredio(true)
+      if (formulario === 'contrato') setMostrarFormularioContrato(true)
+      if (formulario === 'pagoArriendo') setMostrarFormularioPagoArriendo(true)
+      if (formulario === 'incremento') setMostrarFormularioIncremento(true)
+      if (formulario === 'valorPredial') setMostrarFormularioValorPredial(true)
+      if (formulario === 'pagoPredial') setMostrarFormularioPagoPredial(true)
+    }, 50)
+  }
+
+  const contratoActivoPorPredio = (codigoPredio) => {
     return contratosArriendo.find(
-      (contrato) =>
-        contrato.codigoPredio === codigoPredio && contrato.estado === 'Activo'
+      (contrato) => contrato.codigoPredio === codigoPredio && contrato.estado === 'Activo'
     )
   }
 
@@ -301,8 +280,7 @@ function App() {
       )
 
       const porcentaje =
-        incrementoDelAnio?.porcentaje ??
-        Number(contrato.porcentajeIncrementoAnual || 0)
+        incrementoDelAnio?.porcentaje ?? Number(contrato.incrementoAnual || 0)
 
       canonBase = Math.round(canonBase * (1 + porcentaje / 100))
 
@@ -322,24 +300,59 @@ function App() {
     }
   }
 
-  const contratoSeleccionadoPagoArriendo = useMemo(() => {
-    return obtenerContratoActivoPorPredio(codigoPredioPagoArriendo)
-  }, [codigoPredioPagoArriendo, contratosArriendo])
-
-  const canonCalculadoPagoArriendo = useMemo(() => {
-    return calcularCanonArriendo(
-      contratoSeleccionadoPagoArriendo,
-      mesPagoArriendo
-    )
-  }, [contratoSeleccionadoPagoArriendo, mesPagoArriendo, incrementosArriendo])
+  const contratoPagoArriendo = contratoActivoPorPredio(codigoPredioPagoArriendo)
+  const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArriendo)
 
   const limpiarPropietarioTemporal = () => {
-    setNombreTempPropietario('')
-    setTipoDocTempPropietario('Cédula de ciudadanía')
-    setDocTempPropietario('')
-    setTelTempPropietario('')
-    setCorreoTempPropietario('')
-    setPorcentajeTempPropietario('')
+    setNombrePropietarioTemp('')
+    setTipoDocPropietarioTemp('Cédula de ciudadanía')
+    setDocPropietarioTemp('')
+    setTelefonoPropietarioTemp('')
+    setCorreoPropietarioTemp('')
+    setPorcentajePropietarioTemp('')
+  }
+
+  const agregarPropietarioTemporal = () => {
+    if (
+      !nombrePropietarioTemp ||
+      !docPropietarioTemp ||
+      !telefonoPropietarioTemp ||
+      !correoPropietarioTemp ||
+      !porcentajePropietarioTemp
+    ) {
+      alert('Complete todos los datos del propietario.')
+      return
+    }
+
+    const porcentajeNuevo = Number(porcentajePropietarioTemp)
+
+    if (porcentajeNuevo <= 0) {
+      alert('El porcentaje debe ser mayor a 0.')
+      return
+    }
+
+    if (totalPorcentajeTemporal + porcentajeNuevo > 100) {
+      alert(`No se puede agregar. Solo falta ${porcentajeFaltante}%.`)
+      return
+    }
+
+    setPropietariosTemporales([
+      ...propietariosTemporales,
+      {
+        nombre: nombrePropietarioTemp,
+        tipoDocumento: tipoDocPropietarioTemp,
+        numeroDocumento: docPropietarioTemp,
+        telefono: telefonoPropietarioTemp,
+        correo: correoPropietarioTemp,
+        porcentaje: porcentajeNuevo,
+      },
+    ])
+
+    limpiarPropietarioTemporal()
+  }
+
+  const eliminarPropietarioTemporal = (index) => {
+    setPropietariosTemporales(propietariosTemporales.filter((_, i) => i !== index))
   }
 
   const limpiarFormularioPredio = () => {
@@ -349,8 +362,8 @@ function App() {
     setMatricula('')
     setChip('')
     setCedulaCatastral('')
-    setEstado('Activo')
-    setObservaciones('')
+    setEstadoPredio('Activo')
+    setObservacionesPredio('')
     setUltimoAnioPredialPagado('')
     setReciboUltimoPredial('')
     setFechaUltimoPagoPredial('')
@@ -360,21 +373,134 @@ function App() {
     limpiarPropietarioTemporal()
   }
 
-  const limpiarFormularioArriendo = () => {
-    setCodigoPredioArriendo('')
+  const guardarPredio = () => {
+    if (!ciudad || !barrio || !direccion || !matricula || !chip || !cedulaCatastral) {
+      alert('Complete ciudad, barrio, dirección, matrícula, CHIP y cédula catastral.')
+      return
+    }
+
+    if (propietariosTemporales.length === 0) {
+      alert('Debe registrar al menos un propietario.')
+      return
+    }
+
+    if (totalPorcentajeTemporal !== 100) {
+      alert(`Los propietarios deben sumar 100%. Actualmente suman ${totalPorcentajeTemporal}%.`)
+      return
+    }
+
+    const nuevoCodigoPredio = codigoPredioAutomatico()
+    const anioInicioPredial = ultimoAnioPredialPagado ? Number(ultimoAnioPredialPagado) : anioActual
+
+    const nuevoPredio = {
+      codigo: nuevoCodigoPredio,
+      ciudad,
+      barrio,
+      direccion,
+      matricula,
+      chip,
+      cedulaCatastral,
+      estado: estadoPredio,
+      observaciones: observacionesPredio,
+      anioInicioPredial,
+    }
+
+    const nuevosPropietarios = propietariosTemporales.map((propietario) => ({
+      codigoPredio: nuevoCodigoPredio,
+      ...propietario,
+    }))
+
+    const nuevosValoresPrediales = []
+    const nuevosPagosPrediales = []
+
+    if (ultimoAnioPredialPagado && valorImpuestoUltimoPredial && valorPagadoUltimoPredial) {
+      nuevosValoresPrediales.push({
+        codigoPredio: nuevoCodigoPredio,
+        anio: Number(ultimoAnioPredialPagado),
+        valorImpuesto: Number(valorImpuestoUltimoPredial),
+        fechaLimite: '',
+      })
+
+      nuevosPagosPrediales.push({
+        codigoPredio: nuevoCodigoPredio,
+        anio: Number(ultimoAnioPredialPagado),
+        numeroRecibo: reciboUltimoPredial,
+        fechaPago: fechaUltimoPagoPredial,
+        descuento: 0,
+        intereses: 0,
+        valorPagado: Number(valorPagadoUltimoPredial),
+        estado: 'Pagado',
+      })
+    }
+
+    setPredios([nuevoPredio, ...predios])
+    setPropietarios([...nuevosPropietarios, ...propietarios])
+    setValoresPrediales([...nuevosValoresPrediales, ...valoresPrediales])
+    setPagosPrediales([...nuevosPagosPrediales, ...pagosPrediales])
+    limpiarFormularioPredio()
+    setMostrarFormularioPredio(false)
+  }
+
+  const limpiarFormularioContrato = () => {
+    setCodigoPredioContrato('')
     setNombreArrendatario('')
-    setTipoDocumentoArrendatario('Cédula de ciudadanía')
-    setDocumentoArrendatario('')
+    setTipoDocArrendatario('Cédula de ciudadanía')
+    setDocArrendatario('')
     setTelefonoArrendatario('')
     setCorreoArrendatario('')
     setCanonMensual('')
-    setPorcentajeIncrementoAnual('')
+    setIncrementoAnual('')
     setAplicaIva('No')
     setFechaInicioContrato('')
     setFechaFinContrato('')
-    setDepositoArriendo('')
+    setDepositoContrato('')
     setEstadoContrato('Activo')
-    setObservacionesArriendo('')
+    setObservacionesContrato('')
+  }
+
+  const guardarContrato = () => {
+    if (
+      !codigoPredioContrato ||
+      !nombreArrendatario ||
+      !docArrendatario ||
+      !telefonoArrendatario ||
+      !correoArrendatario ||
+      !canonMensual ||
+      !incrementoAnual ||
+      !fechaInicioContrato
+    ) {
+      alert('Complete predio, arrendatario, documento, teléfono, correo, canon, incremento y fecha de inicio.')
+      return
+    }
+
+    const contratoActivo = contratoActivoPorPredio(codigoPredioContrato)
+
+    if (contratoActivo) {
+      alert('Este predio ya tiene un contrato activo.')
+      return
+    }
+
+    const nuevoContrato = {
+      codigoPredio: codigoPredioContrato,
+      arrendatario: nombreArrendatario,
+      tipoDocumento: tipoDocArrendatario,
+      numeroDocumento: docArrendatario,
+      telefono: telefonoArrendatario,
+      correo: correoArrendatario,
+      canonMensual: Number(canonMensual),
+      incrementoAnual: Number(incrementoAnual),
+      aplicaIva,
+      porcentajeIva: aplicaIva === 'Sí' ? 19 : 0,
+      fechaInicio: fechaInicioContrato,
+      fechaFin: fechaFinContrato,
+      deposito: Number(depositoContrato || 0),
+      estado: estadoContrato,
+      observaciones: observacionesContrato,
+    }
+
+    setContratosArriendo([nuevoContrato, ...contratosArriendo])
+    limpiarFormularioContrato()
+    setMostrarFormularioContrato(false)
   }
 
   const limpiarFormularioPagoArriendo = () => {
@@ -389,607 +515,298 @@ function App() {
     setObservacionesPagoArriendo('')
   }
 
-  const agregarPropietarioTemporal = () => {
-    if (
-      !nombreTempPropietario ||
-      !docTempPropietario ||
-      !telTempPropietario ||
-      !correoTempPropietario ||
-      !porcentajeTempPropietario
-    ) {
-      alert('Complete todos los datos del propietario.')
-      return
-    }
-
-    const porcentajeNuevo = Number(porcentajeTempPropietario)
-
-    if (porcentajeNuevo <= 0) {
-      alert('El porcentaje debe ser mayor a 0.')
-      return
-    }
-
-    if (totalTemporalPropietarios + porcentajeNuevo > 100) {
-      alert(
-        `No se puede agregar. Ya tiene ${totalTemporalPropietarios}% asignado y solo falta ${porcentajeFaltante}%.`
-      )
-      return
-    }
-
-    setPropietariosTemporales([
-      ...propietariosTemporales,
-      {
-        nombre: nombreTempPropietario,
-        tipoDocumento: tipoDocTempPropietario,
-        numeroDocumento: docTempPropietario,
-        telefono: telTempPropietario,
-        correo: correoTempPropietario,
-        porcentaje: porcentajeNuevo,
-      },
-    ])
-
-    limpiarPropietarioTemporal()
-  }
-
-  const eliminarPropietarioTemporal = (index) => {
-    const nuevaLista = propietariosTemporales.filter((_, i) => i !== index)
-    setPropietariosTemporales(nuevaLista)
-  }
-
-  const guardarPredio = () => {
-    if (
-      !ciudad ||
-      !barrio ||
-      !direccion ||
-      !matricula ||
-      !chip ||
-      !cedulaCatastral
-    ) {
-      alert(
-        'Para guardar el predio complete ciudad, barrio, dirección, matrícula, CHIP y cédula catastral.'
-      )
-      return
-    }
-
-    if (propietariosTemporales.length === 0) {
-      alert('Debe registrar al menos un propietario del inmueble.')
-      return
-    }
-
-    if (totalTemporalPropietarios !== 100) {
-      alert(
-        `No se puede guardar el predio. Los propietarios deben sumar exactamente 100%. Actualmente suman ${totalTemporalPropietarios}%.`
-      )
-      return
-    }
-
-    const anioInicial = ultimoAnioPredialPagado
-      ? Number(ultimoAnioPredialPagado)
-      : anioActual
-
-    const nuevoPredio = {
-      codigo: codigoPredio,
-      ciudad,
-      barrio,
-      direccion,
-      estado,
-      matricula,
-      chip,
-      cedulaCatastral,
-      observaciones,
-      anioInicioPredial: anioInicial,
-    }
-
-    const propietariosDelNuevoPredio = propietariosTemporales.map(
-      (propietario) => ({
-        codigoPredio,
-        ...propietario,
-      })
-    )
-
-    const nuevosValoresPrediales = []
-    const nuevosPagosPrediales = []
-
-    if (
-      ultimoAnioPredialPagado &&
-      valorImpuestoUltimoPredial &&
-      valorPagadoUltimoPredial
-    ) {
-      nuevosValoresPrediales.push({
-        codigoPredio,
-        anio: Number(ultimoAnioPredialPagado),
-        valorImpuesto: Number(valorImpuestoUltimoPredial) || 0,
-        fechaLimite: '',
-      })
-
-      nuevosPagosPrediales.push({
-        codigoPredio,
-        anio: Number(ultimoAnioPredialPagado),
-        numeroRecibo: reciboUltimoPredial,
-        fechaPago: fechaUltimoPagoPredial,
-        descuento: 0,
-        intereses: 0,
-        valorPagado: Number(valorPagadoUltimoPredial) || 0,
-        estado: 'Pagado',
-      })
-    }
-
-    setPredios([nuevoPredio, ...predios])
-    setPropietarios([...propietariosDelNuevoPredio, ...propietarios])
-    setValoresPrediales([...nuevosValoresPrediales, ...valoresPrediales])
-    setPagosPrediales([...nuevosPagosPrediales, ...pagosPrediales])
-
-    limpiarFormularioPredio()
-    setMostrarFormularioPredio(false)
-  }
-
-  const guardarContratoArriendo = () => {
-    if (
-      !codigoPredioArriendo ||
-      !nombreArrendatario ||
-      !documentoArrendatario ||
-      !telefonoArrendatario ||
-      !correoArrendatario ||
-      !canonMensual ||
-      !porcentajeIncrementoAnual ||
-      !fechaInicioContrato
-    ) {
-      alert(
-        'Complete predio, arrendatario, documento, teléfono, correo, canon mensual, incremento anual y fecha de inicio.'
-      )
-      return
-    }
-
-    const existeContratoActivo = contratosArriendo.some(
-      (contrato) =>
-        contrato.codigoPredio === codigoPredioArriendo &&
-        contrato.estado === 'Activo'
-    )
-
-    if (existeContratoActivo) {
-      alert('Este predio ya tiene un contrato de arriendo activo.')
-      return
-    }
-
-    const nuevoContrato = {
-      codigoPredio: codigoPredioArriendo,
-      arrendatario: nombreArrendatario,
-      tipoDocumento: tipoDocumentoArrendatario,
-      numeroDocumento: documentoArrendatario,
-      telefono: telefonoArrendatario,
-      correo: correoArrendatario,
-      canonMensual: Number(canonMensual) || 0,
-      porcentajeIncrementoAnual: Number(porcentajeIncrementoAnual) || 0,
-      aplicaIva,
-      porcentajeIva: aplicaIva === 'Sí' ? 19 : 0,
-      fechaInicio: fechaInicioContrato,
-      fechaFin: fechaFinContrato,
-      deposito: Number(depositoArriendo) || 0,
-      estado: estadoContrato,
-      observaciones: observacionesArriendo,
-    }
-
-    setContratosArriendo([nuevoContrato, ...contratosArriendo])
-    limpiarFormularioArriendo()
-    setMostrarFormularioArriendo(false)
-  }
-
   const guardarPagoArriendo = () => {
-    if (
-      !codigoPredioPagoArriendo ||
-      !mesPagoArriendo ||
-      !fechaPagoArriendo ||
-      !valorPagadoArriendo
-    ) {
+    if (!codigoPredioPagoArriendo || !mesPagoArriendo || !fechaPagoArriendo || !valorPagadoArriendo) {
       alert('Complete predio, mes, fecha de pago y valor pagado.')
       return
     }
 
-    const contratoActivo = obtenerContratoActivoPorPredio(
-      codigoPredioPagoArriendo
-    )
+    const contrato = contratoActivoPorPredio(codigoPredioPagoArriendo)
 
-    if (!contratoActivo) {
-      alert('Este predio no tiene contrato de arriendo activo.')
+    if (!contrato) {
+      alert('El predio no tiene contrato activo.')
       return
     }
 
-    const { canonBase, incrementoAplicado, iva, canonCausado } =
-      calcularCanonArriendo(contratoActivo, mesPagoArriendo)
+    const calculo = calcularCanonArriendo(contrato, mesPagoArriendo)
 
-    const nuevoPagoArriendo = {
+    const nuevoPago = {
       codigoPredio: codigoPredioPagoArriendo,
-      arrendatario: contratoActivo.arrendatario,
+      arrendatario: contrato.arrendatario,
       mes: mesPagoArriendo,
       fechaPago: fechaPagoArriendo,
-      canonBase,
-      incrementoAplicado,
-      iva,
-      canonCausado,
-      valorPagado: Number(valorPagadoArriendo) || 0,
-      mora: Number(moraArriendo) || 0,
-      descuento: Number(descuentoArriendo) || 0,
+      canonBase: calculo.canonBase,
+      incrementoAplicado: calculo.incrementoAplicado,
+      iva: calculo.iva,
+      canonCausado: calculo.canonCausado,
+      valorPagado: Number(valorPagadoArriendo),
+      mora: Number(moraArriendo || 0),
+      descuento: Number(descuentoArriendo || 0),
       medioPago: medioPagoArriendo,
       recibo: reciboPagoArriendo,
       observaciones: observacionesPagoArriendo,
     }
 
-    setPagosArriendo([nuevoPagoArriendo, ...pagosArriendo])
+    setPagosArriendo([nuevoPago, ...pagosArriendo])
     limpiarFormularioPagoArriendo()
     setMostrarFormularioPagoArriendo(false)
   }
 
-  const guardarIncrementoArriendo = () => {
-    if (
-      !codigoPredioIncremento ||
-      !anioIncrementoArriendo ||
-      !porcentajeNuevoIncremento
-    ) {
-      alert('Complete predio, año y porcentaje de incremento.')
+  const guardarIncremento = () => {
+    if (!codigoPredioIncremento || !anioIncremento || !porcentajeIncremento) {
+      alert('Complete predio, año y porcentaje.')
       return
     }
 
     const nuevoIncremento = {
       codigoPredio: codigoPredioIncremento,
-      anio: Number(anioIncrementoArriendo),
-      porcentaje: Number(porcentajeNuevoIncremento),
-      observaciones: observacionesIncrementoArriendo,
+      anio: Number(anioIncremento),
+      porcentaje: Number(porcentajeIncremento),
+      observaciones: observacionesIncremento,
     }
 
-    const listaSinRepetido = incrementosArriendo.filter(
-      (incremento) =>
-        !(
-          incremento.codigoPredio === codigoPredioIncremento &&
-          Number(incremento.anio) === Number(anioIncrementoArriendo)
-        )
+    const sinRepetido = incrementosArriendo.filter(
+      (item) =>
+        !(item.codigoPredio === codigoPredioIncremento && Number(item.anio) === Number(anioIncremento))
     )
 
-    setIncrementosArriendo([nuevoIncremento, ...listaSinRepetido])
+    setIncrementosArriendo([nuevoIncremento, ...sinRepetido])
     setCodigoPredioIncremento('')
-    setAnioIncrementoArriendo(anioActual)
-    setPorcentajeNuevoIncremento('')
-    setObservacionesIncrementoArriendo('')
-    setMostrarFormularioIncrementoArriendo(false)
+    setAnioIncremento(anioActual)
+    setPorcentajeIncremento('')
+    setObservacionesIncremento('')
+    setMostrarFormularioIncremento(false)
   }
 
-  const guardarValorPredialAnual = () => {
-    if (!codigoPredioValor || !anioValorPredial || !valorAnualPredial) {
-      alert('Complete predio, año y valor predial anual.')
+  const guardarValorPredial = () => {
+    if (!codigoPredioValorPredial || !anioValorPredial || !valorPredialAnual) {
+      alert('Complete predio, año y valor predial.')
       return
     }
 
-    const yaExiste = valoresPrediales.some(
-      (valor) =>
-        valor.codigoPredio === codigoPredioValor &&
-        Number(valor.anio) === Number(anioValorPredial)
+    const existe = valoresPrediales.some(
+      (item) => item.codigoPredio === codigoPredioValorPredial && Number(item.anio) === Number(anioValorPredial)
     )
 
-    if (yaExiste) {
-      alert('Este predio ya tiene registrado el valor predial para ese año.')
+    if (existe) {
+      alert('Ese año ya tiene valor predial registrado.')
       return
     }
 
     setValoresPrediales([
       {
-        codigoPredio: codigoPredioValor,
+        codigoPredio: codigoPredioValorPredial,
         anio: Number(anioValorPredial),
-        valorImpuesto: Number(valorAnualPredial) || 0,
+        valorImpuesto: Number(valorPredialAnual),
         fechaLimite: fechaLimitePredial,
       },
       ...valoresPrediales,
     ])
 
-    setCodigoPredioValor('')
+    setCodigoPredioValorPredial('')
     setAnioValorPredial(anioActual)
-    setValorAnualPredial('')
+    setValorPredialAnual('')
     setFechaLimitePredial('')
     setMostrarFormularioValorPredial(false)
   }
 
   const guardarPagoPredial = () => {
-    if (!codigoPredioPago || !anioPredial || !valorPagado) {
+    if (!codigoPredioPagoPredial || !anioPagoPredial || !valorPagadoPredial) {
       alert('Complete predio, año y valor pagado.')
       return
     }
 
-    const existeValorAnual = valoresPrediales.some(
-      (valor) =>
-        valor.codigoPredio === codigoPredioPago &&
-        Number(valor.anio) === Number(anioPredial)
+    const existeValor = valoresPrediales.some(
+      (item) => item.codigoPredio === codigoPredioPagoPredial && Number(item.anio) === Number(anioPagoPredial)
     )
 
-    if (!existeValorAnual) {
-      alert('Antes de registrar el pago, registre el valor predial anual.')
+    if (!existeValor) {
+      alert('Primero registre el valor predial anual.')
       return
     }
 
     setPagosPrediales([
       {
-        codigoPredio: codigoPredioPago,
-        anio: Number(anioPredial),
-        numeroRecibo,
-        fechaPago,
-        descuento: Number(descuento) || 0,
-        intereses: Number(intereses) || 0,
-        valorPagado: Number(valorPagado) || 0,
+        codigoPredio: codigoPredioPagoPredial,
+        anio: Number(anioPagoPredial),
+        numeroRecibo: numeroReciboPredial,
+        fechaPago: fechaPagoPredial,
+        descuento: Number(descuentoPredial || 0),
+        intereses: Number(interesesPredial || 0),
+        valorPagado: Number(valorPagadoPredial),
         estado: estadoPagoPredial,
       },
       ...pagosPrediales,
     ])
 
-    setCodigoPredioPago('')
-    setAnioPredial(anioActual)
-    setNumeroRecibo('')
-    setFechaPago('')
-    setDescuento('')
-    setIntereses('')
-    setValorPagado('')
+    setCodigoPredioPagoPredial('')
+    setAnioPagoPredial(anioActual)
+    setNumeroReciboPredial('')
+    setFechaPagoPredial('')
+    setDescuentoPredial('')
+    setInteresesPredial('')
+    setValorPagadoPredial('')
     setEstadoPagoPredial('Pagado')
-    setMostrarFormularioPredial(false)
+    setMostrarFormularioPagoPredial(false)
   }
 
-  const totalPagadoPredial = pagosPrediales.reduce(
-    (total, pago) => total + (Number(pago.valorPagado) || 0),
-    0
-  )
+  const extractosPrediales = predios.map((predio) => {
+    const movimientos = []
+    const anioInicio = predio.anioInicioPredial || anioActual
 
+    for (let anio = anioInicio; anio <= anioActual; anio++) {
+      const valorAnual = valoresPrediales.find(
+        (item) => item.codigoPredio === predio.codigo && Number(item.anio) === Number(anio)
+      )
+
+      const pagosDelAnio = pagosPrediales.filter(
+        (item) => item.codigoPredio === predio.codigo && Number(item.anio) === Number(anio)
+      )
+
+      const totalPagado = pagosDelAnio.reduce((total, pago) => total + Number(pago.valorPagado || 0), 0)
+      const totalDescuento = pagosDelAnio.reduce((total, pago) => total + Number(pago.descuento || 0), 0)
+      const totalIntereses = pagosDelAnio.reduce((total, pago) => total + Number(pago.intereses || 0), 0)
+      const ultimoPago = pagosDelAnio[0]
+
+      let valorAPagar = null
+      let saldoPendiente = null
+      let estadoMovimiento = 'Falta actualizar valor'
+
+      if (valorAnual) {
+        valorAPagar = Number(valorAnual.valorImpuesto || 0)
+        saldoPendiente = valorAPagar - totalDescuento + totalIntereses - totalPagado
+
+        if (saldoPendiente <= 0) estadoMovimiento = 'Pagado / Al día'
+        else if (totalPagado > 0) estadoMovimiento = 'Abono registrado'
+        else estadoMovimiento = 'Pendiente de pago'
+      }
+
+      movimientos.push({
+        anio,
+        fechaLimite: valorAnual?.fechaLimite || 'Sin registrar',
+        fechaPago: ultimoPago?.fechaPago || 'Sin pago',
+        recibo: ultimoPago?.numeroRecibo || 'Sin recibo',
+        valorAPagar,
+        descuento: totalDescuento,
+        intereses: totalIntereses,
+        valorPagado: totalPagado,
+        saldoPendiente,
+        estadoMovimiento,
+      })
+    }
+
+    const totalImpuesto = movimientos.reduce((total, item) => total + Number(item.valorAPagar || 0), 0)
+    const totalDescuento = movimientos.reduce((total, item) => total + Number(item.descuento || 0), 0)
+    const totalIntereses = movimientos.reduce((total, item) => total + Number(item.intereses || 0), 0)
+    const totalPagado = movimientos.reduce((total, item) => total + Number(item.valorPagado || 0), 0)
+    const saldoPendiente = movimientos.reduce((total, item) => total + Number(item.saldoPendiente || 0), 0)
+
+    const propietariosDelPredio = propietarios.filter((item) => item.codigoPredio === predio.codigo)
+    const totalParticipacion = propietariosDelPredio.reduce((total, item) => total + Number(item.porcentaje || 0), 0)
+    const tienePendienteActualizar = movimientos.some((item) => item.estadoMovimiento === 'Falta actualizar valor')
+
+    let estadoGeneral = 'Al día'
+    if (tienePendienteActualizar) estadoGeneral = 'Pendiente de actualización'
+    else if (saldoPendiente > 0) estadoGeneral = 'Con saldo pendiente'
+
+    return {
+      predio,
+      propietarios: propietariosDelPredio,
+      totalParticipacion,
+      movimientos: movimientos.sort((a, b) => b.anio - a.anio),
+      resumen: {
+        totalImpuesto,
+        totalDescuento,
+        totalIntereses,
+        totalPagado,
+        saldoPendiente,
+        estadoGeneral,
+      },
+    }
+  })
+
+  const extractosArriendo = contratosArriendo.map((contrato) => {
+    const pagosContrato = pagosArriendo
+      .filter((item) => item.codigoPredio === contrato.codigoPredio)
+      .sort((a, b) => a.mes.localeCompare(b.mes))
+
+    const movimientos = pagosContrato.map((pago) => {
+      const canonBase = Number(pago.canonBase || 0)
+      const incrementoAplicado = Number(pago.incrementoAplicado || 0)
+      const iva = Number(pago.iva || 0)
+      const canonCausado = Number(pago.canonCausado || canonBase + iva)
+      const pagado = Number(pago.valorPagado || 0)
+      const mora = Number(pago.mora || 0)
+      const descuento = Number(pago.descuento || 0)
+      const saldoDeuda = canonCausado + mora - descuento - pagado
+
+      let estadoMovimiento = 'Pagado'
+      if (saldoDeuda > 0 && pagado > 0) estadoMovimiento = 'Abono registrado'
+      if (saldoDeuda > 0 && pagado === 0) estadoMovimiento = 'Pendiente'
+
+      return {
+        mes: pago.mes,
+        fechaPago: pago.fechaPago,
+        recibo: pago.recibo || 'Sin recibo',
+        canonBase,
+        incrementoAplicado,
+        iva,
+        canonCausado,
+        pagado,
+        mora,
+        descuento,
+        saldoDeuda,
+        estadoMovimiento,
+      }
+    })
+
+    const totalCanonBase = movimientos.reduce((total, item) => total + Number(item.canonBase || 0), 0)
+    const totalIva = movimientos.reduce((total, item) => total + Number(item.iva || 0), 0)
+    const totalCanonCausado = movimientos.reduce((total, item) => total + Number(item.canonCausado || 0), 0)
+    const totalPagado = movimientos.reduce((total, item) => total + Number(item.pagado || 0), 0)
+    const totalMora = movimientos.reduce((total, item) => total + Number(item.mora || 0), 0)
+    const totalDescuento = movimientos.reduce((total, item) => total + Number(item.descuento || 0), 0)
+    const saldoDeudaTotal = movimientos.reduce((total, item) => total + Number(item.saldoDeuda || 0), 0)
+
+    return {
+      contrato,
+      movimientos: movimientos.sort((a, b) => b.mes.localeCompare(a.mes)),
+      resumen: {
+        totalCanonBase,
+        totalIva,
+        totalCanonCausado,
+        totalPagado,
+        totalMora,
+        totalDescuento,
+        saldoDeudaTotal,
+        estadoGeneral: saldoDeudaTotal > 0 ? 'Con deuda' : 'Al día',
+      },
+    }
+  })
+
+  const totalPagadoPredial = pagosPrediales.reduce((total, pago) => total + Number(pago.valorPagado || 0), 0)
+  const totalPagadoArriendos = pagosArriendo.reduce((total, pago) => total + Number(pago.valorPagado || 0), 0)
   const totalCanonActivo = contratosArriendo
     .filter((contrato) => contrato.estado === 'Activo')
     .reduce((total, contrato) => total + Number(contrato.canonMensual || 0), 0)
 
-  const totalPagadoArriendos = pagosArriendo.reduce(
-    (total, pago) => total + (Number(pago.valorPagado) || 0),
+  const saldoPendienteArriendos = extractosArriendo.reduce(
+    (total, extracto) => total + Number(extracto.resumen.saldoDeudaTotal || 0),
     0
   )
 
-  const alertasPrediales = useMemo(() => {
-    const alertas = []
+  const saldoPendientePredial = extractosPrediales.reduce(
+    (total, extracto) => total + Number(extracto.resumen.saldoPendiente || 0),
+    0
+  )
 
-    predios.forEach((predio) => {
-      const anioInicio = predio.anioInicioPredial || anioActual
-
-      for (let anio = anioInicio + 1; anio <= anioActual; anio++) {
-        const existeValor = valoresPrediales.some(
-          (valor) =>
-            valor.codigoPredio === predio.codigo &&
-            Number(valor.anio) === Number(anio)
-        )
-
-        if (!existeValor) {
-          alertas.push({
-            codigo: predio.codigo,
-            barrio: predio.barrio,
-            mensaje: `Falta registrar el valor predial del año ${anio}`,
-          })
-        }
-      }
-    })
-
-    return alertas
-  }, [predios, valoresPrediales, anioActual])
-
-  const extractosPrediales = useMemo(() => {
-    return predios.map((predio) => {
-      const movimientos = []
-      const anioInicial = predio.anioInicioPredial || anioActual
-
-      for (let anio = anioInicial; anio <= anioActual; anio++) {
-        const valorAnual = valoresPrediales.find(
-          (valor) =>
-            valor.codigoPredio === predio.codigo &&
-            Number(valor.anio) === Number(anio)
-        )
-
-        const pagosDelAnio = pagosPrediales.filter(
-          (pago) =>
-            pago.codigoPredio === predio.codigo &&
-            Number(pago.anio) === Number(anio)
-        )
-
-        const totalPagado = pagosDelAnio.reduce(
-          (total, pago) => total + Number(pago.valorPagado || 0),
-          0
-        )
-
-        const totalDescuento = pagosDelAnio.reduce(
-          (total, pago) => total + Number(pago.descuento || 0),
-          0
-        )
-
-        const totalIntereses = pagosDelAnio.reduce(
-          (total, pago) => total + Number(pago.intereses || 0),
-          0
-        )
-
-        const ultimoPago = pagosDelAnio[0]
-
-        let valorAPagar = null
-        let saldoPendiente = null
-        let estadoMovimiento = 'Falta actualizar valor'
-
-        if (valorAnual) {
-          valorAPagar = Number(valorAnual.valorImpuesto) || 0
-          saldoPendiente =
-            valorAPagar - totalDescuento + totalIntereses - totalPagado
-
-          if (saldoPendiente <= 0) {
-            estadoMovimiento = 'Pagado / Al día'
-          } else if (totalPagado > 0) {
-            estadoMovimiento = 'Abono registrado'
-          } else {
-            estadoMovimiento = 'Pendiente de pago'
-          }
-        }
-
-        movimientos.push({
-          anio,
-          fechaLimite: valorAnual?.fechaLimite || 'Sin registrar',
-          fechaPago: ultimoPago?.fechaPago || 'Sin pago',
-          recibo: ultimoPago?.numeroRecibo || 'Sin recibo',
-          valorAPagar,
-          descuento: totalDescuento,
-          intereses: totalIntereses,
-          valorPagado: totalPagado,
-          saldoPendiente,
-          estadoMovimiento,
-        })
-      }
-
-      const totalImpuesto = movimientos.reduce(
-        (total, mov) => total + (Number(mov.valorAPagar) || 0),
-        0
-      )
-
-      const totalDescuento = movimientos.reduce(
-        (total, mov) => total + (Number(mov.descuento) || 0),
-        0
-      )
-
-      const totalIntereses = movimientos.reduce(
-        (total, mov) => total + (Number(mov.intereses) || 0),
-        0
-      )
-
-      const totalPagado = movimientos.reduce(
-        (total, mov) => total + (Number(mov.valorPagado) || 0),
-        0
-      )
-
-      const saldoPendiente = movimientos.reduce(
-        (total, mov) => total + (Number(mov.saldoPendiente) || 0),
-        0
-      )
-
-      const propietariosDelPredio = propietarios.filter(
-        (propietario) => propietario.codigoPredio === predio.codigo
-      )
-
-      const totalParticipacion = propietariosDelPredio.reduce(
-        (total, propietario) => total + Number(propietario.porcentaje),
-        0
-      )
-
-      const tienePendientesActualizar = movimientos.some(
-        (mov) => mov.estadoMovimiento === 'Falta actualizar valor'
-      )
-
-      let estadoGeneral = 'Al día'
-
-      if (tienePendientesActualizar) {
-        estadoGeneral = 'Pendiente de actualización'
-      } else if (saldoPendiente > 0) {
-        estadoGeneral = 'Con saldo pendiente'
-      }
-
-      return {
-        predio,
-        propietarios: propietariosDelPredio,
-        totalParticipacion,
-        movimientos: movimientos.sort((a, b) => b.anio - a.anio),
-        resumen: {
-          totalImpuesto,
-          totalDescuento,
-          totalIntereses,
-          totalPagado,
-          saldoPendiente,
-          estadoGeneral,
-        },
-      }
-    })
-  }, [predios, valoresPrediales, pagosPrediales, propietarios, anioActual])
-
-  const extractosArriendo = useMemo(() => {
-    return contratosArriendo.map((contrato) => {
-      const pagosDelContrato = pagosArriendo
-        .filter((pago) => pago.codigoPredio === contrato.codigoPredio)
-        .sort((a, b) => a.mes.localeCompare(b.mes))
-
-      const movimientos = pagosDelContrato.map((pago) => {
-        const canonBase = Number(pago.canonBase || pago.valorCanon || 0)
-        const incrementoAplicado = Number(pago.incrementoAplicado || 0)
-        const iva = Number(pago.iva || 0)
-        const canonCausado = Number(pago.canonCausado || canonBase + iva)
-        const valorPagado = Number(pago.valorPagado || 0)
-        const mora = Number(pago.mora || 0)
-        const descuento = Number(pago.descuento || 0)
-        const saldoDeuda = canonCausado + mora - descuento - valorPagado
-
-        let estadoMovimiento = 'Pagado'
-
-        if (saldoDeuda > 0 && valorPagado > 0) {
-          estadoMovimiento = 'Abono registrado'
-        }
-
-        if (saldoDeuda > 0 && valorPagado === 0) {
-          estadoMovimiento = 'Pendiente'
-        }
-
-        return {
-          mes: pago.mes,
-          fechaPago: pago.fechaPago,
-          recibo: pago.recibo || 'Sin recibo',
-          canonBase,
-          incrementoAplicado,
-          iva,
-          canonCausado,
-          pagado: valorPagado,
-          mora,
-          descuento,
-          saldoDeuda,
-          estadoMovimiento,
-        }
-      })
-
-      const totalCanonBase = movimientos.reduce(
-        (total, mov) => total + Number(mov.canonBase || 0),
-        0
-      )
-
-      const totalIva = movimientos.reduce(
-        (total, mov) => total + Number(mov.iva || 0),
-        0
-      )
-
-      const totalCanonCausado = movimientos.reduce(
-        (total, mov) => total + Number(mov.canonCausado || 0),
-        0
-      )
-
-      const totalPagado = movimientos.reduce(
-        (total, mov) => total + Number(mov.pagado || 0),
-        0
-      )
-
-      const totalMora = movimientos.reduce(
-        (total, mov) => total + Number(mov.mora || 0),
-        0
-      )
-
-      const totalDescuento = movimientos.reduce(
-        (total, mov) => total + Number(mov.descuento || 0),
-        0
-      )
-
-      const saldoDeudaTotal = movimientos.reduce(
-        (total, mov) => total + Number(mov.saldoDeuda || 0),
-        0
-      )
-
-      return {
-        contrato,
-        movimientos: movimientos.sort((a, b) => b.mes.localeCompare(a.mes)),
-        resumen: {
-          totalCanonBase,
-          totalIva,
-          totalCanonCausado,
-          totalPagado,
-          totalMora,
-          totalDescuento,
-          saldoDeudaTotal,
-          estadoGeneral: saldoDeudaTotal > 0 ? 'Con deuda' : 'Al día',
-        },
-      }
-    })
-  }, [contratosArriendo, pagosArriendo])
+  const alertasPrediales = extractosPrediales
+    .filter((extracto) => extracto.resumen.estadoGeneral !== 'Al día')
+    .map((extracto) => ({
+      codigo: extracto.predio.codigo,
+      barrio: extracto.predio.barrio,
+      mensaje: extracto.resumen.estadoGeneral,
+    }))
 
   const mostrarInicio = seccionActiva === 'inicio'
   const mostrarPredios = seccionActiva === 'predios'
@@ -1007,64 +824,34 @@ function App() {
         </div>
 
         <nav className="menu">
-          <button
-            type="button"
-            className={seccionActiva === 'inicio' ? 'menu-item active' : 'menu-item'}
-            onClick={() => cambiarSeccion('inicio')}
-          >
-            <span>⌂</span>
-            Inicio
+          <button type="button" className={seccionActiva === 'inicio' ? 'menu-item active' : 'menu-item'} onClick={() => cambiarSeccion('inicio')}>
+            <span>⌂</span>Inicio
           </button>
 
-          <button
-            type="button"
-            className={seccionActiva === 'predios' ? 'menu-item active' : 'menu-item'}
-            onClick={() => cambiarSeccion('predios')}
-          >
-            <span>▦</span>
-            Predios
+          <button type="button" className={seccionActiva === 'predios' ? 'menu-item active' : 'menu-item'} onClick={() => cambiarSeccion('predios')}>
+            <span>▦</span>Predios
           </button>
 
-          <button
-            type="button"
-            className={seccionActiva === 'predial' ? 'menu-item active' : 'menu-item'}
-            onClick={() => cambiarSeccion('predial')}
-          >
-            <span>▣</span>
-            Predial
+          <button type="button" className={seccionActiva === 'predial' ? 'menu-item active' : 'menu-item'} onClick={() => cambiarSeccion('predial')}>
+            <span>▣</span>Predial
           </button>
 
-          <button
-            type="button"
-            className={seccionActiva === 'arriendos' ? 'menu-item active' : 'menu-item'}
-            onClick={() => cambiarSeccion('arriendos')}
-          >
-            <span>≡</span>
-            Arriendos
+          <button type="button" className={seccionActiva === 'arriendos' ? 'menu-item active' : 'menu-item'} onClick={() => cambiarSeccion('arriendos')}>
+            <span>≡</span>Arriendos
           </button>
 
-          <button
-            type="button"
-            className={seccionActiva === 'estados' ? 'menu-item active' : 'menu-item'}
-            onClick={() => cambiarSeccion('estados')}
-          >
-            <span>□</span>
-            Estados de cuenta
+          <button type="button" className={seccionActiva === 'estados' ? 'menu-item active' : 'menu-item'} onClick={() => cambiarSeccion('estados')}>
+            <span>□</span>Estados de cuenta
           </button>
 
-          <button
-            type="button"
-            className={seccionActiva === 'reportes' ? 'menu-item active' : 'menu-item'}
-            onClick={() => cambiarSeccion('reportes')}
-          >
-            <span>▥</span>
-            Reportes
+          <button type="button" className={seccionActiva === 'reportes' ? 'menu-item active' : 'menu-item'} onClick={() => cambiarSeccion('reportes')}>
+            <span>▥</span>Reportes
           </button>
         </nav>
       </aside>
 
       <main className="main">
-        <section ref={inicioRef} className="hero-card no-print">
+        <section className="hero-card no-print">
           <div className="hero-content">
             <div className="hero-logo-box">
               <img src="/logo-inh.png" alt="Logo INH" />
@@ -1080,82 +867,28 @@ function App() {
           </div>
 
           <div className="hero-actions">
-            <button
-              className="btn-primary"
-              onClick={() => {
-                cerrarFormularios()
-                setSeccionActiva('predios')
-                setMostrarFormularioPredio(true)
-                irASeccion(predioRef)
-              }}
-            >
-              <span>+</span>
-              Nuevo predio
+            <button className="btn-primary" onClick={() => abrirFormulario('predios', 'predio')}>
+              <span>+</span>Nuevo predio
             </button>
 
-            <button
-              className="btn-gold"
-              onClick={() => {
-                cerrarFormularios()
-                setSeccionActiva('arriendos')
-                setMostrarFormularioArriendo(true)
-                irASeccion(arriendoRef)
-              }}
-            >
-              <span>+</span>
-              Contrato arriendo
+            <button className="btn-gold" onClick={() => abrirFormulario('arriendos', 'contrato')}>
+              <span>+</span>Contrato arriendo
             </button>
 
-            <button
-              className="btn-gold"
-              onClick={() => {
-                cerrarFormularios()
-                setSeccionActiva('arriendos')
-                setMostrarFormularioPagoArriendo(true)
-                irASeccion(pagoArriendoRef)
-              }}
-            >
-              <span>+</span>
-              Pago arriendo
+            <button className="btn-gold" onClick={() => abrirFormulario('arriendos', 'pagoArriendo')}>
+              <span>+</span>Pago arriendo
             </button>
 
-            <button
-              className="btn-gold"
-              onClick={() => {
-                cerrarFormularios()
-                setSeccionActiva('arriendos')
-                setMostrarFormularioIncrementoArriendo(true)
-                irASeccion(incrementoArriendoRef)
-              }}
-            >
-              <span>+</span>
-              Actualizar incremento
+            <button className="btn-gold" onClick={() => abrirFormulario('arriendos', 'incremento')}>
+              <span>+</span>Actualizar incremento
             </button>
 
-            <button
-              className="btn-gold"
-              onClick={() => {
-                cerrarFormularios()
-                setSeccionActiva('predial')
-                setMostrarFormularioValorPredial(true)
-                irASeccion(valorAnualRef)
-              }}
-            >
-              <span>+</span>
-              Valor anual predial
+            <button className="btn-gold" onClick={() => abrirFormulario('predial', 'valorPredial')}>
+              <span>+</span>Valor anual predial
             </button>
 
-            <button
-              className="btn-gold"
-              onClick={() => {
-                cerrarFormularios()
-                setSeccionActiva('predial')
-                setMostrarFormularioPredial(true)
-                irASeccion(pagoPredialRef)
-              }}
-            >
-              <span>+</span>
-              Pago predial
+            <button className="btn-gold" onClick={() => abrirFormulario('predial', 'pagoPredial')}>
+              <span>+</span>Pago predial
             </button>
           </div>
         </section>
@@ -1175,37 +908,37 @@ function App() {
           <section className="cards no-print">
             <div className="stat-card">
               <div className="stat-icon">▦</div>
-              <h3>Total predios</h3>
+              <h3>Predios existentes</h3>
               <strong>{predios.length}</strong>
-              <p>Predios registrados</p>
+              <p>Total de predios registrados</p>
             </div>
 
-            <div className="stat-card">
-              <div className="stat-icon">◎</div>
-              <h3>Propietarios</h3>
-              <strong>{propietarios.length}</strong>
-              <p>Propietarios registrados</p>
-            </div>
-
-            <div className="stat-card">
-              <div className="stat-icon">≡</div>
-              <h3>Arriendos activos</h3>
-              <strong>{contratosArriendo.filter((c) => c.estado === 'Activo').length}</strong>
-              <p>{formatearDinero(totalCanonActivo)} canon base</p>
-            </div>
-
-            <div className="stat-card">
+            <div className="stat-card pending-card">
               <div className="stat-icon">$</div>
-              <h3>Pagos arriendo</h3>
-              <strong className="money">{formatearDinero(totalPagadoArriendos)}</strong>
-              <p>Total pagado por arriendos</p>
+              <h3>Saldo arriendos</h3>
+              <strong className="money">{formatearDinero(saldoPendienteArriendos)}</strong>
+              <p>Pendiente por cobrar</p>
             </div>
 
-            <div className="stat-card">
+            <div className="stat-card pending-card">
               <div className="stat-icon">▣</div>
-              <h3>Pagos prediales</h3>
-              <strong className="money">{formatearDinero(totalPagadoPredial)}</strong>
-              <p>Total pagado</p>
+              <h3>Saldo predial</h3>
+              <strong className="money">{formatearDinero(saldoPendientePredial)}</strong>
+              <p>Pendiente por pagar o actualizar</p>
+            </div>
+
+            <div className="stat-card pending-card">
+              <div className="stat-icon">!</div>
+              <h3>Prediales sin actualizar</h3>
+              <strong>
+                {
+                  extractosPrediales.filter(
+                    (extracto) =>
+                      extracto.resumen.estadoGeneral === 'Pendiente de actualización'
+                  ).length
+                }
+              </strong>
+              <p>Predios que requieren actualizar valor anual</p>
             </div>
           </section>
         )}
@@ -1213,7 +946,7 @@ function App() {
         {mostrarPredios && (
           <>
             {mostrarFormularioPredio && (
-              <section ref={predioRef} className="form-panel no-print">
+              <section className="form-panel no-print">
                 <div className="section-title">
                   <div className="section-icon">▦</div>
                   <h2>Registro de nuevo inmueble</h2>
@@ -1228,7 +961,7 @@ function App() {
 
                   <div className="form-group">
                     <label>Código del predio</label>
-                    <input type="text" value={codigoPredio} readOnly placeholder="Se genera automáticamente" />
+                    <input type="text" value={codigoPredioAutomatico()} readOnly placeholder="Se genera automáticamente" />
                   </div>
 
                   <div className="form-group">
@@ -1267,12 +1000,12 @@ function App() {
 
                   <div className="form-group">
                     <label>Nombre propietario</label>
-                    <input type="text" value={nombreTempPropietario} onChange={(e) => setNombreTempPropietario(e.target.value)} />
+                    <input type="text" value={nombrePropietarioTemp} onChange={(e) => setNombrePropietarioTemp(e.target.value)} />
                   </div>
 
                   <div className="form-group">
                     <label>Tipo documento</label>
-                    <select value={tipoDocTempPropietario} onChange={(e) => setTipoDocTempPropietario(e.target.value)}>
+                    <select value={tipoDocPropietarioTemp} onChange={(e) => setTipoDocPropietarioTemp(e.target.value)}>
                       <option>Cédula de ciudadanía</option>
                       <option>NIT</option>
                       <option>Cédula de extranjería</option>
@@ -1282,22 +1015,22 @@ function App() {
 
                   <div className="form-group">
                     <label>Número documento</label>
-                    <input type="text" value={docTempPropietario} onChange={(e) => setDocTempPropietario(e.target.value)} />
+                    <input type="text" value={docPropietarioTemp} onChange={(e) => setDocPropietarioTemp(e.target.value)} />
                   </div>
 
                   <div className="form-group">
                     <label>Teléfono</label>
-                    <input type="text" value={telTempPropietario} onChange={(e) => setTelTempPropietario(e.target.value)} />
+                    <input type="text" value={telefonoPropietarioTemp} onChange={(e) => setTelefonoPropietarioTemp(e.target.value)} />
                   </div>
 
                   <div className="form-group">
                     <label>Correo</label>
-                    <input type="email" value={correoTempPropietario} onChange={(e) => setCorreoTempPropietario(e.target.value)} />
+                    <input type="email" value={correoPropietarioTemp} onChange={(e) => setCorreoPropietarioTemp(e.target.value)} />
                   </div>
 
                   <div className="form-group">
                     <label>Porcentaje</label>
-                    <input type="number" value={porcentajeTempPropietario} onChange={(e) => setPorcentajeTempPropietario(e.target.value)} />
+                    <input type="number" value={porcentajePropietarioTemp} onChange={(e) => setPorcentajePropietarioTemp(e.target.value)} />
                   </div>
 
                   <div className="form-actions full">
@@ -1308,12 +1041,8 @@ function App() {
 
                   <div className="temp-owners full">
                     <h3>Propietarios agregados</h3>
-                    <p>Total asignado: <strong>{totalTemporalPropietarios}%</strong></p>
-                    <p>Falta por asignar: <strong>{porcentajeFaltante}%</strong></p>
-
-                    {propietariosTemporales.length === 0 && (
-                      <p>No hay propietarios agregados todavía.</p>
-                    )}
+                    <p>Total asignado: <strong>{totalPorcentajeTemporal}%</strong></p>
+                    <p>Falta por asignar: <strong>{100 - totalPorcentajeTemporal}%</strong></p>
 
                     {propietariosTemporales.map((propietario, index) => (
                       <div className="temp-owner-row" key={index}>
@@ -1358,7 +1087,7 @@ function App() {
 
                   <div className="form-group full">
                     <label>Observaciones del predio</label>
-                    <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)}></textarea>
+                    <textarea value={observacionesPredio} onChange={(e) => setObservacionesPredio(e.target.value)}></textarea>
                   </div>
 
                   <div className="form-actions full">
@@ -1374,7 +1103,7 @@ function App() {
               </section>
             )}
 
-            <section className="rent-increments-panel no-print">
+            <section className="panel no-print">
               <div className="section-title">
                 <div className="section-icon">▦</div>
                 <h2>Predios registrados</h2>
@@ -1410,11 +1139,7 @@ function App() {
                           </span>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className="btn-small"
-                            onClick={() => setPredioSeleccionado(predio)}
-                          >
+                          <button type="button" className="btn-small" onClick={() => setPredioSeleccionado(predio)}>
                             Ver predio
                           </button>
                         </td>
@@ -1426,58 +1151,49 @@ function App() {
             </section>
 
             {predioSeleccionado && (
-              <section className="property-detail-panel no-print">
+              <section className="panel no-print">
                 <div className="section-title">
                   <div className="section-icon">▦</div>
                   <h2>Detalle del predio</h2>
                 </div>
 
-                <div className="contract-detail-grid">
+                <div className="detail-grid">
                   <div>
                     <span>Código del predio</span>
                     <strong>{predioSeleccionado.codigo}</strong>
                   </div>
-
                   <div>
                     <span>Ciudad</span>
                     <strong>{predioSeleccionado.ciudad}</strong>
                   </div>
-
                   <div>
                     <span>Barrio</span>
                     <strong>{predioSeleccionado.barrio}</strong>
                   </div>
-
                   <div>
                     <span>Dirección</span>
                     <strong>{predioSeleccionado.direccion}</strong>
                   </div>
-
                   <div>
                     <span>Matrícula inmobiliaria</span>
                     <strong>{predioSeleccionado.matricula || 'Sin registrar'}</strong>
                   </div>
-
                   <div>
                     <span>CHIP</span>
                     <strong>{predioSeleccionado.chip || 'Sin registrar'}</strong>
                   </div>
-
                   <div>
                     <span>Cédula catastral</span>
                     <strong>{predioSeleccionado.cedulaCatastral || 'Sin registrar'}</strong>
                   </div>
-
                   <div>
                     <span>Estado</span>
                     <strong>{predioSeleccionado.estado}</strong>
                   </div>
-
                   <div>
                     <span>Año inicio predial</span>
                     <strong>{predioSeleccionado.anioInicioPredial || 'Sin registrar'}</strong>
                   </div>
-
                   <div className="full-detail">
                     <span>Observaciones</span>
                     <strong>{predioSeleccionado.observaciones || 'Sin observaciones'}</strong>
@@ -1500,7 +1216,6 @@ function App() {
                         <th>Participación</th>
                       </tr>
                     </thead>
-
                     <tbody>
                       {propietarios
                         .filter((propietario) => propietario.codigoPredio === predioSeleccionado.codigo)
@@ -1510,11 +1225,7 @@ function App() {
                             <td>{propietario.tipoDocumento} - {propietario.numeroDocumento}</td>
                             <td>{propietario.telefono}</td>
                             <td>{propietario.correo}</td>
-                            <td>
-                              <span className="status active">
-                                {propietario.porcentaje}%
-                              </span>
-                            </td>
+                            <td><span className="status active">{propietario.porcentaje}%</span></td>
                           </tr>
                         ))}
                     </tbody>
@@ -1522,18 +1233,14 @@ function App() {
                 </div>
 
                 <div className="form-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setPredioSeleccionado(null)}
-                  >
+                  <button type="button" className="btn-secondary" onClick={() => setPredioSeleccionado(null)}>
                     Cerrar detalle
                   </button>
                 </div>
               </section>
             )}
 
-            <section className="rent-increments-panel no-print">
+            <section className="panel no-print">
               <div className="section-title">
                 <div className="section-icon">◎</div>
                 <h2>Propietarios por predio</h2>
@@ -1551,7 +1258,6 @@ function App() {
                       <th>Porcentaje</th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {propietarios.map((propietario, index) => (
                       <tr key={index}>
@@ -1570,8 +1276,45 @@ function App() {
           </>
         )}
 
+        {mostrarArriendos && (
+          <section className="panel no-print">
+            <div className="section-title">
+              <div className="section-icon">≡</div>
+              <h2>Módulo de arriendos</h2>
+            </div>
+            <p className="form-description">
+              Este módulo conserva contratos, pagos, incrementos y estados de cuenta de arriendos.
+            </p>
+          </section>
+        )}
+
+        {mostrarPredial && (
+          <section className="panel no-print">
+            <div className="section-title">
+              <div className="section-icon">▣</div>
+              <h2>Módulo predial</h2>
+            </div>
+            <p className="form-description">
+              Aquí se registran valores anuales, pagos prediales e historial predial.
+            </p>
+          </section>
+        )}
+
+        {mostrarEstados && (
+          <>
+            <ExtractosPrediales
+              extractosPrediales={extractosPrediales}
+              formatearDinero={formatearDinero}
+            />
+            <ExtractosArriendo
+              extractosArriendo={extractosArriendo}
+              formatearDinero={formatearDinero}
+            />
+          </>
+        )}
+
         {mostrarReportes && (
-          <section className="rent-increments-panel no-print">
+          <section className="panel no-print">
             <div className="section-title">
               <div className="section-icon">▥</div>
               <h2>Reportes de saldos pendientes</h2>
@@ -1590,34 +1333,18 @@ function App() {
                 <p>Total de predios registrados</p>
               </div>
 
-              <div className="stat-card">
+              <div className="stat-card pending-card">
                 <div className="stat-icon">$</div>
                 <h3>Saldo arriendos</h3>
-                <strong className="money">
-                  {formatearDinero(
-                    extractosArriendo.reduce(
-                      (total, extracto) =>
-                        total + Number(extracto.resumen.saldoDeudaTotal || 0),
-                      0
-                    )
-                  )}
-                </strong>
+                <strong className="money">{formatearDinero(saldoPendienteArriendos)}</strong>
                 <p>Arriendos pendientes por pagar</p>
               </div>
 
-              <div className="stat-card">
+              <div className="stat-card pending-card">
                 <div className="stat-icon">▣</div>
                 <h3>Saldo predial</h3>
-                <strong className="money">
-                  {formatearDinero(
-                    extractosPrediales.reduce(
-                      (total, extracto) =>
-                        total + Number(extracto.resumen.saldoPendiente || 0),
-                      0
-                    )
-                  )}
-                </strong>
-                <p>Prediales pendientes por pagar</p>
+                <strong className="money">{formatearDinero(saldoPendientePredial)}</strong>
+                <p>Prediales pendientes por pagar o actualizar</p>
               </div>
             </div>
           </section>
@@ -1630,6 +1357,240 @@ function App() {
         </div>
       </main>
     </div>
+  )
+}
+
+function ExtractosPrediales({ extractosPrediales, formatearDinero }) {
+  return (
+    <section className="extracts-container">
+      <div className="section-title no-print">
+        <div className="section-icon">□</div>
+        <h2>Estados de cuenta predial</h2>
+      </div>
+
+      {extractosPrediales.map((extracto, index) => (
+        <article className="extracto-card" key={index}>
+          <div className="extracto-header">
+            <div>
+              <h2>Estado de Cuenta Predial</h2>
+              <h3>Predio: {extracto.predio.codigo}</h3>
+              <p>Fecha de generación: <strong>{new Date().toLocaleDateString('es-CO')}</strong></p>
+            </div>
+
+            <div className="extracto-logo-box">
+              <img src="/logo-inh.png" alt="INH Constructores" />
+            </div>
+          </div>
+
+          <div className="extracto-info">
+            <div><span>Ciudad</span><strong>{extracto.predio.ciudad}</strong></div>
+            <div><span>Barrio</span><strong>{extracto.predio.barrio}</strong></div>
+            <div><span>Dirección</span><strong>{extracto.predio.direccion}</strong></div>
+            <div><span>Matrícula</span><strong>{extracto.predio.matricula || 'Sin registrar'}</strong></div>
+            <div><span>CHIP</span><strong>{extracto.predio.chip || 'Sin registrar'}</strong></div>
+            <div><span>Cédula catastral</span><strong>{extracto.predio.cedulaCatastral || 'Sin registrar'}</strong></div>
+          </div>
+
+          <div className="extracto-propietarios">
+            <h3>Propietarios del inmueble</h3>
+
+            <table className="propietarios-extracto-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Documento</th>
+                  <th>Teléfono</th>
+                  <th>Correo</th>
+                  <th>Participación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extracto.propietarios.map((propietario, propietarioIndex) => (
+                  <tr key={propietarioIndex}>
+                    <td>{propietario.nombre}</td>
+                    <td>{propietario.tipoDocumento} - {propietario.numeroDocumento}</td>
+                    <td>{propietario.telefono}</td>
+                    <td>{propietario.correo}</td>
+                    <td>{propietario.porcentaje}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <p className="total-participacion">
+              Total participación registrada: <strong>{extracto.totalParticipacion}%</strong>
+            </p>
+          </div>
+
+          <div className="resumen-extracto">
+            <div><span>Total impuesto</span><strong>{formatearDinero(extracto.resumen.totalImpuesto)}</strong></div>
+            <div><span>Total descuentos</span><strong>{formatearDinero(extracto.resumen.totalDescuento)}</strong></div>
+            <div><span>Total intereses</span><strong>{formatearDinero(extracto.resumen.totalIntereses)}</strong></div>
+            <div><span>Total pagado</span><strong>{formatearDinero(extracto.resumen.totalPagado)}</strong></div>
+            <div><span>Saldo pendiente</span><strong>{formatearDinero(extracto.resumen.saldoPendiente)}</strong></div>
+            <div><span>Estado general</span><strong>{extracto.resumen.estadoGeneral}</strong></div>
+          </div>
+
+          <div className="extracto-actions no-print">
+            <button className="btn-primary" onClick={() => window.print()}>
+              Imprimir estado de cuenta predial
+            </button>
+          </div>
+
+          <div className="extracto-table-wrapper">
+            <table className="extracto-table">
+              <thead>
+                <tr>
+                  <th>Año</th>
+                  <th>Fecha límite</th>
+                  <th>Fecha pago</th>
+                  <th>Recibo</th>
+                  <th>Valor a pagar</th>
+                  <th>Descuento</th>
+                  <th>Intereses</th>
+                  <th>Valor pagado</th>
+                  <th>Saldo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extracto.movimientos.map((movimiento, movIndex) => (
+                  <tr key={movIndex}>
+                    <td>{movimiento.anio}</td>
+                    <td>{movimiento.fechaLimite}</td>
+                    <td>{movimiento.fechaPago}</td>
+                    <td>{movimiento.recibo}</td>
+                    <td>{movimiento.valorAPagar === null ? 'Sin registrar' : formatearDinero(movimiento.valorAPagar)}</td>
+                    <td>{formatearDinero(movimiento.descuento)}</td>
+                    <td>{formatearDinero(movimiento.intereses)}</td>
+                    <td>{formatearDinero(movimiento.valorPagado)}</td>
+                    <td>{movimiento.saldoPendiente === null ? 'Sin registrar' : formatearDinero(movimiento.saldoPendiente)}</td>
+                    <td>
+                      <span
+                        className={
+                          movimiento.estadoMovimiento === 'Pagado / Al día'
+                            ? 'status active'
+                            : movimiento.estadoMovimiento === 'Falta actualizar valor'
+                            ? 'status inactive'
+                            : 'status warning'
+                        }
+                      >
+                        {movimiento.estadoMovimiento}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      ))}
+    </section>
+  )
+}
+
+function ExtractosArriendo({ extractosArriendo, formatearDinero }) {
+  return (
+    <section className="extracts-container">
+      <div className="section-title no-print">
+        <div className="section-icon">$</div>
+        <h2>Estados de cuenta de arriendos</h2>
+      </div>
+
+      {extractosArriendo.map((extracto, index) => (
+        <article className="extracto-card" key={index}>
+          <div className="extracto-header">
+            <div>
+              <h2>Estado de Cuenta de Arriendo</h2>
+              <h3>Predio: {extracto.contrato.codigoPredio}</h3>
+              <p>Fecha de generación: <strong>{new Date().toLocaleDateString('es-CO')}</strong></p>
+            </div>
+
+            <div className="extracto-logo-box">
+              <img src="/logo-inh.png" alt="INH Constructores" />
+            </div>
+          </div>
+
+          <div className="extracto-info">
+            <div><span>Arrendatario</span><strong>{extracto.contrato.arrendatario}</strong></div>
+            <div><span>Documento</span><strong>{extracto.contrato.tipoDocumento} - {extracto.contrato.numeroDocumento}</strong></div>
+            <div><span>Teléfono</span><strong>{extracto.contrato.telefono}</strong></div>
+            <div><span>Correo</span><strong>{extracto.contrato.correo}</strong></div>
+            <div><span>Canon inicial</span><strong>{formatearDinero(extracto.contrato.canonMensual)}</strong></div>
+            <div><span>Incremento defecto</span><strong>{extracto.contrato.incrementoAnual}%</strong></div>
+            <div><span>IVA</span><strong>{extracto.contrato.aplicaIva === 'Sí' ? 'Sí - 19%' : 'No aplica'}</strong></div>
+            <div><span>Fecha inicio</span><strong>{extracto.contrato.fechaInicio}</strong></div>
+            <div><span>Fecha finalización</span><strong>{extracto.contrato.fechaFin || 'Sin fecha'}</strong></div>
+          </div>
+
+          <div className="resumen-extracto">
+            <div><span>Total canon base</span><strong>{formatearDinero(extracto.resumen.totalCanonBase)}</strong></div>
+            <div><span>Total IVA</span><strong>{formatearDinero(extracto.resumen.totalIva)}</strong></div>
+            <div><span>Total causado</span><strong>{formatearDinero(extracto.resumen.totalCanonCausado)}</strong></div>
+            <div><span>Total pagado</span><strong>{formatearDinero(extracto.resumen.totalPagado)}</strong></div>
+            <div><span>Saldo deuda</span><strong>{formatearDinero(extracto.resumen.saldoDeudaTotal)}</strong></div>
+            <div><span>Estado general</span><strong>{extracto.resumen.estadoGeneral}</strong></div>
+          </div>
+
+          <div className="extracto-actions no-print">
+            <button className="btn-primary" onClick={() => window.print()}>
+              Imprimir estado de cuenta de arriendo
+            </button>
+          </div>
+
+          <div className="extracto-table-wrapper">
+            <table className="extracto-table">
+              <thead>
+                <tr>
+                  <th>Mes</th>
+                  <th>Fecha pago</th>
+                  <th>Recibo</th>
+                  <th>Canon base</th>
+                  <th>Incremento</th>
+                  <th>IVA</th>
+                  <th>Canon causado</th>
+                  <th>Pagado</th>
+                  <th>Mora</th>
+                  <th>Descuento</th>
+                  <th>Saldo deuda</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extracto.movimientos.map((movimiento, movIndex) => (
+                  <tr key={movIndex}>
+                    <td>{movimiento.mes}</td>
+                    <td>{movimiento.fechaPago}</td>
+                    <td>{movimiento.recibo}</td>
+                    <td>{formatearDinero(movimiento.canonBase)}</td>
+                    <td>{movimiento.incrementoAplicado}%</td>
+                    <td>{formatearDinero(movimiento.iva)}</td>
+                    <td>{formatearDinero(movimiento.canonCausado)}</td>
+                    <td>{formatearDinero(movimiento.pagado)}</td>
+                    <td>{formatearDinero(movimiento.mora)}</td>
+                    <td>{formatearDinero(movimiento.descuento)}</td>
+                    <td>{formatearDinero(movimiento.saldoDeuda)}</td>
+                    <td>
+                      <span
+                        className={
+                          movimiento.estadoMovimiento === 'Pagado'
+                            ? 'status active'
+                            : movimiento.estadoMovimiento === 'Pendiente'
+                            ? 'status inactive'
+                            : 'status warning'
+                        }
+                      >
+                        {movimiento.estadoMovimiento}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      ))}
+    </section>
   )
 }
 
