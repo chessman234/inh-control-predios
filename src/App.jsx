@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 
 function App() {
@@ -15,6 +15,7 @@ function App() {
 
   const [predioSeleccionado, setPredioSeleccionado] = useState(null)
   const [contratoSeleccionado, setContratoSeleccionado] = useState(null)
+  const [busquedaGeneral, setBusquedaGeneral] = useState('')
 
   const [ciudad, setCiudad] = useState('')
   const [barrio, setBarrio] = useState('')
@@ -498,9 +499,10 @@ function App() {
       observaciones: observacionesContrato,
     }
 
-    setContratosArriendo([nuevoContrato, ...contratosArriendo])
-    limpiarFormularioContrato()
-    setMostrarFormularioContrato(false)
+   setContratosArriendo([nuevoContrato, ...contratosArriendo])
+limpiarFormularioContrato()
+setMostrarFormularioContrato(true)
+alert('Contrato guardado correctamente. El formulario quedó limpio para registrar otro contrato.')
   }
 
   const limpiarFormularioPagoArriendo = () => {
@@ -808,6 +810,75 @@ function App() {
       mensaje: extracto.resumen.estadoGeneral,
     }))
 
+  const textoBusqueda = busquedaGeneral.trim().toLowerCase()
+
+const resultadosBusqueda = textoBusqueda
+  ? (() => {
+      const coincide = (valor) =>
+        String(valor || '').toLowerCase().includes(textoBusqueda)
+
+      const codigosPrediosEncontrados = new Set()
+
+      predios.forEach((predio) => {
+        if (
+          coincide(predio.codigo) ||
+          coincide(predio.ciudad) ||
+          coincide(predio.barrio) ||
+          coincide(predio.direccion) ||
+          coincide(predio.matricula) ||
+          coincide(predio.chip) ||
+          coincide(predio.cedulaCatastral)
+        ) {
+          codigosPrediosEncontrados.add(predio.codigo)
+        }
+      })
+
+      propietarios.forEach((propietario) => {
+        if (
+          coincide(propietario.nombre) ||
+          coincide(propietario.tipoDocumento) ||
+          coincide(propietario.numeroDocumento) ||
+          coincide(propietario.telefono) ||
+          coincide(propietario.correo) ||
+          coincide(propietario.codigoPredio)
+        ) {
+          codigosPrediosEncontrados.add(propietario.codigoPredio)
+        }
+      })
+
+      contratosArriendo.forEach((contrato) => {
+        if (
+          coincide(contrato.codigoPredio) ||
+          coincide(contrato.arrendatario) ||
+          coincide(contrato.tipoDocumento) ||
+          coincide(contrato.numeroDocumento) ||
+          coincide(contrato.telefono) ||
+          coincide(contrato.correo) ||
+          coincide(contrato.estado)
+        ) {
+          codigosPrediosEncontrados.add(contrato.codigoPredio)
+        }
+      })
+
+      const codigos = Array.from(codigosPrediosEncontrados)
+
+      return {
+        predios: predios.filter((predio) => codigos.includes(predio.codigo)),
+        propietarios: propietarios.filter((propietario) =>
+          codigos.includes(propietario.codigoPredio)
+        ),
+        contratos: contratosArriendo.filter((contrato) =>
+          codigos.includes(contrato.codigoPredio)
+        ),
+        pagosArriendo: pagosArriendo.filter((pago) =>
+          codigos.includes(pago.codigoPredio)
+        ),
+        pagosPrediales: pagosPrediales.filter((pago) =>
+          codigos.includes(pago.codigoPredio)
+        ),
+      }
+    })()
+  : null  
   const mostrarInicio = seccionActiva === 'inicio'
   const mostrarPredios = seccionActiva === 'predios'
   const mostrarPredial = seccionActiva === 'predial'
@@ -892,6 +963,223 @@ function App() {
             </button>
           </div>
         </section>
+        
+        <section className="panel no-print search-panel">
+  <div className="section-title">
+    <div className="section-icon">⌕</div>
+    <h2>Buscador general</h2>
+  </div>
+
+  <p className="form-description">
+    Busque por código, dirección, barrio, propietario, arrendatario, documento,
+    teléfono o correo. El sistema mostrará todos los datos relacionados.
+  </p>
+
+  <div className="search-box">
+    <input
+      type="text"
+      value={busquedaGeneral}
+      onChange={(e) => setBusquedaGeneral(e.target.value)}
+      placeholder="Ej: BOG-FON-0001, Fontibón, Carlos, cédula, dirección..."
+    />
+
+    {busquedaGeneral && (
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={() => setBusquedaGeneral('')}
+      >
+        Limpiar
+      </button>
+    )}
+  </div>
+
+  {resultadosBusqueda && (
+    <div className="search-results">
+      <div className="cards">
+        <div className="stat-card">
+          <div className="stat-icon">▦</div>
+          <h3>Predios encontrados</h3>
+          <strong>{resultadosBusqueda.predios.length}</strong>
+          <p>Coincidencias por predio</p>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon">◎</div>
+          <h3>Propietarios</h3>
+          <strong>{resultadosBusqueda.propietarios.length}</strong>
+          <p>Relacionados</p>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon">≡</div>
+          <h3>Contratos</h3>
+          <strong>{resultadosBusqueda.contratos.length}</strong>
+          <p>Relacionados</p>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon">$</div>
+          <h3>Pagos arriendo</h3>
+          <strong>{resultadosBusqueda.pagosArriendo.length}</strong>
+          <p>Registros encontrados</p>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon">▣</div>
+          <h3>Pagos predial</h3>
+          <strong>{resultadosBusqueda.pagosPrediales.length}</strong>
+          <p>Registros encontrados</p>
+        </div>
+      </div>
+
+      <div className="section-title report-section-title">
+        <div className="section-icon">▦</div>
+        <h2>Predios relacionados</h2>
+      </div>
+
+      <div className="simple-table-wrapper">
+        <table className="simple-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Ciudad</th>
+              <th>Barrio</th>
+              <th>Dirección</th>
+              <th>Matrícula</th>
+              <th>CHIP</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {resultadosBusqueda.predios.map((predio, index) => (
+              <tr key={index}>
+                <td>{predio.codigo}</td>
+                <td>{predio.ciudad}</td>
+                <td>{predio.barrio}</td>
+                <td>{predio.direccion}</td>
+                <td>{predio.matricula}</td>
+                <td>{predio.chip}</td>
+                <td>
+                  <span
+                    className={
+                      predio.estado === 'Activo'
+                        ? 'status active'
+                        : 'status inactive'
+                    }
+                  >
+                    {predio.estado}
+                  </span>
+                </td>
+              </tr>
+            ))}
+
+            {resultadosBusqueda.predios.length === 0 && (
+              <tr>
+                <td colSpan="7">No se encontraron predios relacionados.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="section-title report-section-title">
+        <div className="section-icon">◎</div>
+        <h2>Propietarios relacionados</h2>
+      </div>
+
+      <div className="simple-table-wrapper">
+        <table className="simple-table">
+          <thead>
+            <tr>
+              <th>Predio</th>
+              <th>Propietario</th>
+              <th>Documento</th>
+              <th>Teléfono</th>
+              <th>Correo</th>
+              <th>Participación</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {resultadosBusqueda.propietarios.map((propietario, index) => (
+              <tr key={index}>
+                <td>{propietario.codigoPredio}</td>
+                <td>{propietario.nombre}</td>
+                <td>
+                  {propietario.tipoDocumento} - {propietario.numeroDocumento}
+                </td>
+                <td>{propietario.telefono}</td>
+                <td>{propietario.correo}</td>
+                <td>{propietario.porcentaje}%</td>
+              </tr>
+            ))}
+
+            {resultadosBusqueda.propietarios.length === 0 && (
+              <tr>
+                <td colSpan="6">No se encontraron propietarios relacionados.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="section-title report-section-title">
+        <div className="section-icon">≡</div>
+        <h2>Contratos de arriendo relacionados</h2>
+      </div>
+
+      <div className="simple-table-wrapper">
+        <table className="simple-table">
+          <thead>
+            <tr>
+              <th>Predio</th>
+              <th>Arrendatario</th>
+              <th>Documento</th>
+              <th>Teléfono</th>
+              <th>Correo</th>
+              <th>Canon</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {resultadosBusqueda.contratos.map((contrato, index) => (
+              <tr key={index}>
+                <td>{contrato.codigoPredio}</td>
+                <td>{contrato.arrendatario}</td>
+                <td>
+                  {contrato.tipoDocumento} - {contrato.numeroDocumento}
+                </td>
+                <td>{contrato.telefono}</td>
+                <td>{contrato.correo}</td>
+                <td>{formatearDinero(contrato.canonMensual)}</td>
+                <td>
+                  <span
+                    className={
+                      contrato.estado === 'Activo'
+                        ? 'status active'
+                        : 'status inactive'
+                    }
+                  >
+                    {contrato.estado}
+                  </span>
+                </td>
+              </tr>
+            ))}
+
+            {resultadosBusqueda.contratos.length === 0 && (
+              <tr>
+                <td colSpan="7">No se encontraron contratos relacionados.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )}
+</section>
 
         {alertasPrediales.length > 0 && (mostrarInicio || mostrarPredial) && (
           <section className="alert-panel no-print">
@@ -1276,28 +1564,896 @@ function App() {
           </>
         )}
 
-        {mostrarArriendos && (
-          <section className="panel no-print">
-            <div className="section-title">
-              <div className="section-icon">≡</div>
-              <h2>Módulo de arriendos</h2>
-            </div>
-            <p className="form-description">
-              Este módulo conserva contratos, pagos, incrementos y estados de cuenta de arriendos.
-            </p>
-          </section>
-        )}
+{mostrarArriendos && (
+  <>
+    {mostrarFormularioContrato && (
+      <section className="form-panel no-print">
+        <div className="section-title">
+          <div className="section-icon">≡</div>
+          <h2>Registro de contrato de arriendo</h2>
+        </div>
+
+        <p className="form-description">
+          Registre el contrato base del predio, el canon inicial, el incremento anual y si aplica IVA del 19%.
+        </p>
+
+        <div className="property-form">
+          <div className="form-section-title full">Datos del predio</div>
+
+          <div className="form-group">
+            <label>Predio</label>
+            <select
+              value={codigoPredioContrato}
+              onChange={(e) => setCodigoPredioContrato(e.target.value)}
+            >
+              <option value="">Seleccione un predio</option>
+              {predios.map((predio, index) => (
+                <option key={index} value={predio.codigo}>
+                  {predio.codigo} - {predio.barrio}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-section-title full">Datos del arrendatario</div>
+
+          <div className="form-group">
+            <label>Nombre del arrendatario</label>
+            <input
+              type="text"
+              value={nombreArrendatario}
+              onChange={(e) => setNombreArrendatario(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Tipo documento</label>
+            <select
+              value={tipoDocArrendatario}
+              onChange={(e) => setTipoDocArrendatario(e.target.value)}
+            >
+              <option>Cédula de ciudadanía</option>
+              <option>NIT</option>
+              <option>Cédula de extranjería</option>
+              <option>Pasaporte</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Número documento</label>
+            <input
+              type="text"
+              value={docArrendatario}
+              onChange={(e) => setDocArrendatario(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Teléfono</label>
+            <input
+              type="text"
+              value={telefonoArrendatario}
+              onChange={(e) => setTelefonoArrendatario(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Correo</label>
+            <input
+              type="email"
+              value={correoArrendatario}
+              onChange={(e) => setCorreoArrendatario(e.target.value)}
+            />
+          </div>
+
+          <div className="form-section-title full">Datos económicos del contrato</div>
+
+          <div className="form-group">
+            <label>Canon mensual inicial</label>
+            <input
+              type="number"
+              value={canonMensual}
+              onChange={(e) => setCanonMensual(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Incremento anual por defecto (%)</label>
+            <input
+              type="number"
+              value={incrementoAnual}
+              onChange={(e) => setIncrementoAnual(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>¿Aplica IVA?</label>
+            <select value={aplicaIva} onChange={(e) => setAplicaIva(e.target.value)}>
+              <option>No</option>
+              <option>Sí</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>IVA aplicado</label>
+            <input type="text" value={aplicaIva === 'Sí' ? '19%' : 'No aplica'} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Fecha inicio</label>
+            <input
+              type="date"
+              value={fechaInicioContrato}
+              onChange={(e) => setFechaInicioContrato(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Fecha finalización</label>
+            <input
+              type="date"
+              value={fechaFinContrato}
+              onChange={(e) => setFechaFinContrato(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Depósito</label>
+            <input
+              type="number"
+              value={depositoContrato}
+              onChange={(e) => setDepositoContrato(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Estado del contrato</label>
+            <select value={estadoContrato} onChange={(e) => setEstadoContrato(e.target.value)}>
+              <option>Activo</option>
+              <option>Finalizado</option>
+              <option>Suspendido</option>
+            </select>
+          </div>
+
+          <div className="form-group full">
+            <label>Observaciones</label>
+            <textarea
+              value={observacionesContrato}
+              onChange={(e) => setObservacionesContrato(e.target.value)}
+            ></textarea>
+          </div>
+
+          <div className="form-actions full">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setMostrarFormularioContrato(false)}
+            >
+              Cancelar
+            </button>
+
+            <button type="button" className="btn-primary" onClick={guardarContrato}>
+              Guardar contrato
+            </button>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {mostrarFormularioPagoArriendo && (
+      <section className="form-panel no-print">
+        <div className="section-title">
+          <div className="section-icon">$</div>
+          <h2>Registro de pago de arriendo</h2>
+        </div>
+
+        <p className="form-description">
+          El canon base, el incremento, el IVA y el canon causado se calculan automáticamente según el mes pagado.
+        </p>
+
+        <div className="property-form">
+          <div className="form-section-title full">Datos del pago</div>
+
+          <div className="form-group">
+            <label>Predio</label>
+            <select
+              value={codigoPredioPagoArriendo}
+              onChange={(e) => setCodigoPredioPagoArriendo(e.target.value)}
+            >
+              <option value="">Seleccione un predio</option>
+              {contratosArriendo
+                .filter((contrato) => contrato.estado === 'Activo')
+                .map((contrato, index) => (
+                  <option key={index} value={contrato.codigoPredio}>
+                    {contrato.codigoPredio} - {contrato.arrendatario}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Mes pagado</label>
+            <input
+              type="month"
+              value={mesPagoArriendo}
+              onChange={(e) => setMesPagoArriendo(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Fecha de pago</label>
+            <input
+              type="date"
+              value={fechaPagoArriendo}
+              onChange={(e) => setFechaPagoArriendo(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Canon base calculado</label>
+            <input type="text" value={formatearDinero(canonCalculado.canonBase)} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Incremento aplicado</label>
+            <input type="text" value={`${canonCalculado.incrementoAplicado}%`} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>IVA 19%</label>
+            <input type="text" value={formatearDinero(canonCalculado.iva)} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Canon causado</label>
+            <input type="text" value={formatearDinero(canonCalculado.canonCausado)} readOnly />
+          </div>
+
+          <div className="form-group">
+            <label>Valor pagado</label>
+            <input
+              type="number"
+              value={valorPagadoArriendo}
+              onChange={(e) => setValorPagadoArriendo(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Mora</label>
+            <input
+              type="number"
+              value={moraArriendo}
+              onChange={(e) => setMoraArriendo(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Descuento</label>
+            <input
+              type="number"
+              value={descuentoArriendo}
+              onChange={(e) => setDescuentoArriendo(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Medio de pago</label>
+            <select
+              value={medioPagoArriendo}
+              onChange={(e) => setMedioPagoArriendo(e.target.value)}
+            >
+              <option>Transferencia</option>
+              <option>Efectivo</option>
+              <option>Consignación</option>
+              <option>Nequi</option>
+              <option>Daviplata</option>
+              <option>Otro</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Número de recibo</label>
+            <input
+              type="text"
+              value={reciboPagoArriendo}
+              onChange={(e) => setReciboPagoArriendo(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group full">
+            <label>Observaciones</label>
+            <textarea
+              value={observacionesPagoArriendo}
+              onChange={(e) => setObservacionesPagoArriendo(e.target.value)}
+            ></textarea>
+          </div>
+
+          <div className="form-actions full">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setMostrarFormularioPagoArriendo(false)}
+            >
+              Cancelar
+            </button>
+
+            <button type="button" className="btn-primary" onClick={guardarPagoArriendo}>
+              Guardar pago de arriendo
+            </button>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {mostrarFormularioIncremento && (
+      <section className="form-panel no-print">
+        <div className="section-title">
+          <div className="section-icon">%</div>
+          <h2>Actualizar incremento anual de arriendo</h2>
+        </div>
+
+        <p className="form-description">
+          Registre el porcentaje de incremento para un año específico. No modifica años anteriores.
+        </p>
+
+        <div className="property-form">
+          <div className="form-section-title full">Incremento por año</div>
+
+          <div className="form-group">
+            <label>Predio</label>
+            <select
+              value={codigoPredioIncremento}
+              onChange={(e) => setCodigoPredioIncremento(e.target.value)}
+            >
+              <option value="">Seleccione un predio</option>
+              {contratosArriendo.map((contrato, index) => (
+                <option key={index} value={contrato.codigoPredio}>
+                  {contrato.codigoPredio} - {contrato.arrendatario}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Año de aplicación</label>
+            <input
+              type="number"
+              value={anioIncremento}
+              onChange={(e) => setAnioIncremento(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Nuevo porcentaje de incremento</label>
+            <input
+              type="number"
+              value={porcentajeIncremento}
+              onChange={(e) => setPorcentajeIncremento(e.target.value)}
+              placeholder="Ej: 12"
+            />
+          </div>
+
+          <div className="form-group full">
+            <label>Observaciones</label>
+            <textarea
+              value={observacionesIncremento}
+              onChange={(e) => setObservacionesIncremento(e.target.value)}
+            ></textarea>
+          </div>
+
+          <div className="form-actions full">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setMostrarFormularioIncremento(false)}
+            >
+              Cancelar
+            </button>
+
+            <button type="button" className="btn-primary" onClick={guardarIncremento}>
+              Guardar incremento
+            </button>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section className="panel no-print">
+      <div className="section-title">
+        <div className="section-icon">≡</div>
+        <h2>Contratos de arriendo</h2>
+      </div>
+
+      <div className="simple-table-wrapper">
+        <table className="simple-table">
+          <thead>
+            <tr>
+              <th>Predio</th>
+              <th>Arrendatario</th>
+              <th>Documento</th>
+              <th>Teléfono</th>
+              <th>Canon inicial</th>
+              <th>Incremento</th>
+              <th>IVA</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th>Estado</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {contratosArriendo.map((contrato, index) => (
+              <tr key={index}>
+                <td>{contrato.codigoPredio}</td>
+                <td>{contrato.arrendatario}</td>
+                <td>{contrato.tipoDocumento} - {contrato.numeroDocumento}</td>
+                <td>{contrato.telefono}</td>
+                <td>{formatearDinero(contrato.canonMensual)}</td>
+                <td>{contrato.incrementoAnual}%</td>
+                <td>{contrato.aplicaIva === 'Sí' ? 'Sí - 19%' : 'No'}</td>
+                <td>{contrato.fechaInicio}</td>
+                <td>{contrato.fechaFin || 'Sin fecha'}</td>
+                <td>
+                  <span className={contrato.estado === 'Activo' ? 'status active' : 'status inactive'}>
+                    {contrato.estado}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn-small"
+                    onClick={() => setContratoSeleccionado(contrato)}
+                  >
+                    Ver contrato
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    {contratoSeleccionado && (
+      <section className="panel no-print">
+        <div className="section-title">
+          <div className="section-icon">≡</div>
+          <h2>Detalle del contrato de arriendo</h2>
+        </div>
+
+        <div className="detail-grid">
+          <div>
+            <span>Predio</span>
+            <strong>{contratoSeleccionado.codigoPredio}</strong>
+          </div>
+
+          <div>
+            <span>Arrendatario</span>
+            <strong>{contratoSeleccionado.arrendatario}</strong>
+          </div>
+
+          <div>
+            <span>Documento</span>
+            <strong>
+              {contratoSeleccionado.tipoDocumento} - {contratoSeleccionado.numeroDocumento}
+            </strong>
+          </div>
+
+          <div>
+            <span>Teléfono</span>
+            <strong>{contratoSeleccionado.telefono}</strong>
+          </div>
+
+          <div>
+            <span>Correo</span>
+            <strong>{contratoSeleccionado.correo}</strong>
+          </div>
+
+          <div>
+            <span>Canon mensual inicial</span>
+            <strong>{formatearDinero(contratoSeleccionado.canonMensual)}</strong>
+          </div>
+
+          <div>
+            <span>Incremento anual por defecto</span>
+            <strong>{contratoSeleccionado.incrementoAnual}%</strong>
+          </div>
+
+          <div>
+            <span>IVA</span>
+            <strong>{contratoSeleccionado.aplicaIva === 'Sí' ? 'Sí - 19%' : 'No aplica'}</strong>
+          </div>
+
+          <div>
+            <span>Depósito</span>
+            <strong>{formatearDinero(contratoSeleccionado.deposito)}</strong>
+          </div>
+
+          <div>
+            <span>Fecha inicio</span>
+            <strong>{contratoSeleccionado.fechaInicio}</strong>
+          </div>
+
+          <div>
+            <span>Fecha finalización</span>
+            <strong>{contratoSeleccionado.fechaFin || 'Sin fecha'}</strong>
+          </div>
+
+          <div>
+            <span>Estado</span>
+            <strong>{contratoSeleccionado.estado}</strong>
+          </div>
+
+          <div className="full-detail">
+            <span>Observaciones</span>
+            <strong>{contratoSeleccionado.observaciones || 'Sin observaciones'}</strong>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setContratoSeleccionado(null)}
+          >
+            Cerrar detalle
+          </button>
+        </div>
+      </section>
+    )}
+
+    <section className="panel no-print">
+      <div className="section-title">
+        <div className="section-icon">$</div>
+        <h2>Historial de pagos de arriendo</h2>
+      </div>
+
+      <div className="simple-table-wrapper">
+        <table className="simple-table">
+          <thead>
+            <tr>
+              <th>Predio</th>
+              <th>Arrendatario</th>
+              <th>Mes</th>
+              <th>Fecha pago</th>
+              <th>Canon causado</th>
+              <th>Pagado</th>
+              <th>Mora</th>
+              <th>Descuento</th>
+              <th>Medio</th>
+              <th>Recibo</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {pagosArriendo.map((pago, index) => (
+              <tr key={index}>
+                <td>{pago.codigoPredio}</td>
+                <td>{pago.arrendatario}</td>
+                <td>{pago.mes}</td>
+                <td>{pago.fechaPago}</td>
+                <td>{formatearDinero(pago.canonCausado)}</td>
+                <td>{formatearDinero(pago.valorPagado)}</td>
+                <td>{formatearDinero(pago.mora)}</td>
+                <td>{formatearDinero(pago.descuento)}</td>
+                <td>{pago.medioPago}</td>
+                <td>{pago.recibo || 'Sin recibo'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section className="panel no-print">
+      <div className="section-title">
+        <div className="section-icon">%</div>
+        <h2>Historial de incrementos de arriendo</h2>
+      </div>
+
+      <div className="simple-table-wrapper">
+        <table className="simple-table">
+          <thead>
+            <tr>
+              <th>Predio</th>
+              <th>Año</th>
+              <th>Incremento</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {incrementosArriendo.map((incremento, index) => (
+              <tr key={index}>
+                <td>{incremento.codigoPredio}</td>
+                <td>{incremento.anio}</td>
+                <td>{incremento.porcentaje}%</td>
+                <td>{incremento.observaciones || 'Sin observaciones'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <ExtractosArriendo
+      extractosArriendo={extractosArriendo}
+      formatearDinero={formatearDinero}
+    />
+  </>
+)}
 
         {mostrarPredial && (
-          <section className="panel no-print">
-            <div className="section-title">
-              <div className="section-icon">▣</div>
-              <h2>Módulo predial</h2>
-            </div>
-            <p className="form-description">
-              Aquí se registran valores anuales, pagos prediales e historial predial.
-            </p>
-          </section>
+          <>
+            {mostrarFormularioValorPredial && (
+              <section className="form-panel no-print">
+                <div className="section-title">
+                  <div className="section-icon">▣</div>
+                  <h2>Registrar valor predial anual</h2>
+                </div>
+
+                <p className="form-description">
+                  Registre el valor anual del impuesto predial para cada predio. Este dato se usa para calcular saldos y estados de cuenta.
+                </p>
+
+                <div className="property-form">
+                  <div className="form-section-title full">Valor anual predial</div>
+
+                  <div className="form-group">
+                    <label>Predio</label>
+                    <select
+                      value={codigoPredioValorPredial}
+                      onChange={(e) => setCodigoPredioValorPredial(e.target.value)}
+                    >
+                      <option value="">Seleccione un predio</option>
+                      {predios.map((predio, index) => (
+                        <option key={index} value={predio.codigo}>
+                          {predio.codigo} - {predio.barrio}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Año</label>
+                    <input
+                      type="number"
+                      value={anioValorPredial}
+                      onChange={(e) => setAnioValorPredial(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Valor a pagar</label>
+                    <input
+                      type="number"
+                      value={valorPredialAnual}
+                      onChange={(e) => setValorPredialAnual(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Fecha límite de pago</label>
+                    <input
+                      type="date"
+                      value={fechaLimitePredial}
+                      onChange={(e) => setFechaLimitePredial(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-actions full">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setMostrarFormularioValorPredial(false)}
+                    >
+                      Cancelar
+                    </button>
+
+                    <button type="button" className="btn-primary" onClick={guardarValorPredial}>
+                      Guardar valor predial
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {mostrarFormularioPagoPredial && (
+              <section className="form-panel no-print">
+                <div className="section-title">
+                  <div className="section-icon">▣</div>
+                  <h2>Registro de pago predial</h2>
+                </div>
+
+                <p className="form-description">
+                  Registre el pago predial por año. Antes de registrar el pago debe existir el valor anual del predial.
+                </p>
+
+                <div className="property-form">
+                  <div className="form-section-title full">Datos del pago predial</div>
+
+                  <div className="form-group">
+                    <label>Predio</label>
+                    <select
+                      value={codigoPredioPagoPredial}
+                      onChange={(e) => setCodigoPredioPagoPredial(e.target.value)}
+                    >
+                      <option value="">Seleccione un predio</option>
+                      {predios.map((predio, index) => (
+                        <option key={index} value={predio.codigo}>
+                          {predio.codigo} - {predio.barrio}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Año</label>
+                    <input
+                      type="number"
+                      value={anioPagoPredial}
+                      onChange={(e) => setAnioPagoPredial(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Número de recibo</label>
+                    <input
+                      type="text"
+                      value={numeroReciboPredial}
+                      onChange={(e) => setNumeroReciboPredial(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Fecha de pago</label>
+                    <input
+                      type="date"
+                      value={fechaPagoPredial}
+                      onChange={(e) => setFechaPagoPredial(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Descuento</label>
+                    <input
+                      type="number"
+                      value={descuentoPredial}
+                      onChange={(e) => setDescuentoPredial(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Intereses</label>
+                    <input
+                      type="number"
+                      value={interesesPredial}
+                      onChange={(e) => setInteresesPredial(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Valor pagado</label>
+                    <input
+                      type="number"
+                      value={valorPagadoPredial}
+                      onChange={(e) => setValorPagadoPredial(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Estado del pago</label>
+                    <select
+                      value={estadoPagoPredial}
+                      onChange={(e) => setEstadoPagoPredial(e.target.value)}
+                    >
+                      <option>Pagado</option>
+                      <option>Pendiente</option>
+                      <option>En mora</option>
+                    </select>
+                  </div>
+
+                  <div className="form-actions full">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setMostrarFormularioPagoPredial(false)}
+                    >
+                      Cancelar
+                    </button>
+
+                    <button type="button" className="btn-primary" onClick={guardarPagoPredial}>
+                      Guardar pago predial
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <section className="panel no-print">
+              <div className="section-title">
+                <div className="section-icon">▣</div>
+                <h2>Valores prediales anuales</h2>
+              </div>
+
+              <div className="simple-table-wrapper">
+                <table className="simple-table">
+                  <thead>
+                    <tr>
+                      <th>Predio</th>
+                      <th>Año</th>
+                      <th>Valor impuesto</th>
+                      <th>Fecha límite</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {valoresPrediales.map((valor, index) => (
+                      <tr key={index}>
+                        <td>{valor.codigoPredio}</td>
+                        <td>{valor.anio}</td>
+                        <td>{formatearDinero(valor.valorImpuesto)}</td>
+                        <td>{valor.fechaLimite || 'Sin registrar'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="panel no-print">
+              <div className="section-title">
+                <div className="section-icon">▣</div>
+                <h2>Historial de pagos prediales</h2>
+              </div>
+
+              <div className="simple-table-wrapper">
+                <table className="simple-table">
+                  <thead>
+                    <tr>
+                      <th>Predio</th>
+                      <th>Año</th>
+                      <th>Recibo</th>
+                      <th>Fecha pago</th>
+                      <th>Descuento</th>
+                      <th>Intereses</th>
+                      <th>Valor pagado</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {pagosPrediales.map((pago, index) => (
+                      <tr key={index}>
+                        <td>{pago.codigoPredio}</td>
+                        <td>{pago.anio}</td>
+                        <td>{pago.numeroRecibo || 'Sin recibo'}</td>
+                        <td>{pago.fechaPago || 'Sin fecha'}</td>
+                        <td>{formatearDinero(pago.descuento)}</td>
+                        <td>{formatearDinero(pago.intereses)}</td>
+                        <td>{formatearDinero(pago.valorPagado)}</td>
+                        <td>
+                          <span className={pago.estado === 'Pagado' ? 'status active' : 'status warning'}>
+                            {pago.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <ExtractosPrediales
+              extractosPrediales={extractosPrediales}
+              formatearDinero={formatearDinero}
+            />
+          </>
         )}
 
         {mostrarEstados && (
