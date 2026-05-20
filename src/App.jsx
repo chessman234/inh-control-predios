@@ -1042,13 +1042,14 @@ const resultadosBusqueda = textoBusqueda
         <table className="simple-table">
           <thead>
             <tr>
-              <th>Código</th>
-              <th>Ciudad</th>
-              <th>Barrio</th>
-              <th>Dirección</th>
-              <th>Matrícula</th>
-              <th>CHIP</th>
-              <th>Estado</th>
+             <th>Código</th>
+             <th>Ciudad</th>
+             <th>Barrio</th>
+             <th>Dirección</th>
+             <th>Matrícula</th>
+             <th>CHIP</th>
+             <th>Estado</th>
+             <th>Acción</th>
             </tr>
           </thead>
 
@@ -1072,12 +1073,24 @@ const resultadosBusqueda = textoBusqueda
                     {predio.estado}
                   </span>
                 </td>
+                <td>
+                  <button
+                  type="button"
+                  className="btn-small"
+                  onClick={() => {
+                    setPredioSeleccionado(predio)
+                    setSeccionActiva('predios')
+                  }}
+                  >
+                    Ver predio
+                    </button>
+                    </td>
               </tr>
             ))}
 
             {resultadosBusqueda.predios.length === 0 && (
               <tr>
-                <td colSpan="7">No se encontraron predios relacionados.</td>
+                <td colSpan="8">No se encontraron predios relacionados.</td>
               </tr>
             )}
           </tbody>
@@ -1166,17 +1179,73 @@ const resultadosBusqueda = textoBusqueda
                     {contrato.estado}
                   </span>
                 </td>
+                <td>
+                  <button
+                  type="button"
+                  className="btn-small"
+                  onClick={() => {
+                    setContratoSeleccionado(contrato)
+                    setSeccionActiva('arriendos')
+                  }}
+                  >
+                    Ver contrato
+                    </button>
+                    </td>
               </tr>
             ))}
 
             {resultadosBusqueda.contratos.length === 0 && (
               <tr>
-                <td colSpan="7">No se encontraron contratos relacionados.</td>
+                <td colSpan="8">No se encontraron contratos relacionados.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      <div className="section-title report-section-title">
+  <div className="section-icon">$</div>
+  <h2>Pagos de arriendo relacionados</h2>
+</div>
+
+<div className="simple-table-wrapper">
+  <table className="simple-table">
+    <thead>
+      <tr>
+        <th>Predio</th>
+        <th>Arrendatario</th>
+        <th>Mes</th>
+        <th>Fecha pago</th>
+        <th>Canon causado</th>
+        <th>Pagado</th>
+        <th>Mora</th>
+        <th>Descuento</th>
+        <th>Recibo</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {resultadosBusqueda.pagosArriendo.map((pago, index) => (
+        <tr key={index}>
+          <td>{pago.codigoPredio}</td>
+          <td>{pago.arrendatario}</td>
+          <td>{pago.mes}</td>
+          <td>{pago.fechaPago}</td>
+          <td>{formatearDinero(pago.canonCausado)}</td>
+          <td>{formatearDinero(pago.valorPagado)}</td>
+          <td>{formatearDinero(pago.mora)}</td>
+          <td>{formatearDinero(pago.descuento)}</td>
+          <td>{pago.recibo || 'Sin recibo'}</td>
+        </tr>
+      ))}
+
+      {resultadosBusqueda.pagosArriendo.length === 0 && (
+        <tr>
+          <td colSpan="9">No se encontraron pagos de arriendo relacionados.</td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
     </div>
   )}
 </section>
