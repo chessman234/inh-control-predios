@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import './App.css'
+import logoInhUrl from './assets/logo-inh.png?url'
 
-const RUTA_PUBLICA = import.meta.env.BASE_URL
-const LOGO_INH = `${RUTA_PUBLICA}logo-inh.svg`
+const LOGO_INH = logoInhUrl
 const obtenerUrlAbsolutaLogoInh = () =>
-  new URL(LOGO_INH, window.location.origin).href
+  new URL(logoInhUrl, window.location.origin).href
 
 const STORAGE_KEY = 'inh-control-predios-v1'
 const PORCENTAJE_GASTOS_COBRANZA_DEFECTO = 10

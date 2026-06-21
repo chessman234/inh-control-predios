@@ -2,11 +2,9 @@ import { Component, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import logoInhUrl from './assets/logo-inh.png?url'
 
-document.documentElement.style.setProperty(
-  '--logo-inh-url',
-  `url("${import.meta.env.BASE_URL}logo-inh.svg")`
-)
+document.documentElement.style.setProperty('--logo-inh-url', `url("${logoInhUrl}")`)
 
 class ErrorBoundary extends Component {
   constructor(props) {
