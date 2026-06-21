@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import './App.css'
 
+const RUTA_PUBLICA = import.meta.env.BASE_URL
+const LOGO_INH = `${RUTA_PUBLICA}logo-inh.svg`
+const obtenerUrlAbsolutaLogoInh = () =>
+  new URL(LOGO_INH, window.location.origin).href
+
 const STORAGE_KEY = 'inh-control-predios-v1'
 const PORCENTAJE_GASTOS_COBRANZA_DEFECTO = 10
 const TIPOS_COMISION_DEPOSITO = ['Administración', 'Solo arrendar']
@@ -6391,7 +6396,7 @@ const imprimirListadoCorteRecibos = ({
             <p>INH Constructores · Control de Predios y Arriendos</p>
           </div>
           <div class="doc-logo">
-            <img src="${window.location.origin}/logo-inh.png" alt="INH Constructores" />
+            <img src="${obtenerUrlAbsolutaLogoInh()}" alt="INH Constructores" />
           </div>
         </header>
         <p class="doc-meta">
@@ -18339,7 +18344,7 @@ const resultadosBusqueda = textoBusqueda
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo-box">
-          <img src="/logo-inh.png" alt="INH Constructores" />
+          <img src={LOGO_INH} alt="INH Constructores" />
         </div>
 
        <h1>Acceso al Sistema</h1>
@@ -18384,7 +18389,7 @@ const resultadosBusqueda = textoBusqueda
     <div className="app">
       <aside className="sidebar no-print">
         <div className="brand-box">
-          <img src="/logo-inh.png" alt="INH Constructores" className="brand-logo" />
+          <img src={LOGO_INH} alt="INH Constructores" className="brand-logo" />
           <p>Control Predial</p>
         </div>
 
@@ -19248,7 +19253,7 @@ const resultadosBusqueda = textoBusqueda
 )}
           <div className="hero-content">
             <div className="hero-logo-box">
-              <img src="/logo-inh.png" alt="Logo INH" />
+              <img src={LOGO_INH} alt="Logo INH" />
             </div>
 
             <div>
@@ -23551,7 +23556,7 @@ const resultadosBusqueda = textoBusqueda
                           </p>
                         </div>
                         <div className="extracto-logo-box">
-                          <img src="/logo-inh.png" alt="INH Constructores" />
+                          <img src={LOGO_INH} alt="INH Constructores" />
                         </div>
                       </div>
 
@@ -24473,7 +24478,7 @@ const resultadosBusqueda = textoBusqueda
                       </div>
 
                       <div className="estado-cuenta-logo">
-                        <img src="/logo-inh.png" alt="INH Constructores" />
+                        <img src={LOGO_INH} alt="INH Constructores" />
                       </div>
                     </div>
 
@@ -26932,7 +26937,7 @@ const resultadosBusqueda = textoBusqueda
           </div>
 
           <div className="estado-cuenta-logo">
-            <img src="/logo-inh.png" alt="INH Constructores" />
+            <img src={LOGO_INH} alt="INH Constructores" />
           </div>
         </div>
 
@@ -31645,7 +31650,7 @@ function ExtractosPrediales({ extractosPrediales, formatearDinero }) {
             </div>
 
             <div className="extracto-logo-box">
-              <img src="/logo-inh.png" alt="INH Constructores" />
+              <img src={LOGO_INH} alt="INH Constructores" />
             </div>
           </header>
 
@@ -32163,7 +32168,7 @@ function ExtractosServicios({
             </div>
 
             <div className="extracto-logo-box">
-              <img src="/logo-inh.png" alt="INH Constructores" />
+              <img src={LOGO_INH} alt="INH Constructores" />
             </div>
           </div>
 
@@ -32461,7 +32466,7 @@ function ExtractosAdministracion({
               </div>
 
               <div className="extracto-logo-box">
-                <img src="/logo-inh.png" alt="INH Constructores" />
+                <img src={LOGO_INH} alt="INH Constructores" />
               </div>
             </div>
 
@@ -32629,7 +32634,7 @@ function EncabezadoReciboArriendo({
           <p className="recibo-subtitulo">{subtitulo}</p>
         </div>
         <div className="recibo-logo">
-          <img src="/logo-inh.png" alt="INH Constructores" />
+          <img src={LOGO_INH} alt="INH Constructores" />
         </div>
       </header>
     </>
@@ -33225,7 +33230,7 @@ function ExtractosArriendo({ extractosArriendo, formatearDinero }) {
             </div>
 
             <div className="extracto-logo-box">
-              <img src="/logo-inh.png" alt="INH Constructores" />
+              <img src={LOGO_INH} alt="INH Constructores" />
             </div>
           </div>
 

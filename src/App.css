@@ -2916,7 +2916,7 @@ td.saldo-atraso,
   content: "";
   background:
     linear-gradient(rgba(6, 26, 54, 0.78), rgba(6, 26, 54, 0.88)),
-    url("/logo-inh.png");
+    var(--logo-inh-url);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 260px auto;
@@ -3073,7 +3073,7 @@ td.saldo-atraso,
   display: block;
   min-height: 100%;
   background-color: #061a36;
-  background-image: url("/logo-inh.png");
+  background-image: var(--logo-inh-url);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 240px auto;
