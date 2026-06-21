@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react'
-import './App.css'
 import logoInhUrl from './assets/logo-inh.png?url'
 import {
   cargarDatosApi,
@@ -7469,6 +7468,92 @@ const obtenerContratoActivoUnidad = (idUnidad, contratos, codigoPredio = '') =>
       (!codigoPredio || contrato.codigoPredio === codigoPredio)
   )
 
+const obtenerPredioDeUnidad = (unidad, predios = []) =>
+  predios.find((predio) => predio.codigo === unidad?.codigoPredio) || null
+
+const unidadDisponibleSinContratoArriendo = (unidad, contratosArriendo = []) => {
+  if (!unidad) return false
+  const estado = String(unidad.estado || '').trim()
+  if (estado && estado !== 'Disponible') return false
+  return !obtenerContratoActivoUnidad(
+    unidad.id,
+    contratosArriendo,
+    unidad.codigoPredio
+  )
+}
+
+const construirFilaUnidadDisponible = (unidad, predios = []) => {
+  const predio = obtenerPredioDeUnidad(unidad, predios)
+  return {
+    unidad,
+    predio,
+    ciudad: predio?.ciudad || 'Sin ciudad',
+    barrio: predio?.barrio || 'Sin barrio',
+    direccion: predio?.direccion || '',
+  }
+}
+
+const filtrarUnidadesDisponiblesConsulta = ({
+  unidadesNegocio = [],
+  contratosArriendo = [],
+  predios = [],
+  ciudad = '',
+  barrio = '',
+  tipoUnidad = '',
+}) => {
+  const ciudadNorm = normalizarTexto(ciudad || '')
+  const barrioNorm = normalizarTexto(barrio || '')
+  const tipoLimpio = String(tipoUnidad || '').trim()
+
+  return unidadesNegocio
+    .filter((unidad) => unidadDisponibleSinContratoArriendo(unidad, contratosArriendo))
+    .map((unidad) => construirFilaUnidadDisponible(unidad, predios))
+    .filter((fila) => {
+      if (ciudadNorm && normalizarTexto(fila.ciudad) !== ciudadNorm) return false
+      if (barrioNorm && normalizarTexto(fila.barrio) !== barrioNorm) return false
+      if (tipoLimpio && String(fila.unidad.tipo || '').trim() !== tipoLimpio) return false
+      return true
+    })
+    .sort((a, b) => {
+      const porCiudad = String(a.ciudad).localeCompare(String(b.ciudad), 'es')
+      if (porCiudad !== 0) return porCiudad
+      const porBarrio = String(a.barrio).localeCompare(String(b.barrio), 'es')
+      if (porBarrio !== 0) return porBarrio
+      return String(a.unidad.nombre || '').localeCompare(String(b.unidad.nombre || ''), 'es')
+    })
+}
+
+const obtenerCatalogoUnidadesDisponibles = ({
+  unidadesNegocio = [],
+  contratosArriendo = [],
+  predios = [],
+  ciudadSeleccionada = '',
+}) => {
+  const filas = unidadesNegocio
+    .filter((unidad) => unidadDisponibleSinContratoArriendo(unidad, contratosArriendo))
+    .map((unidad) => construirFilaUnidadDisponible(unidad, predios))
+
+  const ciudades = [
+    ...new Set(filas.map((fila) => fila.ciudad).filter((valor) => valor && valor !== 'Sin ciudad')),
+  ].sort((a, b) => a.localeCompare(b, 'es'))
+
+  const ciudadNorm = normalizarTexto(ciudadSeleccionada || '')
+  const barrios = [
+    ...new Set(
+      filas
+        .filter((fila) => !ciudadNorm || normalizarTexto(fila.ciudad) === ciudadNorm)
+        .map((fila) => fila.barrio)
+        .filter((valor) => valor && valor !== 'Sin barrio')
+    ),
+  ].sort((a, b) => a.localeCompare(b, 'es'))
+
+  const tipos = [...new Set(filas.map((fila) => fila.unidad.tipo).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'es')
+  )
+
+  return { ciudades, barrios, tipos }
+}
+
 const obtenerResumenServiciosPublicosUnidad = (unidad, extractosServicios) => {
   const extractosUnidad = extractosServicios.filter((extracto) =>
     coincideUnidadNegocio(extracto.unidad, unidad)
@@ -9272,6 +9357,13 @@ function App() {
   const [loginUsuario, setLoginUsuario] = useState('')
   const [loginClave, setLoginClave] = useState('')
   const [errorLogin, setErrorLogin] = useState('')
+  const [mostrarRestablecerClaveLogin, setMostrarRestablecerClaveLogin] = useState(false)
+  const [resetUsuarioId, setResetUsuarioId] = useState('')
+  const [resetClaveNueva, setResetClaveNueva] = useState('')
+  const [resetClaveConfirmacion, setResetClaveConfirmacion] = useState('')
+  const [resetAdminId, setResetAdminId] = useState('')
+  const [resetAdminClave, setResetAdminClave] = useState('')
+  const [errorResetClave, setErrorResetClave] = useState('')
 
   const [seccionActiva, setSeccionActiva] = useState('inicio')
   const [menuAbierto, setMenuAbierto] = useState('')
@@ -9381,15 +9473,25 @@ const obtenerClaseEstadoPredio = (estado) => {
 }
 
 const [mostrarCambioClave, setMostrarCambioClave] = useState(false)
+const [modoClaveSesion, setModoClaveSesion] = useState('cambiar')
 const [claveActual, setClaveActual] = useState('')
 const [claveNueva, setClaveNueva] = useState('')
 const [claveConfirmacion, setClaveConfirmacion] = useState('')
+const [confirmacionIdRestablecer, setConfirmacionIdRestablecer] = useState('')
+const [autorizacionAdminIdRestablecer, setAutorizacionAdminIdRestablecer] = useState('')
+const [autorizacionAdminClaveRestablecer, setAutorizacionAdminClaveRestablecer] = useState('')
 
 const [mostrarFormularioUsuario, setMostrarFormularioUsuario] = useState(false)
+const [vistaGestionUsuarios, setVistaGestionUsuarios] = useState('crear')
 const [nuevoUsuarioId, setNuevoUsuarioId] = useState('')
 const [nuevoUsuarioNombre, setNuevoUsuarioNombre] = useState('')
 const [nuevoUsuarioClave, setNuevoUsuarioClave] = useState('')
 const [nuevoUsuarioRol, setNuevoUsuarioRol] = useState('Consulta')
+const [usuarioEditandoId, setUsuarioEditandoId] = useState('')
+const [edicionUsuarioNombre, setEdicionUsuarioNombre] = useState('')
+const [edicionUsuarioRol, setEdicionUsuarioRol] = useState('Consulta')
+const [edicionUsuarioClave, setEdicionUsuarioClave] = useState('')
+const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState('')
 
   const [mostrarFormularioPredio, setMostrarFormularioPredio] = useState(false)
   const [mostrarFormularioContrato, setMostrarFormularioContrato] = useState(false)
@@ -9465,6 +9567,11 @@ const [nuevoUsuarioRol, setNuevoUsuarioRol] = useState('Consulta')
   const [mostrarTodosPredios, setMostrarTodosPredios] = useState(false)
   const [busquedaUnidades, setBusquedaUnidades] = useState('')
   const [mostrarTodasUnidades, setMostrarTodasUnidades] = useState(false)
+  const [filtroCiudadUnidadesDisponibles, setFiltroCiudadUnidadesDisponibles] = useState('')
+  const [filtroBarrioUnidadesDisponibles, setFiltroBarrioUnidadesDisponibles] = useState('')
+  const [filtroTipoUnidadDisponibles, setFiltroTipoUnidadDisponibles] = useState('')
+  const [unidadesDisponiblesConsultadas, setUnidadesDisponiblesConsultadas] = useState(false)
+  const [unidadDisponibleDetalle, setUnidadDisponibleDetalle] = useState(null)
   const [busquedaArriendos, setBusquedaArriendos] = useState('')
   const [busquedaPredial, setBusquedaPredial] = useState('')
   const [codigoPredialConsultaSeleccionado, setCodigoPredialConsultaSeleccionado] = useState('')
@@ -10278,6 +10385,133 @@ const importarRespaldo = (event) => {
   setErrorLogin('')
 }
 
+const limpiarFormularioRestablecerClaveLogin = () => {
+  setResetUsuarioId('')
+  setResetClaveNueva('')
+  setResetClaveConfirmacion('')
+  setResetAdminId('')
+  setResetAdminClave('')
+  setErrorResetClave('')
+}
+
+const limpiarSeguridadRestablecerSesion = () => {
+  setConfirmacionIdRestablecer('')
+  setAutorizacionAdminIdRestablecer('')
+  setAutorizacionAdminClaveRestablecer('')
+}
+
+const validarAutorizacionAdministrador = (idAdmin, claveAdmin) => {
+  const id = String(idAdmin || '').trim().toLowerCase()
+  const clave = String(claveAdmin || '').trim()
+
+  if (!id || !clave) {
+    return {
+      valido: false,
+      mensaje: 'Indique el ID y la clave del administrador autorizador.',
+    }
+  }
+
+  const administrador = usuariosSistema.find(
+    (usuario) =>
+      (usuario.usuario?.toLowerCase() === id || usuario.id?.toLowerCase() === id) &&
+      usuario.rol === 'Administrador' &&
+      usuario.clave === clave &&
+      usuario.activo !== false
+  )
+
+  if (!administrador) {
+    return {
+      valido: false,
+      mensaje: 'La autorización del administrador no es válida.',
+    }
+  }
+
+  return { valido: true, administrador }
+}
+
+const restablecerClaveDesdeLogin = () => {
+  if (usaApiRemota()) {
+    setErrorResetClave('El restablecimiento desde acceso aún no está disponible con servidor remoto.')
+    return
+  }
+
+  const idUsuario = resetUsuarioId.trim().toLowerCase()
+  const claveNueva = resetClaveNueva.trim()
+  const confirmacion = resetClaveConfirmacion.trim()
+  const idAdmin = resetAdminId.trim().toLowerCase()
+  const claveAdmin = resetAdminClave.trim()
+
+  if (!idUsuario || !claveNueva || !confirmacion || !idAdmin || !claveAdmin) {
+    setErrorResetClave('Complete todos los campos para restablecer la clave.')
+    return
+  }
+
+  if (claveNueva.length < 4) {
+    setErrorResetClave('La nueva clave debe tener mínimo 4 caracteres.')
+    return
+  }
+
+  if (claveNueva !== confirmacion) {
+    setErrorResetClave('La nueva clave y la confirmación no coinciden.')
+    return
+  }
+
+  const autorizacion = validarAutorizacionAdministrador(idAdmin, claveAdmin)
+  if (!autorizacion.valido) {
+    setErrorResetClave(autorizacion.mensaje)
+    return
+  }
+
+  const administrador = autorizacion.administrador
+
+  const usuarioObjetivo = usuariosSistema.find(
+    (usuario) =>
+      usuario.usuario?.toLowerCase() === idUsuario || usuario.id?.toLowerCase() === idUsuario
+  )
+
+  if (!usuarioObjetivo) {
+    setErrorResetClave('No existe un usuario con ese ID.')
+    return
+  }
+
+  if (usuarioObjetivo.activo === false) {
+    setErrorResetClave('Ese usuario está inactivo. El administrador debe activarlo primero.')
+    return
+  }
+
+  const usuariosActualizados = usuariosSistema.map((usuario) =>
+    usuario.usuario === usuarioObjetivo.usuario
+      ? { ...usuario, clave: claveNueva }
+      : usuario
+  )
+
+  setUsuariosSistema(usuariosActualizados)
+  setHistorialCambios((prev) => [
+    {
+      id: `HIST-${Date.now()}`,
+      fecha: new Date().toISOString(),
+      usuario: administrador.usuario,
+      nombreUsuario: administrador.nombre,
+      accion: 'Restablecimiento de clave',
+      modulo: 'Usuarios',
+      entidadId: usuarioObjetivo.usuario,
+      detalle: `Clave restablecida desde acceso para ${usuarioObjetivo.usuario}`,
+      valorAnterior: '',
+      valorNuevo: 'Clave actualizada',
+    },
+    ...prev,
+  ])
+
+  limpiarFormularioRestablecerClaveLogin()
+  setMostrarRestablecerClaveLogin(false)
+  setLoginUsuario(usuarioObjetivo.usuario)
+  setLoginClave('')
+  setErrorLogin('')
+  alert(
+    `Clave restablecida para ${usuarioObjetivo.usuario}. Ya puede iniciar sesión con la nueva clave.`
+  )
+}
+
 const cerrarSesion = () => {
   if (usaApiRemota()) limpiarTokenSesion()
   setUsuarioActual(null)
@@ -10325,6 +10559,77 @@ const cambiarClaveUsuario = () => {
   setMostrarCambioClave(false)
 
   alert('Clave actualizada correctamente.')
+}
+
+const restablecerClaveUsuarioSesion = () => {
+  if (!confirmacionIdRestablecer.trim()) {
+    alert('Confirme su ID de usuario para continuar.')
+    return
+  }
+
+  const idConfirmado = confirmacionIdRestablecer.trim().toLowerCase()
+  const idSesion = String(usuarioActual.usuario || usuarioActual.id || '')
+    .trim()
+    .toLowerCase()
+
+  if (idConfirmado !== idSesion) {
+    alert('El ID confirmado no coincide con su usuario en sesión.')
+    return
+  }
+
+  const autorizacion = validarAutorizacionAdministrador(
+    autorizacionAdminIdRestablecer,
+    autorizacionAdminClaveRestablecer
+  )
+  if (!autorizacion.valido) {
+    alert(autorizacion.mensaje)
+    return
+  }
+
+  if (!claveNueva || !claveConfirmacion) {
+    alert('Indique la nueva clave y su confirmación.')
+    return
+  }
+
+  if (claveNueva.length < 4) {
+    alert('La nueva clave debe tener mínimo 4 caracteres.')
+    return
+  }
+
+  if (claveNueva !== claveConfirmacion) {
+    alert('La nueva clave y la confirmación no coinciden.')
+    return
+  }
+
+  const usuariosActualizados = usuariosSistema.map((usuario) =>
+    usuario.usuario === usuarioActual.usuario
+      ? { ...usuario, clave: claveNueva.trim() }
+      : usuario
+  )
+
+  setUsuariosSistema(usuariosActualizados)
+  setUsuarioActual({
+    ...usuarioActual,
+    clave: claveNueva.trim(),
+  })
+
+  registrarHistorial({
+    modulo: 'Usuarios',
+    accion: 'Restablecimiento de clave',
+    entidadId: usuarioActual.usuario,
+    detalle: `Clave restablecida con autorización de ${autorizacion.administrador.usuario}`,
+    valorAnterior: '',
+    valorNuevo: 'Clave actualizada',
+  })
+
+  setClaveActual('')
+  setClaveNueva('')
+  setClaveConfirmacion('')
+  limpiarSeguridadRestablecerSesion()
+  setModoClaveSesion('cambiar')
+  setMostrarCambioClave(false)
+
+  alert('Clave restablecida correctamente.')
 }
 
 const limpiarFormularioUsuario = () => {
@@ -10405,6 +10710,175 @@ const cambiarEstadoUsuario = (usuarioObjetivo) => {
   )
 
   setUsuariosSistema(usuariosActualizados)
+}
+
+const cancelarEdicionUsuarioAdmin = () => {
+  setUsuarioEditandoId('')
+  setEdicionUsuarioNombre('')
+  setEdicionUsuarioRol('Consulta')
+  setEdicionUsuarioClave('')
+  setEdicionUsuarioConfirmarClave('')
+}
+
+const irAlInicioPanelCuenta = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const cerrarPanelCuentaUsuario = () => {
+  setMostrarCambioClave(false)
+  setMostrarFormularioUsuario(false)
+  setVistaGestionUsuarios('crear')
+  cancelarEdicionUsuarioAdmin()
+  limpiarFormularioUsuario()
+  setModoClaveSesion('cambiar')
+  setClaveActual('')
+  setClaveNueva('')
+  setClaveConfirmacion('')
+  limpiarSeguridadRestablecerSesion()
+}
+
+const abrirCrearUsuarioAdmin = () => {
+  setMostrarCambioClave(false)
+  cancelarEdicionUsuarioAdmin()
+  limpiarFormularioUsuario()
+  setVistaGestionUsuarios('crear')
+  setMostrarFormularioUsuario(true)
+  irAlInicioPanelCuenta()
+}
+
+const abrirListaUsuariosAdmin = () => {
+  setMostrarCambioClave(false)
+  cancelarEdicionUsuarioAdmin()
+  setVistaGestionUsuarios('lista')
+  setMostrarFormularioUsuario(true)
+  irAlInicioPanelCuenta()
+}
+
+const abrirCambioClaveSesion = () => {
+  setMostrarFormularioUsuario(false)
+  cancelarEdicionUsuarioAdmin()
+  limpiarFormularioUsuario()
+  setVistaGestionUsuarios('crear')
+  setModoClaveSesion('cambiar')
+  setClaveActual('')
+  setClaveNueva('')
+  setClaveConfirmacion('')
+  limpiarSeguridadRestablecerSesion()
+  setMostrarCambioClave(true)
+  irAlInicioPanelCuenta()
+}
+
+const iniciarEdicionUsuarioAdmin = (usuarioObjetivo) => {
+  if (!puedeAdministrar) {
+    alert('Solo el administrador puede editar usuarios.')
+    return
+  }
+
+  setMostrarCambioClave(false)
+  setUsuarioEditandoId(usuarioObjetivo.usuario)
+  setEdicionUsuarioNombre(usuarioObjetivo.nombre || '')
+  setEdicionUsuarioRol(usuarioObjetivo.rol || 'Consulta')
+  setEdicionUsuarioClave('')
+  setEdicionUsuarioConfirmarClave('')
+  setVistaGestionUsuarios('editar')
+  setMostrarFormularioUsuario(true)
+  irAlInicioPanelCuenta()
+}
+
+const guardarEdicionUsuarioAdmin = () => {
+  if (!puedeAdministrar) {
+    alert('Solo el administrador puede editar usuarios.')
+    return
+  }
+
+  if (!usuarioEditandoId) return
+
+  const nombreLimpio = edicionUsuarioNombre.trim()
+  if (!nombreLimpio) {
+    alert('El nombre propio es obligatorio.')
+    return
+  }
+
+  const claveNuevaLimpia = edicionUsuarioClave.trim()
+  const confirmarLimpia = edicionUsuarioConfirmarClave.trim()
+
+  if (claveNuevaLimpia || confirmarLimpia) {
+    if (claveNuevaLimpia.length < 4) {
+      alert('La nueva clave debe tener mínimo 4 caracteres.')
+      return
+    }
+    if (claveNuevaLimpia !== confirmarLimpia) {
+      alert('La nueva clave y la confirmación no coinciden.')
+      return
+    }
+  }
+
+  const usuarioAnterior = usuariosSistema.find(
+    (usuario) => usuario.usuario === usuarioEditandoId
+  )
+  if (!usuarioAnterior) {
+    alert('No se encontró el usuario a editar.')
+    return
+  }
+
+  if (
+    usuarioEditandoId === usuarioActual.usuario &&
+    edicionUsuarioRol !== 'Administrador'
+  ) {
+    alert('No puede cambiar su propio rol mientras está conectado como administrador.')
+    return
+  }
+
+  const usuariosActualizados = usuariosSistema.map((usuario) => {
+    if (usuario.usuario !== usuarioEditandoId) return usuario
+
+    const actualizado = {
+      ...usuario,
+      nombre: nombreLimpio,
+      rol: edicionUsuarioRol,
+    }
+
+    if (claveNuevaLimpia) {
+      actualizado.clave = claveNuevaLimpia
+    }
+
+    return actualizado
+  })
+
+  setUsuariosSistema(usuariosActualizados)
+
+  if (usuarioEditandoId === usuarioActual.usuario) {
+    setUsuarioActual({
+      ...usuarioActual,
+      nombre: nombreLimpio,
+      rol: edicionUsuarioRol,
+      ...(claveNuevaLimpia ? { clave: claveNuevaLimpia } : {}),
+    })
+  }
+
+  const idEditado = usuarioEditandoId
+
+  registrarHistorial({
+    modulo: 'Usuarios',
+    accion: 'Edición de usuario',
+    entidadId: idEditado,
+    detalle: `Usuario ${idEditado} actualizado por administrador${
+      claveNuevaLimpia ? ' con restablecimiento de clave' : ''
+    }`,
+    valorAnterior: `${usuarioAnterior.nombre} · ${usuarioAnterior.rol}`,
+    valorNuevo: `${nombreLimpio} · ${edicionUsuarioRol}${
+      claveNuevaLimpia ? ' · clave actualizada' : ''
+    }`,
+  })
+
+  cancelarEdicionUsuarioAdmin()
+  setVistaGestionUsuarios('lista')
+
+  alert(
+    claveNuevaLimpia
+      ? `Usuario ${idEditado} actualizado y clave restablecida correctamente.`
+      : `Usuario ${idEditado} actualizado correctamente.`
+  )
 }
 
   const cerrarFormularios = () => {
@@ -10498,6 +10972,32 @@ const cambiarEstadoUsuario = (usuarioObjetivo) => {
     setEdicionReciboObservaciones('')
   }
 
+  const resetConsultaUnidadesDisponibles = () => {
+    setUnidadDisponibleDetalle(null)
+    setFiltroCiudadUnidadesDisponibles('')
+    setFiltroBarrioUnidadesDisponibles('')
+    setFiltroTipoUnidadDisponibles('')
+    setUnidadesDisponiblesConsultadas(true)
+  }
+
+  const consultarUnidadesDisponibles = () => {
+    setUnidadesDisponiblesConsultadas(true)
+    setUnidadDisponibleDetalle(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const abrirUnidadesDisponibles = () => {
+    resetConsultaUnidadesDisponibles()
+    irSubmenu({
+      seccion: 'arriendos',
+      vista: 'unidadesDisponibles',
+      clave: 'unidadesDisponibles',
+      grupo: 'unidades',
+    })
+    setUnidadesDisponiblesConsultadas(true)
+    setMenuMovilAbierto(false)
+  }
+
   const abrirReporteRecibosRecaudados = () => {
     const hoy = new Date()
     const yyyy = hoy.getFullYear()
@@ -10506,7 +11006,7 @@ const cambiarEstadoUsuario = (usuarioObjetivo) => {
 
     setSeccionActiva('reportes')
     setVistaActiva('reportes')
-    setClaveSubmenuActiva('recibosRecaudados')
+    setClaveSubmenuActiva('reportes')
     setGrupoMenuActivoPersistente('reportes')
     setMenuAbierto('reportes')
     setModuloMenuActivo('reportes')
@@ -10606,6 +11106,14 @@ const cambiarEstadoUsuario = (usuarioObjetivo) => {
       setBusquedaPropietarioPredios('')
       setMostrarTodosPropietariosPredios(false)
       setPredioSeleccionado(null)
+    }
+
+    if (vista === 'unidadesDisponibles') {
+      setUnidadDisponibleDetalle(null)
+      setUnidadesDisponiblesConsultadas(true)
+      setBusquedaUnidades('')
+      setMostrarTodasUnidades(false)
+      setUnidadSeleccionadaServicios(null)
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -17520,6 +18028,28 @@ const unidadesFiltradas = textoBusquedaUnidades
   ? unidadesNegocio
   : []
 
+const catalogoUnidadesDisponibles = obtenerCatalogoUnidadesDisponibles({
+  unidadesNegocio,
+  contratosArriendo,
+  predios,
+  ciudadSeleccionada: filtroCiudadUnidadesDisponibles,
+})
+
+const totalUnidadesDisponibles = unidadesNegocio.filter((unidad) =>
+  unidadDisponibleSinContratoArriendo(unidad, contratosArriendo)
+).length
+
+const unidadesDisponiblesResultado = unidadesDisponiblesConsultadas
+  ? filtrarUnidadesDisponiblesConsulta({
+      unidadesNegocio,
+      contratosArriendo,
+      predios,
+      ciudad: filtroCiudadUnidadesDisponibles,
+      barrio: filtroBarrioUnidadesDisponibles,
+      tipoUnidad: filtroTipoUnidadDisponibles,
+    })
+  : []
+
   const textoBusquedaContratosDeposito = busquedaContratosDeposito.trim().toLowerCase()
 
   const contratosDepositoFiltrados = textoBusquedaContratosDeposito
@@ -18152,6 +18682,7 @@ const resultadosBusqueda = textoBusqueda
     liquidacionDeposito: 'depositos',
     unidadNueva: 'unidades',
     consultarUnidades: 'unidades',
+    unidadesDisponibles: 'unidades',
     contratoArriendoNuevo: 'arriendos',
     pagoArriendoNuevo: 'arriendos',
     pagoAdministracionNuevo: 'arriendos',
@@ -18179,7 +18710,6 @@ const resultadosBusqueda = textoBusqueda
     estadosCuenta: 'estados',
     reportes: 'reportes',
     respaldos: 'reportes',
-    recibosRecaudados: 'reportes',
   }
 
   const inferirClaveSubmenuActiva = () => {
@@ -18208,6 +18738,7 @@ const resultadosBusqueda = textoBusqueda
 
     if (seccionActiva === 'arriendos') {
       if (mostrarFormularioUnidad) return 'unidadNueva'
+      if (vistaActiva === 'unidadesDisponibles') return 'unidadesDisponibles'
       if (['unidades', 'unidad'].includes(vistaActiva)) return 'consultarUnidades'
       if (mostrarFormularioContrato) return 'contratoArriendoNuevo'
       if (mostrarFormularioPagoArriendo) return 'pagoArriendoNuevo'
@@ -18249,7 +18780,6 @@ const resultadosBusqueda = textoBusqueda
 
     if (seccionActiva === 'estados') return 'estadosCuenta'
     if (seccionActiva === 'reportes') {
-      if (modoReporteRecibos) return 'recibosRecaudados'
       if (vistaActiva === 'respaldos') return 'respaldos'
       return 'reportes'
     }
@@ -18267,7 +18797,8 @@ const resultadosBusqueda = textoBusqueda
     const grupo =
       (clave && GRUPO_POR_CLAVE_SUBMENU[clave]) ||
       (seccionActiva === 'arriendos'
-        ? ['unidades', 'unidad'].includes(vistaActiva) || mostrarFormularioUnidad
+        ? ['unidades', 'unidad', 'unidadesDisponibles'].includes(vistaActiva) ||
+          mostrarFormularioUnidad
           ? 'unidades'
           : 'arriendos'
         : GRUPO_POR_SECCION[seccionActiva] || '')
@@ -18332,14 +18863,16 @@ const resultadosBusqueda = textoBusqueda
     if (grupo === 'unidades') {
       return (
         seccionActiva === 'arriendos' &&
-        (['unidades', 'unidad'].includes(vistaActiva) || mostrarFormularioUnidad)
+        (['unidades', 'unidad', 'unidadesDisponibles'].includes(vistaActiva) ||
+          mostrarFormularioUnidad)
       )
     }
 
     if (grupo === 'arriendos') {
       return (
         seccionActiva === 'arriendos' &&
-        !(['unidades', 'unidad'].includes(vistaActiva) || mostrarFormularioUnidad)
+        !(['unidades', 'unidad', 'unidadesDisponibles'].includes(vistaActiva) ||
+          mostrarFormularioUnidad)
       )
     }
 
@@ -18364,6 +18897,9 @@ const resultadosBusqueda = textoBusqueda
     esSubmenuActivo(clave) ? 'hero-action-btn active' : 'hero-action-btn'
 
   const mostrarInicio = seccionActiva === 'inicio'
+  const panelCuentaUsuarioAbierto = mostrarCambioClave || mostrarFormularioUsuario
+  const panelUnidadesDisponiblesAbierto =
+    vistaActiva === 'unidadesDisponibles' && !mostrarFormularioUnidad
   const mostrarPredios = seccionActiva === 'predios'
   const mostrarDepositos = seccionActiva === 'depositos'
   const mostrarPredial = seccionActiva === 'predial'
@@ -18560,6 +19096,7 @@ const resultadosBusqueda = textoBusqueda
       contratosDeposito: 'Documentos de administración',
       liquidacionDeposito: 'Liquidación al depositante',
       unidades: 'Consulta de unidades',
+      unidadesDisponibles: 'Unidades disponibles sin contrato de arriendo',
       arriendos: 'Consulta de contratos de arriendo',
       pagoArriendo: 'Registro de pago de arriendo',
       incremento: 'Actualización de incremento anual de arriendo',
@@ -18642,9 +19179,14 @@ const resultadosBusqueda = textoBusqueda
           <img src={LOGO_INH} alt="INH Constructores" />
         </div>
 
-       <h1>Acceso al Sistema</h1>
-       <p>Control interno de predios, arriendos y estados de cuenta.</p>
+       <h1>{mostrarRestablecerClaveLogin ? 'Restablecer clave' : 'Acceso al Sistema'}</h1>
+       <p>
+         {mostrarRestablecerClaveLogin
+           ? 'El administrador debe autorizar el restablecimiento de la clave.'
+           : 'Control interno de predios, arriendos y estados de cuenta.'}
+       </p>
 
+        {!mostrarRestablecerClaveLogin ? (
         <div className="login-form">
           <div className="form-group full">
             <label>ID de usuario</label>
@@ -18674,7 +19216,95 @@ const resultadosBusqueda = textoBusqueda
           <button type="button" className="btn-primary full-login-btn" onClick={iniciarSesion}>
             Iniciar sesión
           </button>
+
+          <button
+            type="button"
+            className="btn-secondary full-login-btn login-toggle-btn"
+            onClick={() => {
+              setMostrarRestablecerClaveLogin(true)
+              setErrorLogin('')
+              limpiarFormularioRestablecerClaveLogin()
+            }}
+          >
+            Restablecer clave
+          </button>
         </div>
+        ) : (
+        <div className="login-form login-reset-form">
+          <div className="form-group full">
+            <label>ID de usuario a restablecer</label>
+            <input
+              type="text"
+              value={resetUsuarioId}
+              onChange={(e) => setResetUsuarioId(e.target.value)}
+              placeholder="Ej: operador, maria.rojas"
+            />
+          </div>
+
+          <div className="form-group full">
+            <label>Nueva clave</label>
+            <input
+              type="password"
+              value={resetClaveNueva}
+              onChange={(e) => setResetClaveNueva(e.target.value)}
+              placeholder="Mínimo 4 caracteres"
+            />
+          </div>
+
+          <div className="form-group full">
+            <label>Confirmar nueva clave</label>
+            <input
+              type="password"
+              value={resetClaveConfirmacion}
+              onChange={(e) => setResetClaveConfirmacion(e.target.value)}
+              placeholder="Repita la nueva clave"
+            />
+          </div>
+
+          <div className="login-reset-divider">Autorización del administrador</div>
+
+          <div className="form-group full">
+            <label>ID administrador</label>
+            <input
+              type="text"
+              value={resetAdminId}
+              onChange={(e) => setResetAdminId(e.target.value)}
+              placeholder="Ej: admin"
+            />
+          </div>
+
+          <div className="form-group full">
+            <label>Clave del administrador</label>
+            <input
+              type="password"
+              value={resetAdminClave}
+              onChange={(e) => setResetAdminClave(e.target.value)}
+              placeholder="Clave del administrador general"
+            />
+          </div>
+
+          {errorResetClave && <div className="login-error">{errorResetClave}</div>}
+
+          <button
+            type="button"
+            className="btn-primary full-login-btn"
+            onClick={restablecerClaveDesdeLogin}
+          >
+            Guardar nueva clave
+          </button>
+
+          <button
+            type="button"
+            className="btn-secondary full-login-btn login-toggle-btn"
+            onClick={() => {
+              setMostrarRestablecerClaveLogin(false)
+              limpiarFormularioRestablecerClaveLogin()
+            }}
+          >
+            Volver al inicio de sesión
+          </button>
+        </div>
+        )}
       </div>
     </div>
   )
@@ -18702,7 +19332,7 @@ const resultadosBusqueda = textoBusqueda
         </div>
         <div className="brand-box">
           <img src={LOGO_INH} alt="INH Constructores" className="brand-logo" />
-          <p>Control Predial</p>
+          <p>Control inmobiliario</p>
         </div>
 
         <nav className="menu">
@@ -18720,7 +19350,7 @@ const resultadosBusqueda = textoBusqueda
       className={claseMenuItem('depositos')}
       onClick={() => alternarMenu('depositos')}
     >
-      <span>▦</span>Registrar nuevos inmuebles
+      <span>▦</span>Registrar inmuebles
       <strong>{menuAbierto === 'depositos' ? '−' : '+'}</strong>
     </button>
 
@@ -18855,6 +19485,14 @@ const resultadosBusqueda = textoBusqueda
           }
         >
           Consultar unidades de negocio
+        </button>
+
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('unidadesDisponibles'))}
+          onClick={abrirUnidadesDisponibles}
+        >
+          Unidades disponibles
         </button>
       </div>
     )}
@@ -19335,13 +19973,6 @@ const resultadosBusqueda = textoBusqueda
         </button>
         <button
           type="button"
-          className={claseSubmenuItem(esSubmenuActivo('recibosRecaudados'))}
-          onClick={abrirReporteRecibosRecaudados}
-        >
-          Recibos recaudados
-        </button>
-        <button
-          type="button"
           className={claseSubmenuItem(esSubmenuActivo('respaldos'))}
           onClick={() =>
             irSubmenu({
@@ -19359,7 +19990,11 @@ const resultadosBusqueda = textoBusqueda
 </nav>
       </aside>
 
-      <main className="main">
+      <main
+        className={`main${panelCuentaUsuarioAbierto ? ' main-cuenta-focus' : ''}${
+          panelUnidadesDisponiblesAbierto ? ' main-unidades-disponibles-focus' : ''
+        }`}
+      >
         <div className="mobile-top-bar no-print">
           <button
             type="button"
@@ -19373,10 +20008,14 @@ const resultadosBusqueda = textoBusqueda
           </button>
           <div className="mobile-top-bar-brand">
             <img src={LOGO_INH} alt="" className="mobile-top-bar-logo" />
-            <span>Control Predial</span>
+            <span>Control inmobiliario</span>
           </div>
         </div>
-        <section className="hero-card no-print">
+        <section
+          className={`hero-card no-print${panelCuentaUsuarioAbierto ? ' hero-card--cuenta-focus' : ''}${
+            panelUnidadesDisponiblesAbierto ? ' hero-card--consulta-focus' : ''
+          }`}
+        >
    <div className="user-session-bar">
   <div className="session-user-wrap">
     <div className="session-avatar" aria-hidden="true">
@@ -19395,19 +20034,47 @@ const resultadosBusqueda = textoBusqueda
   {puedeAdministrar && (
     <button
       type="button"
-      className="btn-primary"
-      onClick={() => setMostrarFormularioUsuario(!mostrarFormularioUsuario)}
+      className={`btn-primary${mostrarFormularioUsuario && vistaGestionUsuarios === 'crear' ? ' active' : ''}`}
+      onClick={() => {
+        if (mostrarFormularioUsuario && vistaGestionUsuarios === 'crear') {
+          cerrarPanelCuentaUsuario()
+          return
+        }
+        abrirCrearUsuarioAdmin()
+      }}
     >
       Crear usuario
     </button>
   )}
 
+  {puedeAdministrar && (
+    <button
+      type="button"
+      className={`btn-secondary${mostrarFormularioUsuario && vistaGestionUsuarios === 'lista' ? ' active' : ''}`}
+      onClick={() => {
+        if (mostrarFormularioUsuario && vistaGestionUsuarios === 'lista') {
+          cerrarPanelCuentaUsuario()
+          return
+        }
+        abrirListaUsuariosAdmin()
+      }}
+    >
+      Usuarios registrados
+    </button>
+  )}
+
   <button
     type="button"
-    className="btn-secondary"
-    onClick={() => setMostrarCambioClave(!mostrarCambioClave)}
+    className={`btn-secondary${mostrarCambioClave ? ' active' : ''}`}
+    onClick={() => {
+      if (mostrarCambioClave) {
+        cerrarPanelCuentaUsuario()
+        return
+      }
+      abrirCambioClaveSesion()
+    }}
   >
-    Cambiar clave
+    Cambiar / restablecer clave
   </button>
 
   <button type="button" className="btn-secondary" onClick={cerrarSesion}>
@@ -19416,8 +20083,13 @@ const resultadosBusqueda = textoBusqueda
 </div>
 </div>
 
-{mostrarFormularioUsuario && puedeAdministrar && (
+{mostrarFormularioUsuario && puedeAdministrar && vistaGestionUsuarios === 'crear' && (
   <div className="create-user-panel">
+    <div className="cuenta-panel-topbar">
+      <button type="button" className="btn-link cuenta-panel-back" onClick={cerrarPanelCuentaUsuario}>
+        ← Volver al panel
+      </button>
+    </div>
     <div className="create-user-header">
       <div className="create-user-header-badge" aria-hidden="true">+</div>
       <div>
@@ -19508,10 +20180,7 @@ const resultadosBusqueda = textoBusqueda
       <button
         type="button"
         className="btn-secondary"
-        onClick={() => {
-          limpiarFormularioUsuario()
-          setMostrarFormularioUsuario(false)
-        }}
+        onClick={cerrarPanelCuentaUsuario}
       >
         Cancelar
       </button>
@@ -19522,8 +20191,109 @@ const resultadosBusqueda = textoBusqueda
     </div>
   </div>
 )}
-{mostrarFormularioUsuario && puedeAdministrar && (
+{mostrarFormularioUsuario && puedeAdministrar && vistaGestionUsuarios === 'editar' && usuarioEditandoId && (
+  <div className="create-user-panel users-edit-panel">
+    <div className="cuenta-panel-topbar">
+      <button
+        type="button"
+        className="btn-link cuenta-panel-back"
+        onClick={() => {
+          cancelarEdicionUsuarioAdmin()
+          setVistaGestionUsuarios('lista')
+        }}
+      >
+        ← Volver a usuarios
+      </button>
+    </div>
+    <div className="create-user-header">
+      <div className="create-user-header-badge" aria-hidden="true">✎</div>
+      <div>
+        <h3 className="create-user-title">Editar usuario</h3>
+        <p className="create-user-intro">
+          Modifique el nombre, rol o restablezca la clave del usuario{' '}
+          <strong>{usuarioEditandoId}</strong>.
+        </p>
+      </div>
+    </div>
+
+    <div className="create-user-fields">
+      <div className="form-group">
+        <label>ID de usuario</label>
+        <input type="text" value={usuarioEditandoId} readOnly />
+      </div>
+
+      <div className="form-group">
+        <label>Nombre propio</label>
+        <input
+          type="text"
+          value={edicionUsuarioNombre}
+          onChange={(e) => setEdicionUsuarioNombre(e.target.value)}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Rol</label>
+        <select
+          value={edicionUsuarioRol}
+          onChange={(e) => setEdicionUsuarioRol(e.target.value)}
+          disabled={usuarioEditandoId === usuarioActual.usuario}
+        >
+          <option value="Administrador">Administrador</option>
+          <option value="Operador">Operador</option>
+          <option value="Consulta">Consulta</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label>Nueva clave</label>
+        <input
+          type="password"
+          value={edicionUsuarioClave}
+          onChange={(e) => setEdicionUsuarioClave(e.target.value)}
+          placeholder="Opcional: dejar vacío para no cambiar"
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Confirmar nueva clave</label>
+        <input
+          type="password"
+          value={edicionUsuarioConfirmarClave}
+          onChange={(e) => setEdicionUsuarioConfirmarClave(e.target.value)}
+          placeholder="Repita la nueva clave"
+        />
+      </div>
+    </div>
+
+    <p className="form-description">
+      {obtenerDescripcionRol(edicionUsuarioRol)}
+    </p>
+
+    <div className="form-actions full">
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={() => {
+          cancelarEdicionUsuarioAdmin()
+          setVistaGestionUsuarios('lista')
+        }}
+      >
+        Cancelar
+      </button>
+      <button type="button" className="btn-primary" onClick={guardarEdicionUsuarioAdmin}>
+        Guardar cambios
+      </button>
+    </div>
+  </div>
+)}
+
+{mostrarFormularioUsuario && puedeAdministrar && vistaGestionUsuarios === 'lista' && (
   <div className="users-list-panel">
+    <div className="cuenta-panel-topbar">
+      <button type="button" className="btn-link cuenta-panel-back" onClick={cerrarPanelCuentaUsuario}>
+        ← Volver al panel
+      </button>
+    </div>
     <h3>Usuarios registrados</h3>
 
     <div className="simple-table-wrapper">
@@ -19553,13 +20323,22 @@ const resultadosBusqueda = textoBusqueda
 </td>
 
 <td>
-  <button
-    type="button"
-    className={usuario.activo === false ? 'btn-small' : 'btn-small danger'}
-    onClick={() => cambiarEstadoUsuario(usuario)}
-  >
-    {usuario.activo === false ? 'Activar' : 'Desactivar'}
-  </button>
+  <div className="usuarios-tabla-acciones">
+    <button
+      type="button"
+      className="btn-small btn-gold"
+      onClick={() => iniciarEdicionUsuarioAdmin(usuario)}
+    >
+      Editar
+    </button>
+    <button
+      type="button"
+      className={usuario.activo === false ? 'btn-small' : 'btn-small danger'}
+      onClick={() => cambiarEstadoUsuario(usuario)}
+    >
+      {usuario.activo === false ? 'Activar' : 'Desactivar'}
+    </button>
+  </div>
 </td>
             </tr>
           ))}
@@ -19571,44 +20350,141 @@ const resultadosBusqueda = textoBusqueda
 
 {mostrarCambioClave && (
   <div className="change-password-panel">
-    <div className="form-group">
-      <label>Clave actual</label>
-      <input
-        type="password"
-        value={claveActual}
-        onChange={(e) => setClaveActual(e.target.value)}
-      />
+    <div className="cuenta-panel-topbar">
+      <button type="button" className="btn-link cuenta-panel-back" onClick={cerrarPanelCuentaUsuario}>
+        ← Volver al panel
+      </button>
+    </div>
+    <div className="change-password-panel-header">
+      <h3 className="change-password-title">Cambiar o restablecer mi clave</h3>
+
+      <div className="change-password-mode-tabs">
+        <button
+          type="button"
+          className={modoClaveSesion === 'cambiar' ? 'active' : ''}
+          onClick={() => {
+            setModoClaveSesion('cambiar')
+            setClaveActual('')
+            setClaveNueva('')
+            setClaveConfirmacion('')
+            limpiarSeguridadRestablecerSesion()
+          }}
+        >
+          Cambiar clave
+        </button>
+        <button
+          type="button"
+          className={modoClaveSesion === 'restablecer' ? 'active' : ''}
+          onClick={() => {
+            setModoClaveSesion('restablecer')
+            setClaveActual('')
+            setClaveNueva('')
+            setClaveConfirmacion('')
+            limpiarSeguridadRestablecerSesion()
+          }}
+        >
+          Restablecer clave
+        </button>
+      </div>
+
+      <p className="form-description change-password-description">
+        {modoClaveSesion === 'cambiar'
+          ? 'Use esta opción si recuerda su clave actual y desea cambiarla.'
+          : 'Por seguridad debe confirmar su ID y la autorización de un administrador general.'}
+      </p>
     </div>
 
-    <div className="form-group">
-      <label>Nueva clave</label>
-      <input
-        type="password"
-        value={claveNueva}
-        onChange={(e) => setClaveNueva(e.target.value)}
-      />
+    <div
+      className={`change-password-fields-row${
+        modoClaveSesion === 'restablecer' ? ' change-password-fields-row--restablecer' : ''
+      }`}
+    >
+      {modoClaveSesion === 'cambiar' && (
+        <div className="form-group">
+          <label>Clave actual</label>
+          <input
+            type="password"
+            value={claveActual}
+            onChange={(e) => setClaveActual(e.target.value)}
+          />
+        </div>
+      )}
+
+      <div className="form-group">
+        <label>Nueva clave</label>
+        <input
+          type="password"
+          value={claveNueva}
+          onChange={(e) => setClaveNueva(e.target.value)}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Confirmar nueva clave</label>
+        <input
+          type="password"
+          value={claveConfirmacion}
+          onChange={(e) => setClaveConfirmacion(e.target.value)}
+        />
+      </div>
     </div>
 
-    <div className="form-group">
-      <label>Confirmar nueva clave</label>
-      <input
-        type="password"
-        value={claveConfirmacion}
-        onChange={(e) => setClaveConfirmacion(e.target.value)}
-      />
-    </div>
+    {modoClaveSesion === 'restablecer' && (
+      <div className="change-password-security-block">
+        <div className="change-password-security-title">Verificación de seguridad</div>
+        <div className="change-password-fields-row change-password-fields-row--seguridad">
+          <div className="form-group">
+            <label>Confirmar su ID de usuario</label>
+            <input
+              type="text"
+              value={confirmacionIdRestablecer}
+              onChange={(e) => setConfirmacionIdRestablecer(e.target.value)}
+              placeholder={usuarioActual.usuario}
+            />
+          </div>
+          <div className="form-group">
+            <label>ID administrador autorizador</label>
+            <input
+              type="text"
+              value={autorizacionAdminIdRestablecer}
+              onChange={(e) => setAutorizacionAdminIdRestablecer(e.target.value)}
+              placeholder="Ej: admin"
+            />
+          </div>
+          <div className="form-group">
+            <label>Clave del administrador</label>
+            <input
+              type="password"
+              value={autorizacionAdminClaveRestablecer}
+              onChange={(e) => setAutorizacionAdminClaveRestablecer(e.target.value)}
+              placeholder="Autorización requerida"
+            />
+          </div>
+        </div>
+      </div>
+    )}
 
-    <div className="form-actions full">
-      <button type="button" className="btn-secondary" onClick={() => setMostrarCambioClave(false)}>
+    <div className="form-actions change-password-actions">
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={cerrarPanelCuentaUsuario}
+      >
         Cancelar
       </button>
 
-      <button type="button" className="btn-primary" onClick={cambiarClaveUsuario}>
-        Guardar nueva clave
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={modoClaveSesion === 'cambiar' ? cambiarClaveUsuario : restablecerClaveUsuarioSesion}
+      >
+        {modoClaveSesion === 'cambiar' ? 'Guardar nueva clave' : 'Restablecer clave'}
       </button>
     </div>
   </div>
 )}
+          {!panelCuentaUsuarioAbierto && !panelUnidadesDisponiblesAbierto && (
+          <>
           <div className="hero-content">
             <div className="hero-logo-box">
               <img src={LOGO_INH} alt="Logo INH" />
@@ -19683,6 +20559,8 @@ const resultadosBusqueda = textoBusqueda
     Usuario en modo consulta: puede ver información, buscar, revisar estados e imprimir, pero no registrar datos.
   </div>
 )}
+          </>
+          )}
         </section>
 
         {vistaActiva !== 'predialesPendientes' && vistaActiva !== 'predialesSinActualizar' && (
@@ -19693,9 +20571,281 @@ const resultadosBusqueda = textoBusqueda
           </div>
         </section>
         )}
-        
 
+        {panelUnidadesDisponiblesAbierto && (
+      <>
+        <section id="unidades-disponibles-panel" className="panel no-print">
+          <div className="section-title">
+            <div className="section-icon">▤</div>
+            <h2>Unidades disponibles</h2>
+          </div>
 
+          <p className="form-description">
+            Consulte las unidades con estado <strong>Disponible</strong> que no tienen un
+            contrato de arriendo activo. Use los filtros y pulse <strong>Buscar</strong>.
+          </p>
+
+          <div className="unidades-disponibles-filtros-panel">
+            <div className="section-title unidades-disponibles-filtros-titulo">
+              <div className="section-icon">🔍</div>
+              <h3>Filtros de consulta</h3>
+            </div>
+
+            <div className="form-grid unidades-disponibles-filtros">
+              <div className="form-group">
+                <label>Ciudad</label>
+                <select
+                  value={filtroCiudadUnidadesDisponibles}
+                  onChange={(e) => {
+                    setFiltroCiudadUnidadesDisponibles(e.target.value)
+                    setFiltroBarrioUnidadesDisponibles('')
+                    setUnidadDisponibleDetalle(null)
+                    setUnidadesDisponiblesConsultadas(true)
+                  }}
+                >
+                  <option value="">Todas las ciudades</option>
+                  {catalogoUnidadesDisponibles.ciudades.map((ciudad) => (
+                    <option key={ciudad} value={ciudad}>
+                      {ciudad}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Barrio</label>
+                <select
+                  value={filtroBarrioUnidadesDisponibles}
+                  onChange={(e) => {
+                    setFiltroBarrioUnidadesDisponibles(e.target.value)
+                    setUnidadDisponibleDetalle(null)
+                    setUnidadesDisponiblesConsultadas(true)
+                  }}
+                >
+                  <option value="">Todos los barrios</option>
+                  {catalogoUnidadesDisponibles.barrios.map((barrio) => (
+                    <option key={barrio} value={barrio}>
+                      {barrio}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Tipo de unidad</label>
+                <select
+                  value={filtroTipoUnidadDisponibles}
+                  onChange={(e) => {
+                    setFiltroTipoUnidadDisponibles(e.target.value)
+                    setUnidadDisponibleDetalle(null)
+                    setUnidadesDisponiblesConsultadas(true)
+                  }}
+                >
+                  <option value="">Todos los tipos</option>
+                  {catalogoUnidadesDisponibles.tipos.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="unidades-disponibles-filtros-acciones">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={consultarUnidadesDisponibles}
+                >
+                  Buscar
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={resetConsultaUnidadesDisponibles}
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {unidadesDisponiblesConsultadas && !unidadDisponibleDetalle && (
+          <section className="panel no-print">
+            <div className="section-title compact-title">
+              <div className="section-icon">▤</div>
+              <h2>
+                Resultados
+                {unidadesDisponiblesResultado.length > 0
+                  ? ` (${unidadesDisponiblesResultado.length})`
+                  : ''}
+              </h2>
+            </div>
+
+            <div className="simple-table-wrapper">
+              <table className="simple-table unidades-disponibles-tabla">
+                <thead>
+                  <tr>
+                    <th>Ciudad</th>
+                    <th>Unidad</th>
+                    <th>Tipo de unidad</th>
+                    <th>Valor arriendo sugerido</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unidadesDisponiblesResultado.map((fila) => (
+                    <tr key={`${fila.unidad.codigoPredio}::${fila.unidad.id}`}>
+                      <td>{fila.ciudad}</td>
+                      <td>
+                        <strong>{fila.unidad.nombre}</strong>
+                        <div className="tabla-subtexto">{fila.unidad.id}</div>
+                      </td>
+                      <td>{fila.unidad.tipo}</td>
+                      <td>{formatearDinero(fila.unidad.canonSugerido || 0)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-small btn-primary"
+                          onClick={() => {
+                            setUnidadDisponibleDetalle(fila)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                          }}
+                        >
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {unidadesDisponiblesResultado.length === 0 && (
+                    <tr>
+                      <td colSpan="5">
+                        No se encontraron unidades disponibles sin contrato de arriendo activo
+                        con esos filtros. Verifique que la unidad tenga estado{' '}
+                        <strong>Disponible</strong> y que no tenga un contrato de arriendo activo.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {unidadDisponibleDetalle && (
+          <section className="panel no-print unidad-disponible-detalle-panel">
+            <div className="section-title">
+              <div className="section-icon">▤</div>
+              <h2>Información completa de la unidad</h2>
+            </div>
+
+            <div className="form-actions panel-action-bar consulta-jerarquia-acciones">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setUnidadDisponibleDetalle(null)}
+              >
+                Volver al listado
+              </button>
+            </div>
+
+            <div className="unidad-disponible-detalle-grid">
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Ciudad</span>
+                <strong>{unidadDisponibleDetalle.ciudad}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Barrio</span>
+                <strong>{unidadDisponibleDetalle.barrio}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Dirección del predio</span>
+                <strong>{unidadDisponibleDetalle.direccion || 'Sin dirección'}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Código predio</span>
+                <strong>{unidadDisponibleDetalle.unidad.codigoPredio}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Código unidad</span>
+                <strong>{unidadDisponibleDetalle.unidad.id}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Nombre unidad</span>
+                <strong>{unidadDisponibleDetalle.unidad.nombre}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Tipo de unidad</span>
+                <strong>{unidadDisponibleDetalle.unidad.tipo}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Área aproximada</span>
+                <strong>
+                  {unidadDisponibleDetalle.unidad.area
+                    ? `${unidadDisponibleDetalle.unidad.area} m²`
+                    : 'Sin registrar'}
+                </strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Valor arriendo sugerido</span>
+                <strong>{formatearDinero(unidadDisponibleDetalle.unidad.canonSugerido || 0)}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Administración</span>
+                <strong>
+                  {unidadDisponibleDetalle.unidad.aplicaAdministracion === 'Sí'
+                    ? formatearDinero(unidadDisponibleDetalle.unidad.valorAdministracion || 0)
+                    : 'No aplica'}
+                </strong>
+              </div>
+              <div className="unidad-disponible-detalle-card">
+                <span className="unidad-disponible-detalle-label">Estado</span>
+                <strong>{unidadDisponibleDetalle.unidad.estado}</strong>
+              </div>
+              <div className="unidad-disponible-detalle-card unidad-disponible-detalle-card--wide">
+                <span className="unidad-disponible-detalle-label">Observaciones</span>
+                <strong>
+                  {unidadDisponibleDetalle.unidad.observaciones?.trim() || 'Sin observaciones'}
+                </strong>
+              </div>
+              <div className="unidad-disponible-detalle-card unidad-disponible-detalle-card--wide">
+                <span className="unidad-disponible-detalle-label">Servicios públicos</span>
+                <strong>
+                  {(unidadDisponibleDetalle.unidad.serviciosPublicos || []).length > 0
+                    ? (unidadDisponibleDetalle.unidad.serviciosPublicos || [])
+                        .map((servicio) => servicio.tipo)
+                        .join(', ')
+                    : 'Sin servicios registrados'}
+                </strong>
+              </div>
+            </div>
+
+            <div className="form-actions panel-action-bar">
+              {puedeRegistrar && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => abrirContratoDesdeUnidad(unidadDisponibleDetalle.unidad)}
+                >
+                  Crear contrato de arriendo
+                </button>
+              )}
+              {puedeAdministrar && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => editarUnidad(unidadDisponibleDetalle.unidad)}
+                >
+                  Editar unidad
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
+      </>
+    )}
 
       {mostrarInicio && (
   <>
@@ -19712,6 +20862,17 @@ const resultadosBusqueda = textoBusqueda
       <strong>Predios existentes</strong>
       <span className="panel-inicio-metric">{predios.length}</span>
       <p>Total de predios registrados</p>
+    </button>
+
+    <button
+      type="button"
+      className={claseTarjetaPanelInicio(false)}
+      onClick={abrirUnidadesDisponibles}
+    >
+      <span className="estado-cuenta-tipo-icon">▤</span>
+      <strong>Unidades disponibles</strong>
+      <span className="panel-inicio-metric">{totalUnidadesDisponibles}</span>
+      <p>Unidades sin contrato de arriendo activo</p>
     </button>
 
     <button
