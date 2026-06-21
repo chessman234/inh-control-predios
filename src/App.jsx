@@ -6266,6 +6266,69 @@ const fechaReciboEnRango = (fecha, desde, hasta) => {
   return true
 }
 
+const obtenerNombrePagadorReciboPago = (
+  pago,
+  tipo,
+  { contratosArriendo = [], propietarios = [], predioPropietarios = [] } = {}
+) => {
+  const buscarPropietarioPredio = (codigoPredio, idPropietarioPreferido = '') => {
+    if (idPropietarioPreferido) {
+      const propietarioDirecto = propietarios.find(
+        (propietario) => propietario.idPropietario === idPropietarioPreferido
+      )
+      if (propietarioDirecto?.nombre) return String(propietarioDirecto.nombre).trim()
+    }
+
+    const relaciones = predioPropietarios.filter(
+      (relacion) => relacion.codigoPredio === codigoPredio && relacion.activo !== false
+    )
+    const propietarioRelacionado = propietarios.find((propietario) =>
+      relaciones.some((relacion) => relacion.idPropietario === propietario.idPropietario)
+    )
+    return String(propietarioRelacionado?.nombre || '').trim()
+  }
+
+  if (tipo === 'arriendo') {
+    const nombre = String(pago.arrendatario || '').trim()
+    if (nombre) return nombre
+    const contrato = contratosArriendo.find(
+      (contratoItem) => obtenerIdContrato(contratoItem) === pago.idContrato
+    )
+    return String(contrato?.arrendatario || '').trim() || 'Sin arrendatario'
+  }
+
+  if (tipo === 'administracion') {
+    const contrato = contratosArriendo.find(
+      (contratoItem) => obtenerIdContrato(contratoItem) === pago.idContrato
+    )
+    if (pago.origenFondo === 'Propietario') {
+      return buscarPropietarioPredio(pago.codigoPredio) || 'Propietario'
+    }
+    return String(contrato?.arrendatario || '').trim() || 'Sin pagador'
+  }
+
+  if (tipo === 'servicios') {
+    const contrato = contratosArriendo.find(
+      (contratoItem) =>
+        contratoItem.codigoPredio === pago.codigoPredio &&
+        (contratoItem.idUnidad || '') === (pago.idUnidad || '')
+    )
+    return (
+      String(contrato?.arrendatario || pago.nombreUnidad || '').trim() || 'Sin pagador'
+    )
+  }
+
+  if (tipo === 'predial') {
+    return buscarPropietarioPredio(pago.codigoPredio) || 'Propietario'
+  }
+
+  if (tipo === 'liquidacion') {
+    return buscarPropietarioPredio(pago.codigoPredio, pago.idPropietario) || 'Propietario'
+  }
+
+  return '—'
+}
+
 const ETIQUETAS_TIPO_RECIBO_PAGO = {
   arriendo: 'Arriendo',
   administracion: 'Administración',
@@ -6274,16 +6337,40 @@ const ETIQUETAS_TIPO_RECIBO_PAGO = {
   liquidacion: 'Liquidación depósito',
 }
 
+const OPCIONES_TIPO_FILTRO_REPORTE_RECIBOS = [
+  { value: 'todos', label: 'Todos los tipos' },
+  { value: 'arriendo', label: ETIQUETAS_TIPO_RECIBO_PAGO.arriendo },
+  { value: 'administracion', label: ETIQUETAS_TIPO_RECIBO_PAGO.administracion },
+  { value: 'servicios', label: ETIQUETAS_TIPO_RECIBO_PAGO.servicios },
+  { value: 'predial', label: ETIQUETAS_TIPO_RECIBO_PAGO.predial },
+  { value: 'liquidacion', label: ETIQUETAS_TIPO_RECIBO_PAGO.liquidacion },
+]
+
+const obtenerEtiquetaTipoFiltroReporteRecibos = (tipoFiltro = 'todos') => {
+  if (!tipoFiltro || tipoFiltro === 'todos') return 'Todos los tipos'
+  return ETIQUETAS_TIPO_RECIBO_PAGO[tipoFiltro] || 'Todos los tipos'
+}
+
+const reciboPasaFiltroTipoReporte = (item, tipoFiltro = 'todos') => {
+  if (!tipoFiltro || tipoFiltro === 'todos') return true
+  return item.tipo === tipoFiltro
+}
+
 const construirCatalogoRecibosPago = ({
   pagosArriendo = [],
   pagosAdministracion = [],
   pagosServiciosPublicos = [],
   pagosPrediales = [],
   pagosLiquidacionDeposito = [],
+  contratosArriendo = [],
+  propietarios = [],
+  predioPropietarios = [],
 }) => {
+  const contextoPagador = { contratosArriendo, propietarios, predioPropietarios }
   const items = []
 
-  pagosArriendo.forEach((pago) => {
+  pagosArriendo.filter(Boolean).forEach((pago) => {
+    if (!pago?.id) return
     items.push({
       clave: `arriendo-${pago.id}`,
       tipo: 'arriendo',
@@ -6291,7 +6378,8 @@ const construirCatalogoRecibosPago = ({
       idOrigen: pago.id,
       numeroRecibo: obtenerNumeroReciboPago(pago, 'arriendo'),
       fechaPago: normalizarFechaReciboPago(pago.fechaPago),
-      concepto: `Arriendo – ${pago.concepto || 'Pago'} – ${pago.arrendatario || 'Sin arrendatario'} (${pago.mes || '—'})`,
+      concepto: `Arriendo – ${pago.concepto || 'Pago'} (${pago.mes || '—'})`,
+      nombrePagador: obtenerNombrePagadorReciboPago(pago, 'arriendo', contextoPagador),
       valor: Number(pago.valorPagado || 0),
       pago,
     })
@@ -6306,6 +6394,7 @@ const construirCatalogoRecibosPago = ({
       numeroRecibo: obtenerNumeroReciboPago(pago, 'administracion'),
       fechaPago: normalizarFechaReciboPago(pago.fechaPago),
       concepto: `Administración – ${pago.nombreUnidad || 'Sin unidad'} (${pago.mes || '—'})`,
+      nombrePagador: obtenerNombrePagadorReciboPago(pago, 'administracion', contextoPagador),
       valor: Number(pago.valorPagado || 0),
       pago,
     })
@@ -6320,6 +6409,7 @@ const construirCatalogoRecibosPago = ({
       numeroRecibo: obtenerNumeroReciboPago(pago, 'servicios'),
       fechaPago: normalizarFechaReciboPago(pago.fechaPago),
       concepto: `${pago.tipoServicio || 'Servicio'} – ${pago.empresa || ''} (${pago.periodo || '—'})`,
+      nombrePagador: obtenerNombrePagadorReciboPago(pago, 'servicios', contextoPagador),
       valor: Number(pago.valorPagado || 0),
       pago,
     })
@@ -6334,6 +6424,7 @@ const construirCatalogoRecibosPago = ({
       numeroRecibo: obtenerNumeroReciboPago(pago, 'predial'),
       fechaPago: normalizarFechaReciboPago(pago.fechaPago),
       concepto: `Impuesto predial ${pago.anio || '—'} – Predio ${pago.codigoPredio || '—'}`,
+      nombrePagador: obtenerNombrePagadorReciboPago(pago, 'predial', contextoPagador),
       valor: Number(pago.valorPagado || 0),
       pago,
     })
@@ -6348,6 +6439,7 @@ const construirCatalogoRecibosPago = ({
       numeroRecibo: obtenerNumeroReciboPago(pago, 'liquidacion'),
       fechaPago: normalizarFechaReciboPago(pago.fechaPago),
       concepto: `Liquidación depósito – ${pago.unidad || 'Sin unidad'} (${pago.mes || '—'}) – Predio ${pago.codigoPredio || '—'}`,
+      nombrePagador: obtenerNombrePagadorReciboPago(pago, 'liquidacion', contextoPagador),
       valor: Number(pago.valorNetoPropietario || 0),
       pago,
     })
@@ -6363,6 +6455,7 @@ const imprimirListadoCorteRecibos = ({
   recibos = [],
   fechaDesde = '',
   fechaHasta = '',
+  tipoFiltro = 'todos',
   formatearDinero,
 }) => {
   if (!recibos.length) {
@@ -6371,13 +6464,16 @@ const imprimirListadoCorteRecibos = ({
   }
 
   const total = recibos.reduce((suma, item) => suma + Number(item.valor || 0), 0)
+  const tipoTexto = obtenerEtiquetaTipoFiltroReporteRecibos(tipoFiltro)
   const filas = recibos
     .map(
       (item) => `
         <tr>
           <td>${escapeHtml(formatearFechaReciboLista(item.fechaPago))}</td>
           <td>${escapeHtml(item.numeroRecibo || '—')}</td>
+          <td>${escapeHtml(item.tipoLabel || ETIQUETAS_TIPO_RECIBO_PAGO[item.tipo] || '—')}</td>
           <td>${escapeHtml(item.concepto || '')}</td>
+          <td>${escapeHtml(item.nombrePagador || '—')}</td>
           <td class="valor">${escapeHtml(formatearDinero(item.valor || 0))}</td>
         </tr>
       `
@@ -6412,6 +6508,7 @@ const imprimirListadoCorteRecibos = ({
         <p class="doc-meta">
           Periodo: <strong>${escapeHtml(formatearFechaReciboLista(fechaDesde))}</strong>
           al <strong>${escapeHtml(formatearFechaReciboLista(fechaHasta))}</strong>
+          · Tipo: <strong>${escapeHtml(tipoTexto)}</strong>
           · ${recibos.length} recibo(s) registrados
         </p>
         <table>
@@ -6419,7 +6516,9 @@ const imprimirListadoCorteRecibos = ({
             <tr>
               <th>Fecha</th>
               <th>N° recibo</th>
+              <th>Tipo</th>
               <th>Concepto</th>
+              <th>Quien pagó</th>
               <th>Valor</th>
             </tr>
           </thead>
@@ -9195,6 +9294,16 @@ function App() {
     return () => window.removeEventListener('keydown', cerrarConEscape)
   }, [menuMovilAbierto])
 
+  useEffect(() => {
+    if (seccionActiva !== 'reportes') {
+      setModoReporteRecibos(false)
+      setReporteRecibosConsultado(false)
+      setFechaDesdeReporteRecibos('')
+      setFechaHastaReporteRecibos('')
+      setTipoFiltroReporteRecibos('todos')
+    }
+  }, [seccionActiva])
+
   const usuariosIniciales = [
   {
     id: 'admin',
@@ -9636,6 +9745,11 @@ const [nuevoUsuarioRol, setNuevoUsuarioRol] = useState('Consulta')
   const [fechaDesdeCorteRecibos, setFechaDesdeCorteRecibos] = useState('')
   const [fechaHastaCorteRecibos, setFechaHastaCorteRecibos] = useState('')
   const [corteRecibosConsultado, setCorteRecibosConsultado] = useState(false)
+  const [modoReporteRecibos, setModoReporteRecibos] = useState(false)
+  const [fechaDesdeReporteRecibos, setFechaDesdeReporteRecibos] = useState('')
+  const [fechaHastaReporteRecibos, setFechaHastaReporteRecibos] = useState('')
+  const [tipoFiltroReporteRecibos, setTipoFiltroReporteRecibos] = useState('todos')
+  const [reporteRecibosConsultado, setReporteRecibosConsultado] = useState(false)
   const [reciboPagoSeleccionado, setReciboPagoSeleccionado] = useState(null)
   const [editandoReciboPago, setEditandoReciboPago] = useState(false)
   const [edicionReciboNumero, setEdicionReciboNumero] = useState('')
@@ -10370,6 +10484,47 @@ const cambiarEstadoUsuario = (usuarioObjetivo) => {
     sincronizarMenuAbierto(seccion, grupoMenu)
   }
 
+  const resetReporteRecibosRecaudados = () => {
+    setModoReporteRecibos(false)
+    setReporteRecibosConsultado(false)
+    setFechaDesdeReporteRecibos('')
+    setFechaHastaReporteRecibos('')
+    setTipoFiltroReporteRecibos('todos')
+    setReciboPagoSeleccionado(null)
+    setEditandoReciboPago(false)
+    setEdicionReciboNumero('')
+    setEdicionReciboFecha('')
+    setEdicionReciboValor('')
+    setEdicionReciboObservaciones('')
+  }
+
+  const abrirReporteRecibosRecaudados = () => {
+    const hoy = new Date()
+    const yyyy = hoy.getFullYear()
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0')
+    const dd = String(hoy.getDate()).padStart(2, '0')
+
+    setSeccionActiva('reportes')
+    setVistaActiva('reportes')
+    setClaveSubmenuActiva('recibosRecaudados')
+    setGrupoMenuActivoPersistente('reportes')
+    setMenuAbierto('reportes')
+    setModuloMenuActivo('reportes')
+    setModoReporteRecibos(true)
+    setReporteRecibosConsultado(false)
+    setFechaDesdeReporteRecibos(`${yyyy}-${mm}-01`)
+    setFechaHastaReporteRecibos(`${yyyy}-${mm}-${dd}`)
+    setTipoFiltroReporteRecibos('todos')
+    setReciboPagoSeleccionado(null)
+    setEditandoReciboPago(false)
+    setEdicionReciboNumero('')
+    setEdicionReciboFecha('')
+    setEdicionReciboValor('')
+    setEdicionReciboObservaciones('')
+    setMenuMovilAbierto(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const irSubmenu = (config) => {
     const { seccion, vista, clave, grupo = null, onAntes = null } = config
     const esCambioModulo = seccion !== seccionActiva
@@ -10431,6 +10586,10 @@ const cambiarEstadoUsuario = (usuarioObjetivo) => {
 
     if (vista === 'recibosPago') {
       limpiarRecibosPago()
+    }
+
+    if (seccion === 'reportes' && (vista === 'reportes' || vista === 'respaldos')) {
+      resetReporteRecibosRecaudados()
     }
 
     if (vista === 'liquidacionDeposito') {
@@ -12785,6 +12944,9 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     pagosServiciosPublicos,
     pagosPrediales,
     pagosLiquidacionDeposito,
+    contratosArriendo,
+    propietarios,
+    predioPropietarios,
   })
 
   const recibosCorteFiltrados = corteRecibosConsultado
@@ -12819,6 +12981,41 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const consultarReporteRecibosRecaudados = () => {
+    if (!fechaDesdeReporteRecibos || !fechaHastaReporteRecibos) {
+      alert('Indique la fecha inicial y la fecha final del periodo.')
+      return
+    }
+    if (fechaDesdeReporteRecibos > fechaHastaReporteRecibos) {
+      alert('La fecha inicial no puede ser posterior a la fecha final.')
+      return
+    }
+    setReporteRecibosConsultado(true)
+    setReciboPagoSeleccionado(null)
+    setEditandoReciboPago(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const volverReporteSaldos = () => {
+    resetReporteRecibosRecaudados()
+  }
+
+  const recibosReporteFiltrados = reporteRecibosConsultado
+    ? catalogoRecibosPago.filter(
+        (item) =>
+          fechaReciboEnRango(
+            item.fechaPago,
+            fechaDesdeReporteRecibos,
+            fechaHastaReporteRecibos
+          ) && reciboPasaFiltroTipoReporte(item, tipoFiltroReporteRecibos)
+      )
+    : []
+
+  const totalReporteRecibos = recibosReporteFiltrados.reduce(
+    (suma, item) => suma + Number(item.valor || 0),
+    0
+  )
+
   const seleccionarReciboPagoCatalogo = (item) => {
     setReciboPagoSeleccionado(item)
     setEditandoReciboPago(false)
@@ -12827,8 +13024,8 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
   const iniciarEdicionReciboPago = () => {
     if (!reciboPagoSeleccionado) return
-    if (!puedeRegistrar && !puedeAdministrar) {
-      alert('No tiene permisos para editar recibos de pago.')
+    if (!puedeAdministrar) {
+      alert('Solo el administrador general puede editar recibos de pago.')
       return
     }
     const { pago, tipo } = reciboPagoSeleccionado
@@ -12857,8 +13054,8 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
   const guardarEdicionReciboPago = () => {
     if (!reciboPagoSeleccionado) return
-    if (!puedeRegistrar && !puedeAdministrar) {
-      alert('No tiene permisos para editar recibos de pago.')
+    if (!puedeAdministrar) {
+      alert('Solo el administrador general puede editar recibos de pago.')
       return
     }
 
@@ -17982,6 +18179,7 @@ const resultadosBusqueda = textoBusqueda
     estadosCuenta: 'estados',
     reportes: 'reportes',
     respaldos: 'reportes',
+    recibosRecaudados: 'reportes',
   }
 
   const inferirClaveSubmenuActiva = () => {
@@ -18051,6 +18249,7 @@ const resultadosBusqueda = textoBusqueda
 
     if (seccionActiva === 'estados') return 'estadosCuenta'
     if (seccionActiva === 'reportes') {
+      if (modoReporteRecibos) return 'recibosRecaudados'
       if (vistaActiva === 'respaldos') return 'respaldos'
       return 'reportes'
     }
@@ -18343,6 +18542,16 @@ const resultadosBusqueda = textoBusqueda
       return `Ficha del contrato ${obtenerNumeroContratoVisible(contratoSeleccionado, predios, contratosArriendo)}`
     }
 
+    if (seccionActiva === 'reportes' && modoReporteRecibos) {
+      if (reciboPagoSeleccionado) {
+        return `Recibo ${reciboPagoSeleccionado.numeroRecibo || '—'}`
+      }
+      if (reporteRecibosConsultado) {
+        return 'Recibos recaudados por periodo'
+      }
+      return 'Recibos recaudados – seleccionar periodo'
+    }
+
     const nombresVista = {
       inicio: 'Dashboard',
       predios: 'Consulta de predios registrados',
@@ -18372,7 +18581,7 @@ const resultadosBusqueda = textoBusqueda
       estadoCuentaServicios: 'Estado de cuenta de servicios públicos',
       serviciosPendientesAlerta: 'Servicios públicos pendientes de actualización y pago',
       estados: 'Estados de cuenta predial y de arriendos',
-      reportes: 'Reportes de saldos pendientes',
+      reportes: 'Reportes de saldos y recibos recaudados',
       respaldos: 'Respaldos del sistema',
       cargarDocumento: 'Carga de documentos',
       impresionExtractos: 'Impresión de extractos',
@@ -19123,6 +19332,13 @@ const resultadosBusqueda = textoBusqueda
           }
         >
           Reportes
+        </button>
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('recibosRecaudados'))}
+          onClick={abrirReporteRecibosRecaudados}
+        >
+          Recibos recaudados
         </button>
         <button
           type="button"
@@ -30520,7 +30736,7 @@ const resultadosBusqueda = textoBusqueda
                     >
                       Reimprimir recibo
                     </button>
-                    {(puedeRegistrar || puedeAdministrar) && (
+                    {(puedeAdministrar) && (
                       <button
                         type="button"
                         className="btn-secondary"
@@ -30928,7 +31144,7 @@ const resultadosBusqueda = textoBusqueda
           </section>
         )}
 
-        {mostrarVistaReportes && (
+        {mostrarVistaReportes && !modoReporteRecibos && (
           <section className="panel no-print">
             <div className="section-title">
               <div className="section-icon">▥</div>
@@ -30936,8 +31152,8 @@ const resultadosBusqueda = textoBusqueda
             </div>
 
             <p className="form-description">
-              En esta sección se muestran los predios existentes y los saldos pendientes
-              por arriendos y prediales.
+              En esta sección se muestran los predios existentes, los saldos pendientes
+              por arriendos y prediales, y el reporte de recibos recaudados.
             </p>
 
             <div className="estado-cuenta-tipo-grid panel-inicio-grid">
@@ -30969,7 +31185,331 @@ const resultadosBusqueda = textoBusqueda
                 </span>
                 <p>Prediales pendientes por pagar o actualizar</p>
               </div>
+
+              <button
+                type="button"
+                className="estado-cuenta-tipo-card panel-inicio-card panel-inicio-card--ok"
+                onClick={abrirReporteRecibosRecaudados}
+              >
+                <span className="estado-cuenta-tipo-icon">💵</span>
+                <strong>Recibos recaudados</strong>
+                <p>Consulte recibos por periodo con total recaudado</p>
+              </button>
             </div>
+          </section>
+        )}
+
+        {mostrarVistaReportes && modoReporteRecibos && !reciboPagoSeleccionado && (
+          <>
+            <section className="panel no-print">
+              <div className="section-title">
+                <div className="section-icon">🧾</div>
+                <h2>Recibos de pago recaudados</h2>
+              </div>
+
+              <p className="form-description">
+                Seleccione el periodo y el tipo de recibo para consultar los pagos
+                registrados, el total recaudado y las acciones de imprimir, ver o editar
+                cada recibo.
+              </p>
+
+              <div className="form-actions panel-action-bar consulta-jerarquia-acciones">
+                <button type="button" className="btn-secondary" onClick={volverReporteSaldos}>
+                  Volver a reportes
+                </button>
+              </div>
+
+              <div className="recibos-reporte-filtros-panel">
+                <div className="section-title recibos-reporte-filtros-titulo">
+                  <div className="section-icon">🔍</div>
+                  <h3>Filtros de consulta</h3>
+                </div>
+
+                <div className="form-grid recibos-reporte-filtros">
+                  <div className="form-group">
+                    <label>Fecha inicial</label>
+                    <input
+                      type="date"
+                      value={fechaDesdeReporteRecibos}
+                      onChange={(e) => setFechaDesdeReporteRecibos(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Fecha final</label>
+                    <input
+                      type="date"
+                      value={fechaHastaReporteRecibos}
+                      onChange={(e) => setFechaHastaReporteRecibos(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Tipo de recibo</label>
+                    <select
+                      value={tipoFiltroReporteRecibos}
+                      onChange={(e) => setTipoFiltroReporteRecibos(e.target.value)}
+                    >
+                      {OPCIONES_TIPO_FILTRO_REPORTE_RECIBOS.map((opcion) => (
+                        <option key={opcion.value} value={opcion.value}>
+                          {opcion.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="recibos-reporte-filtros-acciones">
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={consultarReporteRecibosRecaudados}
+                    >
+                      Consultar recibos
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() =>
+                        imprimirListadoCorteRecibos({
+                          recibos: recibosReporteFiltrados,
+                          fechaDesde: fechaDesdeReporteRecibos,
+                          fechaHasta: fechaHastaReporteRecibos,
+                          tipoFiltro: tipoFiltroReporteRecibos,
+                          formatearDinero,
+                        })
+                      }
+                      disabled={
+                        !reporteRecibosConsultado || recibosReporteFiltrados.length === 0
+                      }
+                    >
+                      Imprimir listado
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {reporteRecibosConsultado && (
+                <>
+                  <p className="form-description">
+                    Periodo del {formatearFechaReciboLista(fechaDesdeReporteRecibos)} al{' '}
+                    {formatearFechaReciboLista(fechaHastaReporteRecibos)} · Tipo:{' '}
+                    <strong>{obtenerEtiquetaTipoFiltroReporteRecibos(tipoFiltroReporteRecibos)}</strong>{' '}
+                    · {recibosReporteFiltrados.length} recibo(s)
+                  </p>
+
+                  <div className="simple-table-wrapper">
+                    <table className="simple-table recibos-reporte-tabla">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>N° recibo</th>
+                          <th>Tipo</th>
+                          <th>Concepto</th>
+                          <th>Quien pagó</th>
+                          <th>Valor</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recibosReporteFiltrados.map((item) => (
+                          <tr key={item.clave}>
+                            <td>{formatearFechaReciboLista(item.fechaPago)}</td>
+                            <td>
+                              <strong>{item.numeroRecibo || '—'}</strong>
+                            </td>
+                            <td>{item.tipoLabel}</td>
+                            <td>{item.concepto}</td>
+                            <td>{item.nombrePagador || '—'}</td>
+                            <td>{formatearDinero(item.valor)}</td>
+                            <td>
+                              <div className="recibos-reporte-acciones">
+                                <button
+                                  type="button"
+                                  className="btn-small btn-primary"
+                                  onClick={() =>
+                                    reimprimirReciboPagoCatalogo({
+                                      item,
+                                      contratosArriendo,
+                                      predios,
+                                      formatearDinero,
+                                      imprimirReciboPagoArriendo,
+                                      imprimirReciboServicioPublico,
+                                    })
+                                  }
+                                >
+                                  Imprimir
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-small btn-secondary"
+                                  onClick={() => seleccionarReciboPagoCatalogo(item)}
+                                >
+                                  Ver
+                                </button>
+                                {puedeAdministrar && (
+                                  <button
+                                    type="button"
+                                    className="btn-small btn-gold"
+                                    onClick={() => {
+                                      seleccionarReciboPagoCatalogo(item)
+                                      iniciarEdicionReciboPago()
+                                    }}
+                                  >
+                                    Editar
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {recibosReporteFiltrados.length === 0 && (
+                          <tr>
+                            <td colSpan="7">
+                              No hay recibos registrados con los filtros seleccionados.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                      {recibosReporteFiltrados.length > 0 && (
+                        <tfoot>
+                          <tr className="recibos-corte-total-fila">
+                            <td colSpan="5">
+                              <strong>Total recaudado en el periodo</strong>
+                            </td>
+                            <td colSpan="2">
+                              <strong>{formatearDinero(totalReporteRecibos)}</strong>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </>
+              )}
+            </section>
+          </>
+        )}
+
+        {mostrarVistaReportes && modoReporteRecibos && reciboPagoSeleccionado && (
+          <section className="panel no-print">
+            <div className="section-title">
+              <div className="section-icon">🧾</div>
+              <h2>Recibo {reciboPagoSeleccionado.numeroRecibo || '—'}</h2>
+            </div>
+
+            <div className="detail-grid">
+              <div>
+                <span>Fecha</span>
+                <strong>{formatearFechaReciboLista(reciboPagoSeleccionado.fechaPago)}</strong>
+              </div>
+              <div>
+                <span>Tipo</span>
+                <strong>{reciboPagoSeleccionado.tipoLabel}</strong>
+              </div>
+              <div>
+                <span>Valor</span>
+                <strong>{formatearDinero(reciboPagoSeleccionado.valor)}</strong>
+              </div>
+              <div>
+                <span>Quien pagó</span>
+                <strong>{reciboPagoSeleccionado.nombrePagador || '—'}</strong>
+              </div>
+              <div className="full">
+                <span>Concepto</span>
+                <strong>{reciboPagoSeleccionado.concepto}</strong>
+              </div>
+            </div>
+
+            {!editandoReciboPago && (
+              <div className="form-actions panel-action-bar consulta-jerarquia-acciones">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setReciboPagoSeleccionado(null)
+                    cancelarEdicionReciboPago()
+                  }}
+                >
+                  Volver al listado
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() =>
+                    reimprimirReciboPagoCatalogo({
+                      item: reciboPagoSeleccionado,
+                      contratosArriendo,
+                      predios,
+                      formatearDinero,
+                      imprimirReciboPagoArriendo,
+                      imprimirReciboServicioPublico,
+                    })
+                  }
+                >
+                  Imprimir
+                </button>
+                {puedeAdministrar && (
+                  <button type="button" className="btn-gold" onClick={iniciarEdicionReciboPago}>
+                    Editar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {editandoReciboPago && (
+              <div className="recibos-pago-edicion">
+                <div className="section-title">
+                  <div className="section-icon">✎</div>
+                  <h2>Editar recibo</h2>
+                </div>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>N° recibo</label>
+                    <input
+                      type="text"
+                      value={edicionReciboNumero}
+                      onChange={(e) => setEdicionReciboNumero(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Fecha de pago</label>
+                    <input
+                      type="date"
+                      value={edicionReciboFecha}
+                      onChange={(e) => setEdicionReciboFecha(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Valor</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={edicionReciboValor}
+                      onChange={(e) => setEdicionReciboValor(e.target.value)}
+                    />
+                  </div>
+                  {reciboPagoSeleccionado.tipo !== 'predial' && (
+                    <div className="form-group full">
+                      <label>Observaciones</label>
+                      <textarea
+                        rows="3"
+                        value={edicionReciboObservaciones}
+                        onChange={(e) => setEdicionReciboObservaciones(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-actions">
+                  <button type="button" className="btn-secondary" onClick={cancelarEdicionReciboPago}>
+                    Cancelar
+                  </button>
+                  <button type="button" className="btn-primary" onClick={guardarEdicionReciboPago}>
+                    Guardar cambios
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -30986,13 +31526,23 @@ const resultadosBusqueda = textoBusqueda
             </p>
 
             {puedeAdministrar ? (
-              <div className="form-actions">
-                <button type="button" className="btn-primary" onClick={descargarRespaldo}>
-                  Descargar respaldo
+              <div className="estado-cuenta-tipo-grid panel-inicio-grid">
+                <button
+                  type="button"
+                  className="estado-cuenta-tipo-card panel-inicio-card panel-inicio-card--ok"
+                  onClick={descargarRespaldo}
+                >
+                  <span className="estado-cuenta-tipo-icon">⬇️</span>
+                  <strong>Descargar respaldo</strong>
+                  <span className="panel-inicio-metric">Exportar</span>
+                  <p>Genera un archivo JSON con toda la información del sistema</p>
                 </button>
 
-                <label className="btn-secondary file-label">
-                  Importar respaldo
+                <label className="estado-cuenta-tipo-card panel-inicio-card panel-inicio-card--ok respaldo-importar-card">
+                  <span className="estado-cuenta-tipo-icon">📂</span>
+                  <strong>Importar respaldo</strong>
+                  <span className="panel-inicio-metric">Restaurar</span>
+                  <p>Reemplaza los datos actuales con la información del archivo JSON</p>
                   <input
                     type="file"
                     accept=".json"
@@ -31002,8 +31552,13 @@ const resultadosBusqueda = textoBusqueda
                 </label>
               </div>
             ) : (
-              <div className="alert-panel">
-                <p>Solo el administrador puede descargar o importar respaldos.</p>
+              <div className="estado-cuenta-tipo-grid panel-inicio-grid">
+                <div className="estado-cuenta-tipo-card panel-inicio-card panel-inicio-card--static panel-inicio-card--alert">
+                  <span className="estado-cuenta-tipo-icon">🔒</span>
+                  <strong>Respaldos restringidos</strong>
+                  <span className="panel-inicio-metric">Solo admin</span>
+                  <p>Solo el administrador puede descargar o importar respaldos del sistema</p>
+                </div>
               </div>
             )}
           </section>

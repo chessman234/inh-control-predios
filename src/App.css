@@ -6777,6 +6777,13 @@ body.imprimiendo-extracto #extracto-impresion-root {
   border-color: #b8d4f0;
 }
 
+.respaldo-importar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
 .recibos-pago-modo-grid {
   margin-top: 8px;
 }
@@ -8484,6 +8491,71 @@ body.imprimiendo-extracto #extracto-impresion-root {
 
   .submenu button {
     font-size: 14px;
+  }
+}
+
+.recibos-reporte-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recibos-reporte-tabla {
+  min-width: 1200px;
+}
+
+.recibos-reporte-filtros-panel {
+  margin-top: 8px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.recibos-reporte-filtros-titulo {
+  margin-bottom: 14px;
+}
+
+.recibos-reporte-filtros-titulo h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0e1b42;
+}
+
+.recibos-reporte-filtros {
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 1fr)
+    minmax(150px, 1fr)
+    minmax(180px, 1.15fr)
+    auto;
+  gap: 14px;
+  align-items: end;
+  width: 100%;
+  max-width: none;
+}
+
+.recibos-reporte-filtros-acciones {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+
+.recibos-reporte-filtros-acciones button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .recibos-reporte-filtros-panel {
+    overflow-x: auto;
+  }
+
+  .recibos-reporte-filtros {
+    min-width: 820px;
   }
 }
 
