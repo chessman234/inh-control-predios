@@ -1,6 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
 import './App.css'
 import logoInhUrl from './assets/logo-inh.png?url'
+import {
+  cargarDatosApi,
+  getTokenSesion,
+  getUsuarioSesion,
+  limpiarTokenSesion,
+  loginApi,
+  programarGuardadoDatosApi,
+  setSesionApi,
+  usaApiRemota,
+} from './api/datos.js'
 
 const LOGO_INH = logoInhUrl
 const obtenerUrlAbsolutaLogoInh = () =>
@@ -9166,10 +9176,24 @@ function App() {
 
   const [seccionActiva, setSeccionActiva] = useState('inicio')
   const [menuAbierto, setMenuAbierto] = useState('')
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
   const [vistaActiva, setVistaActiva] = useState('inicio')
   const [claveSubmenuActiva, setClaveSubmenuActiva] = useState('')
   const [grupoMenuActivoPersistente, setGrupoMenuActivoPersistente] = useState('')
   const [moduloMenuActivo, setModuloMenuActivo] = useState('')
+
+  useEffect(() => {
+    setMenuMovilAbierto(false)
+  }, [seccionActiva, vistaActiva, claveSubmenuActiva, moduloMenuActivo])
+
+  useEffect(() => {
+    if (!menuMovilAbierto) return undefined
+    const cerrarConEscape = (evento) => {
+      if (evento.key === 'Escape') setMenuMovilAbierto(false)
+    }
+    window.addEventListener('keydown', cerrarConEscape)
+    return () => window.removeEventListener('keydown', cerrarConEscape)
+  }, [menuMovilAbierto])
 
   const usuariosIniciales = [
   {
@@ -9630,87 +9654,118 @@ const [nuevoUsuarioRol, setNuevoUsuarioRol] = useState('Consulta')
   const [valoresPrediales, setValoresPrediales] = useState([])
   const [pagosPrediales, setPagosPrediales] = useState([])
 
-  useEffect(() => {
-  const datosGuardados = localStorage.getItem(STORAGE_KEY)
-
-  if (datosGuardados) {
-    try {
-      const datos = JSON.parse(datosGuardados)
-
-      const prediosCargados = normalizarPredios(datos.predios)
-      const modeloPropietarios = migrarModeloPropietarios(
-        datos.propietarios,
-        datos.predioPropietarios
+  const cargarDatosEnEstado = (datos) => {
+    const prediosCargados = normalizarPredios(datos.predios)
+    const modeloPropietarios = migrarModeloPropietarios(
+      datos.propietarios,
+      datos.predioPropietarios
+    )
+    setPredioPropietarios(modeloPropietarios.predioPropietarios)
+    setHistorialCambios(datos.historialCambios || [])
+    const datosMigradosUnidades = migrarIdsUnidadesNegocio({
+      unidadesNegocio: datos.unidadesNegocio || [],
+      contratosArriendo: datos.contratosArriendo || [],
+      pagosArriendo: datos.pagosArriendo || [],
+      pagosAdministracion: datos.pagosAdministracion || [],
+      facturasServiciosPublicos: datos.facturasServiciosPublicos || [],
+      pagosServiciosPublicos: datos.pagosServiciosPublicos || [],
+      documentos: datos.documentos || [],
+      gestionesCartera: datos.gestionesCartera || [],
+      ajustesAdministracion: datos.ajustesAdministracion || [],
+    })
+    setUnidadesNegocio(datosMigradosUnidades.unidadesNegocio || [])
+    const contratosMigrados = migrarReferenciasContratosArriendo(
+      normalizarCodigosContratosArriendo(
+        asignarIdsInternosContratosArriendo(datosMigradosUnidades.contratosArriendo || []),
+        prediosCargados
+      ),
+      datosMigradosUnidades.pagosArriendo || [],
+      datosMigradosUnidades.ajustesAdministracion || [],
+      datosMigradosUnidades.gestionesCartera || []
+    )
+    setContratosArriendo(contratosMigrados.contratos)
+    setIncrementosArriendo(datos.incrementosArriendo || [])
+    setAjustesAdministracion(contratosMigrados.ajustesAdministracion)
+    setPagosArriendo(contratosMigrados.pagosArriendo)
+    setPagosAdministracion(datosMigradosUnidades.pagosAdministracion || [])
+    setGestionesCartera(contratosMigrados.gestionesCartera)
+    setFacturasServiciosPublicos(datosMigradosUnidades.facturasServiciosPublicos || [])
+    setPagosServiciosPublicos(datosMigradosUnidades.pagosServiciosPublicos || [])
+    setDocumentos(datosMigradosUnidades.documentos || [])
+    setValoresPrediales(datos.valoresPrediales || [])
+    setPagosPrediales(datos.pagosPrediales || [])
+    const contratosDepositoCargados = asignarNumerosContratosDepositoFaltantes(
+      normalizarContratosDeposito(datos.contratosDeposito || []),
+      modeloPropietarios.propietarios
+    )
+    setPropietarios(
+      normalizarEsDepositantePropietarios(
+        modeloPropietarios.propietarios,
+        contratosDepositoCargados
       )
-      setPredioPropietarios(modeloPropietarios.predioPropietarios)
-      setHistorialCambios(datos.historialCambios || [])
-      const datosMigradosUnidades = migrarIdsUnidadesNegocio({
-        unidadesNegocio: datos.unidadesNegocio || [],
-        contratosArriendo: datos.contratosArriendo || [],
-        pagosArriendo: datos.pagosArriendo || [],
-        pagosAdministracion: datos.pagosAdministracion || [],
-        facturasServiciosPublicos: datos.facturasServiciosPublicos || [],
-        pagosServiciosPublicos: datos.pagosServiciosPublicos || [],
-        documentos: datos.documentos || [],
-        gestionesCartera: datos.gestionesCartera || [],
-        ajustesAdministracion: datos.ajustesAdministracion || [],
-      })
-      setUnidadesNegocio(datosMigradosUnidades.unidadesNegocio || [])
-      const contratosMigrados = migrarReferenciasContratosArriendo(
-        normalizarCodigosContratosArriendo(
-          asignarIdsInternosContratosArriendo(datosMigradosUnidades.contratosArriendo || []),
-          prediosCargados
-        ),
-        datosMigradosUnidades.pagosArriendo || [],
-        datosMigradosUnidades.ajustesAdministracion || [],
-        datosMigradosUnidades.gestionesCartera || []
+    )
+    const jerarquiaMigrada = migrarJerarquiaDocumental(
+      prediosCargados,
+      contratosDepositoCargados,
+      modeloPropietarios.propietarios
+    )
+    setContratosDeposito(jerarquiaMigrada.contratosDeposito)
+    setPredios(jerarquiaMigrada.predios)
+    setPagosLiquidacionDeposito(datos.pagosLiquidacionDeposito || [])
+    setUsuariosSistema(
+      (Array.isArray(datos.usuariosSistema) ? datos.usuariosSistema : usuariosIniciales).map(
+        (usuario) => ({
+          ...usuario,
+          id: usuario.id || usuario.usuario,
+          usuario: usuario.usuario || usuario.id,
+          rol: usuario.rol === 'Digitador' ? 'Operador' : usuario.rol,
+          activo: usuario.activo !== false,
+        })
       )
-      setContratosArriendo(contratosMigrados.contratos)
-      setIncrementosArriendo(datos.incrementosArriendo || [])
-      setAjustesAdministracion(contratosMigrados.ajustesAdministracion)
-      setPagosArriendo(contratosMigrados.pagosArriendo)
-      setPagosAdministracion(datosMigradosUnidades.pagosAdministracion || [])
-      setGestionesCartera(contratosMigrados.gestionesCartera)
-      setFacturasServiciosPublicos(datosMigradosUnidades.facturasServiciosPublicos || [])
-setPagosServiciosPublicos(datosMigradosUnidades.pagosServiciosPublicos || [])
-      setDocumentos(datosMigradosUnidades.documentos || [])
-      setValoresPrediales(datos.valoresPrediales || [])
-      setPagosPrediales(datos.pagosPrediales || [])
-      const contratosDepositoCargados = asignarNumerosContratosDepositoFaltantes(
-        normalizarContratosDeposito(datos.contratosDeposito || []),
-        modeloPropietarios.propietarios
-      )
-      setPropietarios(
-        normalizarEsDepositantePropietarios(
-          modeloPropietarios.propietarios,
-          contratosDepositoCargados
-        )
-      )
-      const jerarquiaMigrada = migrarJerarquiaDocumental(
-        prediosCargados,
-        contratosDepositoCargados,
-        modeloPropietarios.propietarios
-      )
-      setContratosDeposito(jerarquiaMigrada.contratosDeposito)
-      setPredios(jerarquiaMigrada.predios)
-      setPagosLiquidacionDeposito(datos.pagosLiquidacionDeposito || [])
-      setUsuariosSistema(
-  (Array.isArray(datos.usuariosSistema) ? datos.usuariosSistema : usuariosIniciales).map((usuario) => ({
-    ...usuario,
-    id: usuario.id || usuario.usuario,
-    usuario: usuario.usuario || usuario.id,
-    rol: usuario.rol === 'Digitador' ? 'Operador' : usuario.rol,
-    activo: usuario.activo !== false,
-  }))
-)
-    } catch (error) {
-      console.error('Error al cargar los datos guardados:', error)
-      alert('No se pudieron cargar los datos guardados.')
-    }
+    )
   }
 
-  setDatosCargados(true)
-}, [])
+  useEffect(() => {
+    let cancelado = false
+
+    const cargarDatosIniciales = async () => {
+      if (usaApiRemota()) {
+        const token = getTokenSesion()
+        if (token) {
+          try {
+            const datos = await cargarDatosApi()
+            if (!cancelado) {
+              cargarDatosEnEstado(datos)
+              const usuarioGuardado = getUsuarioSesion()
+              if (usuarioGuardado) setUsuarioActual(usuarioGuardado)
+            }
+          } catch (error) {
+            console.error('Error al cargar datos del servidor:', error)
+            limpiarTokenSesion()
+          }
+        }
+      } else {
+        const datosGuardados = localStorage.getItem(STORAGE_KEY)
+        if (datosGuardados) {
+          try {
+            const datos = JSON.parse(datosGuardados)
+            if (!cancelado) cargarDatosEnEstado(datos)
+          } catch (error) {
+            console.error('Error al cargar los datos guardados:', error)
+            alert('No se pudieron cargar los datos guardados.')
+          }
+        }
+      }
+
+      if (!cancelado) setDatosCargados(true)
+    }
+
+    cargarDatosIniciales()
+
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
 useEffect(() => {
   if (!datosCargados || !contratosArriendo.length) return
@@ -9772,6 +9827,13 @@ useEffect(() => {
   pagosLiquidacionDeposito,
   usuariosSistema,
 }
+  if (usaApiRemota()) {
+    if (getTokenSesion()) {
+      programarGuardadoDatosApi(datosParaGuardar)
+    }
+    return
+  }
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(datosParaGuardar))
 }, [
   datosCargados,
@@ -10060,9 +10122,25 @@ const importarRespaldo = (event) => {
     }))
   }
 
-  const iniciarSesion = () => {
+  const iniciarSesion = async () => {
   const loginIdLimpio = loginUsuario.trim().toLowerCase()
   const claveLimpia = loginClave.trim()
+
+  if (usaApiRemota()) {
+    try {
+      const resultado = await loginApi(loginIdLimpio, claveLimpia)
+      setSesionApi(resultado.token, resultado.usuario)
+      cargarDatosEnEstado(resultado.datos)
+      setDatosCargados(true)
+      setUsuarioActual(resultado.usuario)
+      setLoginUsuario('')
+      setLoginClave('')
+      setErrorLogin('')
+    } catch (error) {
+      setErrorLogin(error.message || 'ID de usuario o clave incorrectos.')
+    }
+    return
+  }
 
   const usuarioEncontrado = usuariosSistema.find(
     (usuario) =>
@@ -10087,6 +10165,7 @@ const importarRespaldo = (event) => {
 }
 
 const cerrarSesion = () => {
+  if (usaApiRemota()) limpiarTokenSesion()
   setUsuarioActual(null)
   setSeccionActiva('inicio')
   cerrarFormularios()
@@ -10324,7 +10403,7 @@ const cambiarEstadoUsuario = (usuarioObjetivo) => {
     cerrarFormularios()
     activarSubmenu(seccion, clave, grupo || undefined)
     setSeccionActiva(seccion)
-    setVistaActiva(vista)
+    setVistaActiva(vista || clave || seccion)
 
     if (vista === 'contratosDeposito') {
       setContratoDepositoConsultaSeleccionado(null)
@@ -17902,6 +17981,7 @@ const resultadosBusqueda = textoBusqueda
     historialCambios: 'historial',
     estadosCuenta: 'estados',
     reportes: 'reportes',
+    respaldos: 'reportes',
   }
 
   const inferirClaveSubmenuActiva = () => {
@@ -17970,7 +18050,10 @@ const resultadosBusqueda = textoBusqueda
     }
 
     if (seccionActiva === 'estados') return 'estadosCuenta'
-    if (seccionActiva === 'reportes') return 'reportes'
+    if (seccionActiva === 'reportes') {
+      if (vistaActiva === 'respaldos') return 'respaldos'
+      return 'reportes'
+    }
 
     return ''
   }
@@ -18089,6 +18172,8 @@ const resultadosBusqueda = textoBusqueda
   const mostrarServicios = seccionActiva === 'servicios'
   const mostrarEstados = seccionActiva === 'estados'
   const mostrarReportes = seccionActiva === 'reportes'
+  const mostrarVistaReportes = mostrarReportes && vistaActiva !== 'respaldos'
+  const mostrarVistaRespaldos = mostrarReportes && vistaActiva === 'respaldos'
   const mostrarDocumentos = seccionActiva === 'documentos'
   const mostrarHistorial = seccionActiva === 'historial'
 
@@ -18287,7 +18372,8 @@ const resultadosBusqueda = textoBusqueda
       estadoCuentaServicios: 'Estado de cuenta de servicios públicos',
       serviciosPendientesAlerta: 'Servicios públicos pendientes de actualización y pago',
       estados: 'Estados de cuenta predial y de arriendos',
-      reportes: 'Reportes administrativos y respaldos del sistema',
+      reportes: 'Reportes de saldos pendientes',
+      respaldos: 'Respaldos del sistema',
       cargarDocumento: 'Carga de documentos',
       impresionExtractos: 'Impresión de extractos',
       recibosPago: 'Recibos de pago',
@@ -18386,8 +18472,25 @@ const resultadosBusqueda = textoBusqueda
 }
 
   return (
-    <div className="app">
+    <div className={`app${menuMovilAbierto ? ' menu-movil-abierto' : ''}`}>
+      <button
+        type="button"
+        className="sidebar-overlay no-print"
+        aria-label="Cerrar menú"
+        onClick={() => setMenuMovilAbierto(false)}
+      />
       <aside className="sidebar no-print">
+        <div className="sidebar-mobile-head no-print">
+          <strong>Menú</strong>
+          <button
+            type="button"
+            className="sidebar-close-mobile"
+            aria-label="Cerrar menú"
+            onClick={() => setMenuMovilAbierto(false)}
+          >
+            ×
+          </button>
+        </div>
         <div className="brand-box">
           <img src={LOGO_INH} alt="INH Constructores" className="brand-logo" />
           <p>Control Predial</p>
@@ -18990,7 +19093,17 @@ const resultadosBusqueda = textoBusqueda
     <button
       type="button"
       className={claseMenuItem('reportes')}
-      onClick={() => alternarMenu('reportes')}
+      onClick={() => {
+        const abriendo = menuAbierto !== 'reportes'
+        alternarMenu('reportes')
+        if (abriendo && seccionActiva !== 'reportes') {
+          irSubmenu({
+            seccion: 'reportes',
+            vista: 'reportes',
+            clave: 'reportes',
+          })
+        }
+      }}
     >
       <span>▥</span>Reportes y respaldos
       <strong>{menuAbierto === 'reportes' ? '−' : '+'}</strong>
@@ -19009,7 +19122,20 @@ const resultadosBusqueda = textoBusqueda
             })
           }
         >
-          Consultar reportes y respaldos
+          Reportes
+        </button>
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('respaldos'))}
+          onClick={() =>
+            irSubmenu({
+              seccion: 'reportes',
+              vista: 'respaldos',
+              clave: 'respaldos',
+            })
+          }
+        >
+          Respaldos
         </button>
       </div>
     )}
@@ -19018,6 +19144,22 @@ const resultadosBusqueda = textoBusqueda
       </aside>
 
       <main className="main">
+        <div className="mobile-top-bar no-print">
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            aria-label="Abrir menú"
+            aria-expanded={menuMovilAbierto}
+            onClick={() => setMenuMovilAbierto(true)}
+          >
+            <span aria-hidden="true">☰</span>
+            Menú
+          </button>
+          <div className="mobile-top-bar-brand">
+            <img src={LOGO_INH} alt="" className="mobile-top-bar-logo" />
+            <span>Control Predial</span>
+          </div>
+        </div>
         <section className="hero-card no-print">
    <div className="user-session-bar">
   <div className="session-user-wrap">
@@ -30786,7 +30928,7 @@ const resultadosBusqueda = textoBusqueda
           </section>
         )}
 
-        {mostrarReportes && (
+        {mostrarVistaReportes && (
           <section className="panel no-print">
             <div className="section-title">
               <div className="section-icon">▥</div>
@@ -30797,25 +30939,6 @@ const resultadosBusqueda = textoBusqueda
               En esta sección se muestran los predios existentes y los saldos pendientes
               por arriendos y prediales.
             </p>
-
-            {puedeAdministrar && (
-  <div className="form-actions">
-
-    <button type="button" className="btn-primary" onClick={descargarRespaldo}>
-      Descargar respaldo
-    </button>
-
-    <label className="btn-secondary file-label">
-      Importar respaldo
-      <input
-        type="file"
-        accept=".json"
-        onChange={importarRespaldo}
-        hidden
-      />
-    </label>
-  </div>
-)}
 
             <div className="estado-cuenta-tipo-grid panel-inicio-grid">
               <div className="estado-cuenta-tipo-card panel-inicio-card panel-inicio-card--static">
@@ -30847,6 +30970,42 @@ const resultadosBusqueda = textoBusqueda
                 <p>Prediales pendientes por pagar o actualizar</p>
               </div>
             </div>
+          </section>
+        )}
+
+        {mostrarVistaRespaldos && (
+          <section className="panel no-print">
+            <div className="section-title">
+              <div className="section-icon">💾</div>
+              <h2>Respaldos del sistema</h2>
+            </div>
+
+            <p className="form-description">
+              Descargue una copia de seguridad en JSON o restaure la información desde un
+              respaldo anterior.
+            </p>
+
+            {puedeAdministrar ? (
+              <div className="form-actions">
+                <button type="button" className="btn-primary" onClick={descargarRespaldo}>
+                  Descargar respaldo
+                </button>
+
+                <label className="btn-secondary file-label">
+                  Importar respaldo
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={importarRespaldo}
+                    hidden
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="alert-panel">
+                <p>Solo el administrador puede descargar o importar respaldos.</p>
+              </div>
+            )}
           </section>
         )}
 

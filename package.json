@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "vite",
     "dev:lan": "vite --host",
+    "dev:server": "node server/index.js",
+    "dev:api": "node server/index.js",
+    "db:test": "node server/test-db.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview --host",
@@ -13,6 +18,11 @@
     "deploy:netlify": "npm run build && netlify deploy --prod --dir=dist"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
