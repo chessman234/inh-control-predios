@@ -1,5 +1,15 @@
+// =============================================================================
+// API REMOTA - CONFIGURACION DE SESION
+// Claves de token y usuario en sessionStorage.
+// =============================================================================
+
 const TOKEN_KEY = 'inh-api-token'
 const USER_KEY = 'inh-api-user'
+
+// =============================================================================
+// API REMOTA - DETECCION
+// Indica si el frontend usa backend SQL.
+// =============================================================================
 
 export function usaApiRemota() {
   return (
@@ -47,6 +57,11 @@ export function limpiarTokenSesion() {
   sessionStorage.removeItem(USER_KEY)
 }
 
+// =============================================================================
+// API REMOTA - PETICIONES HTTP
+// Cliente fetch con token JWT.
+// =============================================================================
+
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -66,12 +81,22 @@ async function request(path, options = {}) {
   return data
 }
 
+// =============================================================================
+// API REMOTA - LOGIN
+// Autenticacion contra el servidor.
+// =============================================================================
+
 export async function loginApi(usuario, clave) {
   return request('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ usuario, clave }),
   })
 }
+
+// =============================================================================
+// API REMOTA - CARGAR DATOS
+// Obtiene el JSON completo desde SQL Server.
+// =============================================================================
 
 export async function cargarDatosApi() {
   const result = await request('/api/datos')
@@ -80,6 +105,11 @@ export async function cargarDatosApi() {
 
 let saveTimer = null
 let savePending = null
+
+// =============================================================================
+// API REMOTA - GUARDAR DATOS
+// Guardado diferido hacia el servidor.
+// =============================================================================
 
 export function programarGuardadoDatosApi(datos) {
   savePending = datos

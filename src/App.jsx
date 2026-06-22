@@ -1,3 +1,8 @@
+// =============================================================================
+// IMPORTS
+// Dependencias React, API remota y almacenamiento local.
+// =============================================================================
+
 import React, { useEffect, useRef, useState } from 'react'
 import logoInhUrl from './assets/logo-inh.png?url'
 import {
@@ -15,6 +20,11 @@ import {
   cargarDatosLocales,
   guardarDatosLocales,
 } from './storage/datosLocales.js'
+
+// =============================================================================
+// CONSTANTES GLOBALES
+// Logo, tipos de pago, comisiones y configuracion base del sistema.
+// =============================================================================
 
 const LOGO_INH = logoInhUrl
 const obtenerUrlAbsolutaLogoInh = () =>
@@ -150,11 +160,21 @@ const validarCondicionesPagoInh = (condiciones = {}, { tipoPagoLiquidacion } = {
   return ''
 }
 
+// =============================================================================
+// LIQUIDACION INH - NORMALIZACION DE PAGOS
+// Medios de pago, cuentas bancarias y validaciones INH.
+// =============================================================================
+
 const normalizarTipoPagoLiquidacionDeposito = (tipo) => {
   if (tipo === PAGO_SOLO_DEPOSITARIO_LEGACY) return 'Solo al depositario'
   return tipo || 'Proporcional a propietarios'
 }
 const CALIDADES_CONTRATANTE_DEPOSITO = ['Propietario', 'Autorizado']
+
+// =============================================================================
+// CONTRATOS DEPOSITO - PROPIETARIOS Y BENEFICIARIOS
+// Participacion de propietarios y beneficiarios de liquidacion.
+// =============================================================================
 
 const obtenerPropietariosContratoDeposito = (contrato, predioPropietarios = []) => {
   if (!contrato) return []
@@ -331,6 +351,11 @@ const predioRequiereInformacionPredial = (codigoPredio, contratosDeposito) => {
   return contratoDepositoIncluyePredial(contrato)
 }
 
+// =============================================================================
+// IMPUESTO PREDIAL - VIGENCIAS Y SALDOS
+// Anios de vigencia, extractos por propietario y saldo pendiente.
+// =============================================================================
+
 const obtenerAnioInicioVigenciasPredial = (predio, contratosDeposito = [], anioReferencia = null) => {
   const anioActualSistema =
     Number(anioReferencia) || new Date().getFullYear()
@@ -432,6 +457,11 @@ const construirExtractoPrediosPorPropietario = ({
 
   return { filas, totales }
 }
+
+// =============================================================================
+// DEPOSITANTES - IDENTIFICACION Y DATOS
+// Depositantes, documentos asociados y predios vinculados.
+// =============================================================================
 
 const obtenerIdDepositanteContrato = (contrato) =>
   contrato?.idDepositante || contrato?.idContratante || contrato?.idPropietario || ''
@@ -757,6 +787,11 @@ const resolverDepositanteRegistrado = (idDepositante, contratosDeposito = [], pr
   )
 }
 
+// =============================================================================
+// DEPOSITANTES - REGISTRO Y CONSULTA
+// Listado y busqueda de depositantes registrados.
+// =============================================================================
+
 const obtenerDepositantesRegistrados = (contratosDeposito = [], propietarios = []) => {
   const depositantesPorClave = new Map()
 
@@ -826,6 +861,11 @@ const normalizarContratosDepositoJerarquia = (lista = [], propietarios = []) =>
     }
   })
 
+// =============================================================================
+// PREDIOS - JERARQUIA Y NORMALIZACION
+// Estructura organizacional y normalizacion de predios.
+// =============================================================================
+
 const normalizarPrediosJerarquia = (predios = [], contratosDeposito = []) =>
   (predios || []).map((predio) => {
     if (predio.idDocumento) return predio
@@ -887,6 +927,11 @@ const migrarJerarquiaDocumental = (predios = [], contratosDeposito = [], propiet
     contratosDeposito: contratosNormalizados,
   }
 }
+
+// =============================================================================
+// PREDIOS - CADENA ORGANIZACIONAL
+// Niveles jerarquicos ciudad, barrio y predio.
+// =============================================================================
 
 const construirCadenaOrganizacional = ({
   codigoPredio,
@@ -961,6 +1006,11 @@ const PREFIJO_UNIDAD_POR_TIPO = {
   Apartamento: 'APT',
   Bodega: 'BOD',
 }
+
+// =============================================================================
+// UNIDADES DE NEGOCIO - IDS Y CONSECUTIVOS
+// Prefijos, IDs legacy y servicios por unidad.
+// =============================================================================
 
 const obtenerPrefijoUnidad = (tipo = 'Local') => PREFIJO_UNIDAD_POR_TIPO[tipo] || 'UNI'
 
@@ -1186,6 +1236,11 @@ const obtenerIdentificacionDepositanteContrato = (contrato, propietarios = []) =
     ''
   )
 }
+
+// =============================================================================
+// CONTRATOS - GENERACION DE IDENTIFICADORES
+// IDs internos para contratos de deposito y arriendo.
+// =============================================================================
 
 const generarIdContratoDeposito = () =>
   `DEP-${Date.now()}-${Math.floor(Math.random() * 10000)}`
@@ -1495,6 +1550,11 @@ const contratoDepositoVigenteEnMes = (contrato, mes) => {
   return true
 }
 
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - RECAUDO MENSUAL
+// Recaudo del predio, claves de unidad y meses liquidables.
+// =============================================================================
+
 const obtenerRecaudoPredioMes = (codigoPredio, mes, contratosArriendo, pagosArriendo) => {
   const idsContratos = contratosArriendo
     .filter((contrato) => contrato.codigoPredio === codigoPredio)
@@ -1674,6 +1734,11 @@ const obtenerAdministracionCobroArrendatario = (contrato, administracion) =>
   contratoAplicaAdministracion(contrato) && !administracionIncluidaEnCanonContrato(contrato)
     ? Number(administracion || 0)
     : 0
+
+// =============================================================================
+// ARRIENDOS - CALCULO DE CANON Y ADMINISTRACION
+// Canon puro, administracion y estructura del mes.
+// =============================================================================
 
 const calcularMontoCanonArrendatarioMes = ({
   canonBase,
@@ -1996,6 +2061,11 @@ const asignarPagosCanonLiquidacionContratoMultimes = ({
   return asignacionesPorMes
 }
 
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - ASIGNACION DE CANON
+// Distribucion del canon entre beneficiarios del predio.
+// =============================================================================
+
 const construirAsignacionCanonLiquidacionPredio = ({
   codigoPredio,
   contratosArriendo,
@@ -2105,6 +2175,11 @@ const calcularCargosCobroMesArriendo = ({
     totalDescuentoMes,
   }
 }
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - PAGO POR BENEFICIARIO
+// Comision inmobiliaria y liquidacion por pago de arriendo.
+// =============================================================================
 
 const calcularLiquidacionBeneficiarioPagoArriendo = ({
   pagoArriendo,
@@ -2473,6 +2548,11 @@ const construirLiquidacionDepositoBeneficiarioMes = ({
   }
 }
 
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - HISTORIAL DE LIQUIDACIONES
+// Generacion del historial mensual de liquidaciones.
+// =============================================================================
+
 const generarLiquidacionesDepositoHistorial = ({
   contratosDeposito,
   predioPropietarios,
@@ -2762,6 +2842,11 @@ const calcularDeudaLiquidacionArriendoBeneficiarios = ({
       return total + deudaBeneficiario
     }, 0)
 }
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - EXTRACTOS POR UNIDAD
+// Movimientos y extractos de liquidacion al depositario.
+// =============================================================================
 
 const construirExtractosLiquidacionDepositoUnidad = ({
   idContratoArriendo,
@@ -3419,6 +3504,11 @@ const obtenerPorcentajeGastosCobranzaContrato = (contrato) => {
 const calcularGastosCobranza = (base, porcentaje = PORCENTAJE_GASTOS_COBRANZA_DEFECTO) =>
   Math.round(Number(base || 0) * (Number(porcentaje || 0) / 100))
 
+// =============================================================================
+// ARRIENDOS - DEUDA VIGENTE POR MES
+// Saldo del mes, gastos de cobranza y fechas de vencimiento.
+// =============================================================================
+
 const calcularDeudaVigenteMesArriendo = ({
   canonCausadoBase = 0,
   moraTotalMes = 0,
@@ -3562,6 +3652,11 @@ const obtenerFechaMoraLiquidadaExtractoArriendo = ({
 
   return fechaLiquidacion
 }
+
+// =============================================================================
+// ARRIENDOS - MORA E INTERESES DE MORA
+// Calculo de mora proporcional y liquidada en extractos.
+// =============================================================================
 
 const calcularMoraLiquidadaExtractoArriendo = ({
   contrato,
@@ -3883,6 +3978,11 @@ const normalizarEsDepositantePropietarios = (lista = [], contratosDeposito = [])
   )
 }
 
+// =============================================================================
+// PROPIETARIOS Y DOCUMENTOS - IDs Y ADJUNTOS
+// Generacion de IDs, limites de archivo y adjuntos de registro.
+// =============================================================================
+
 const generarIdPropietario = () =>
   `PROP-${Date.now()}-${Math.floor(Math.random() * 10000)}`
 
@@ -3948,6 +4048,11 @@ const ESTADO_INICIAL_ADJUNTOS_UNIDAD = {
   registroFotografico: null,
 }
 
+// =============================================================================
+// DOCUMENTOS - LECTURA Y TIPOS DE ARCHIVO
+// Lectura de archivos y catalogo de tipos documentales.
+// =============================================================================
+
 const leerArchivoComoDataUrl = (archivo) =>
   new Promise((resolve, reject) => {
     const lector = new FileReader()
@@ -3988,6 +4093,11 @@ const formatearNumeroMiles = (valor) => {
 }
 
 const parsearNumeroMiles = (texto) => String(texto ?? '').replace(/\./g, '').replace(/\D/g, '')
+
+// =============================================================================
+// COMPONENTES UI REUTILIZABLES
+// Inputs, adjuntos, cadenas jerarquicas y paneles comunes.
+// =============================================================================
 
 function InputValor({ value, onChange, className = '', placeholder, disabled, readOnly }) {
   return (
@@ -4573,6 +4683,11 @@ const imprimirVentanaUnaCarta = (ventana) => {
   })
 }
 
+// =============================================================================
+// IMPRESION - ESTILOS UNA CARTA
+// CSS embebido para impresion en una carta.
+// =============================================================================
+
 const ESTILOS_IMPRESION_UNA_CARTA = `
   @page { size: letter portrait; margin: 8mm; }
   @media print {
@@ -4672,6 +4787,11 @@ const ESTILOS_IMPRESION_UNA_CARTA = `
   }
 `
 
+// =============================================================================
+// IMPRESION - RECIBO MEDIA CARTA
+// CSS embebido para recibos en media carta.
+// =============================================================================
+
 const ESTILOS_RECIBO_MEDIA_CARTA = `
   .recibo-impresion-contenido, .recibo-impresion-contenido * { box-sizing: border-box; }
   @page { margin: 8mm; size: letter portrait; }
@@ -4748,6 +4868,11 @@ const ESTILOS_RECIBO_MEDIA_CARTA = `
     .recibo { page-break-inside: avoid; break-inside: avoid; }
   }
 `
+
+// =============================================================================
+// IMPRESION - EXTRACTO BANCARIO
+// Estilos de extractos con formato bancario.
+// =============================================================================
 
 const ESTILOS_EXTRACTO_IMPRESION_BANCARIO = `
   /* Impresión extracto — escala de grises, tipografía uniforme, sin cajas */
@@ -5148,6 +5273,11 @@ const ESTILOS_EXTRACTO_IMPRESION_BANCARIO = `
   .extracto-kpi-accion, .no-print, .extracto-actions-moderno { display: none !important; }
 `
 
+// =============================================================================
+// IMPRESION - VENTANA BANCARIA
+// Estilos para impresion en ventana emergente.
+// =============================================================================
+
 const ESTILOS_IMPRESION_VENTANA_BANCARIA = `
   * { box-sizing: border-box; }
   @page { size: letter portrait; margin: 8mm; }
@@ -5307,6 +5437,11 @@ const ESTILOS_IMPRESION_VENTANA_BANCARIA = `
   }
   .saldo-atraso { color: #000 !important; font-weight: 700 !important; }
 `
+
+// =============================================================================
+// IMPRESION - EXTRACTO CARTA
+// Estilos de extractos en tamano carta.
+// =============================================================================
 
 const ESTILOS_EXTRACTO_IMPRESION_CARTA = `
   * { box-sizing: border-box; }
@@ -7832,6 +7967,11 @@ const construirServiciosPublicosPendientesPagoMes = (
   })
 }
 
+// =============================================================================
+// SERVICIOS PUBLICOS - PENDIENTES Y ALERTAS
+// Servicios sin facturar o con saldo pendiente.
+// =============================================================================
+
 const construirServiciosPublicosPendientesAlerta = (
   unidadesNegocio = [],
   contratosArriendo = [],
@@ -8483,6 +8623,11 @@ const esMovimientoSaldoAtraso = (movimiento, fechaCorte) => {
   return true
 }
 
+// =============================================================================
+// IMPUESTO PREDIAL - CALCULOS Y EXTRACTO
+// Total a pagar, abonos por vigencia, intereses y descuentos.
+// =============================================================================
+
 const calcularTotalAPagarPredial = (movimiento) => {
   if (movimiento.valorAPagar === null || movimiento.valorAPagar === undefined) {
     return null
@@ -8979,6 +9124,11 @@ const claseTarjetaPanelInicio = (tienePendiente) =>
     tienePendiente ? 'panel-inicio-card--alert' : 'panel-inicio-card--ok'
   }`
 
+// =============================================================================
+// ESTADOS Y CLASES UI - HELPERS VISUALES
+// Clases de estado para cartera, mora y alertas.
+// =============================================================================
+
 const obtenerClaseEstadoCartera = (estado, opcionesAtraso = null) => {
   if (opcionesAtraso != null && esSaldoEnAtraso(opcionesAtraso)) {
     return 'status inactive'
@@ -9009,6 +9159,11 @@ const obtenerClaseEstadoGeneral = (estadoGeneral, opcionesAtraso = null) => {
 
   return 'status warning'
 }
+
+// =============================================================================
+// COMPONENTE - FORMULARIO SERVICIO POR UNIDAD
+// Alta y edicion inline de servicios publicos en unidades.
+// =============================================================================
 
 function FormularioServicioUnidadInline({
   titulo,
@@ -9301,6 +9456,11 @@ const acumularSaldoFilasEstadoCuenta = (filasEstadoCuenta = []) =>
     { saldo: 0, filas: [] }
   ).filas
 
+// =============================================================================
+// COMPONENTE - TABLA ESTADO DE CUENTA ARRIENDO
+// Tabla de movimientos del estado de cuenta de arriendo.
+// =============================================================================
+
 function TablaEstadoCuentaArriendo({
   contrato,
   movimientos,
@@ -9420,8 +9580,18 @@ function TablaEstadoCuentaServicio({
   )
 }
 
+// =============================================================================
+// COMPONENTE PRINCIPAL - APP
+// Estado global, acciones y vistas de toda la aplicacion.
+// =============================================================================
+
 function App() {
   const anioActual = new Date().getFullYear()
+
+// =============================================================================
+// ESTADO - CARGA INICIAL Y SESION
+// Bandera de datos cargados y variables de login.
+// =============================================================================
 
   const [datosCargados, setDatosCargados] = useState(false)
 
@@ -9437,6 +9607,11 @@ function App() {
   const [resetAdminClave, setResetAdminClave] = useState('')
   const [errorResetClave, setErrorResetClave] = useState('')
 
+// =============================================================================
+// ESTADO - NAVEGACION Y MENU
+// Seccion activa, menu lateral y vista actual.
+// =============================================================================
+
   const [seccionActiva, setSeccionActiva] = useState('inicio')
   const [menuAbierto, setMenuAbierto] = useState('')
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
@@ -9444,6 +9619,11 @@ function App() {
   const [claveSubmenuActiva, setClaveSubmenuActiva] = useState('')
   const [grupoMenuActivoPersistente, setGrupoMenuActivoPersistente] = useState('')
   const [moduloMenuActivo, setModuloMenuActivo] = useState('')
+
+// =============================================================================
+// PERSISTENCIA - EFECTOS DE CARGA Y GUARDADO
+// Carga inicial, autoguardado y sincronizacion de datos.
+// =============================================================================
 
   useEffect(() => {
     setMenuMovilAbierto(false)
@@ -9564,6 +9744,11 @@ const [edicionUsuarioNombre, setEdicionUsuarioNombre] = useState('')
 const [edicionUsuarioRol, setEdicionUsuarioRol] = useState('Consulta')
 const [edicionUsuarioClave, setEdicionUsuarioClave] = useState('')
 const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState('')
+
+// =============================================================================
+// ESTADO - FORMULARIOS Y SELECCION
+// Visibilidad de formularios y registros en edicion.
+// =============================================================================
 
   const [mostrarFormularioPredio, setMostrarFormularioPredio] = useState(false)
   const [mostrarFormularioContrato, setMostrarFormularioContrato] = useState(false)
@@ -9890,6 +10075,11 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [estadoPagoPredial, setEstadoPagoPredial] = useState('Pagado')
   const [documentoPagoPredialAdjunto, setDocumentoPagoPredialAdjunto] = useState(null)
 
+// =============================================================================
+// ESTADO - DATOS PRINCIPALES DEL SISTEMA
+// Arrays de predios, contratos, pagos, usuarios y demas entidades.
+// =============================================================================
+
   const [predios, setPredios] = useState([])
   const [propietarios, setPropietarios] = useState([])
   const [predioPropietarios, setPredioPropietarios] = useState([])
@@ -9947,6 +10137,11 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [pagosAdministracion, setPagosAdministracion] = useState([])
   const [valoresPrediales, setValoresPrediales] = useState([])
   const [pagosPrediales, setPagosPrediales] = useState([])
+
+// =============================================================================
+// PERSISTENCIA - CARGAR DATOS EN ESTADO
+// Hidrata el estado de React desde localStorage o API.
+// =============================================================================
 
   const cargarDatosEnEstado = (datos) => {
     const prediosCargados = normalizarPredios(datos.predios)
@@ -10425,6 +10620,11 @@ const importarRespaldo = (event) => {
       },
     }))
   }
+
+// =============================================================================
+// ACCIONES - LOGIN Y SESION
+// Inicio de sesion, cierre y restablecimiento de clave.
+// =============================================================================
 
   const iniciarSesion = async () => {
   const loginIdLimpio = loginUsuario.trim().toLowerCase()
@@ -12048,6 +12248,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     setObservacionesAbonoDeposito('')
   }
 
+// =============================================================================
+// ACCIONES - LIQUIDACION DEPOSITARIO
+// Registrar abonos y liquidaciones al depositario.
+// =============================================================================
+
   const guardarAbonoDepositoContrato = () => {
     if (!puedeRegistrar) {
       alert('No tiene permisos para registrar abonos.')
@@ -12311,6 +12516,16 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     )
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+// =============================================================================
+// ACCIONES - CONTRATOS DE ARRIENDO
+// Registrar, renovar y terminar contratos de arriendo.
+// =============================================================================
+
+// =============================================================================
+// ACCIONES - CONTRATOS DE DEPOSITO
+// Crear y editar contratos de administracion/deposito.
+// =============================================================================
 
   const guardarContratoDeposito = () => {
     if (!puedeRegistrar) {
@@ -12725,6 +12940,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+// =============================================================================
+// ACCIONES - DEPOSITANTES
+// Registrar y actualizar depositantes.
+// =============================================================================
 
   const guardarContratante = () => {
     if (!puedeAdministrar) {
@@ -13167,6 +13387,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       setDepDocumentosAdjuntos((previo) => marcarAdjuntosComoGuardados(previo, clavesDeposito))
     }
   }
+
+// =============================================================================
+// ACCIONES - DOCUMENTOS
+// Cargar y asociar documentos al sistema.
+// =============================================================================
 
   const guardarDocumento = () => {
     if (!puedeRegistrar) {
@@ -13642,6 +13867,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     setEdicionReciboValor('')
     setEdicionReciboObservaciones('')
   }
+
+// =============================================================================
+// ACCIONES - RECIBOS DE PAGO
+// Editar recibos y reportes de pagos recaudados.
+// =============================================================================
 
   const guardarEdicionReciboPago = () => {
     if (!reciboPagoSeleccionado) return
@@ -14276,6 +14506,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       vincularContratoDepositoANuevoPredio(idContrato)
     }
   }
+
+// =============================================================================
+// ACCIONES - PREDIOS
+// Registrar y editar predios e inmuebles.
+// =============================================================================
 
   const guardarPredio = () => {
       if (!puedeRegistrar) {
@@ -15815,6 +16050,11 @@ const reimprimirReciboPagoCatalogo = ({
     setReciboArriendoImprimir(null)
   }
 
+// =============================================================================
+// ACCIONES - CARTERA DE ARRIENDOS
+// Gestion de cobranza, llamadas y promesas de pago.
+// =============================================================================
+
   const guardarGestionCartera = () => {
   if (!puedeRegistrar) {
     alert('No tiene permisos para registrar gestiones de cartera.')
@@ -15891,6 +16131,11 @@ if (
 }
 }
 
+// =============================================================================
+// ACCIONES - INCREMENTOS DE ARRIENDO
+// Registrar incrementos contractuales de canon.
+// =============================================================================
+
   const guardarIncremento = () => {
       if (!puedeRegistrar) {
     alert('No tiene permisos para actualizar incrementos.')
@@ -15921,6 +16166,11 @@ if (
     setMostrarFormularioIncremento(false)
     setVistaActiva('arriendos')
   }
+
+// =============================================================================
+// ACCIONES - ADMINISTRACION DE ARRIENDO
+// Ajustes y pagos de administracion.
+// =============================================================================
 
   const guardarAjusteAdministracion = () => {
   if (!puedeRegistrar) {
@@ -15971,6 +16221,11 @@ if (
 
   alert('Administración actualizada correctamente.')
 }
+
+// =============================================================================
+// ACCIONES - IMPUESTO PREDIAL - VALOR ANUAL
+// Registrar valor predial y avaluo por vigencia.
+// =============================================================================
 
   const guardarValorPredial = () => {
       if (!puedeRegistrar) {
@@ -16035,6 +16290,11 @@ if (
       },
     }))
   }
+
+// =============================================================================
+// ACCIONES - IMPUESTO PREDIAL - ACTUALIZAR VIGENCIA
+// Actualizar vigencias prediales pendientes.
+// =============================================================================
 
   const guardarActualizacionPredialAnio = (codigoPredio, anio) => {
     if (!puedeRegistrar) {
@@ -16116,6 +16376,11 @@ if (
         `Saldo pendiente: ${formatearDinero(saldoPendiente)}`
     )
   }
+
+// =============================================================================
+// ACCIONES - IMPUESTO PREDIAL - REGISTRAR ABONO
+// Abonos exclusivos por ano, intereses, descuentos y soporte.
+// =============================================================================
 
    const guardarPagoPredial = () => {
       if (!puedeRegistrar) {
@@ -16316,6 +16581,11 @@ const prepararPagoAdministracionPendiente = (item) => {
   setObservacionesPagoAdministracion('')
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
+
+// =============================================================================
+// ACCIONES - SERVICIOS PUBLICOS - FACTURAS
+// Registrar facturas de servicios por unidad.
+// =============================================================================
 
 const guardarFacturaServicioPublico = () => {
   if (!puedeRegistrar) {
@@ -17138,6 +17408,11 @@ const construirReciboPagoArriendoActual = () => {
 
   return { nuevoPago, reciboParaImprimir }
 }
+
+// =============================================================================
+// ACCIONES - ARRIENDOS - REGISTRAR PAGO
+// Pagos de arriendo, mora, IVA y asignacion multi-mes.
+// =============================================================================
 
 const guardarPagoArriendo = () => {
   if (!puedeRegistrar) {
@@ -19314,6 +19589,11 @@ const resultadosBusqueda = textoBusqueda
 
   setTimeout(() => imprimirVentanaUnaCarta(ventana), 500)
 }
+// =============================================================================
+// VISTA - PANTALLA DE LOGIN
+// Formulario de acceso y restablecimiento de clave.
+// =============================================================================
+
   if (!usuarioActual) {
   return (
     <div className="login-page">
@@ -19452,6 +19732,11 @@ const resultadosBusqueda = textoBusqueda
     </div>
   )
 }
+
+// =============================================================================
+// VISTA - LAYOUT PRINCIPAL
+// Sidebar, barra de usuario y area de contenido.
+// =============================================================================
 
   return (
     <div className={`app${menuMovilAbierto ? ' menu-movil-abierto' : ''}`}>
@@ -22627,6 +22912,11 @@ const resultadosBusqueda = textoBusqueda
                   )}
               
                 
+// =============================================================================
+// VISTA - PREDIOS
+// Consulta, registro y detalle de predios.
+// =============================================================================
+
            {vistaActiva === 'predios' &&
               !mostrarFormularioContratoDeposito &&
               !mostrarFormularioPredio &&
@@ -23195,6 +23485,11 @@ const resultadosBusqueda = textoBusqueda
               </section>
             )}
 
+// =============================================================================
+// VISTA - PREDIOS POR PROPIETARIO
+// Extracto de predios asociados a un propietario.
+// =============================================================================
+
             {vistaActiva === 'prediosPorPropietario' &&
               !mostrarFormularioContratoDeposito &&
               !mostrarFormularioPredio &&
@@ -23536,6 +23831,11 @@ const resultadosBusqueda = textoBusqueda
                 </div>
               </section>
             )}
+
+// =============================================================================
+// VISTA - DEPOSITANTES
+// Consulta y registro de depositantes.
+// =============================================================================
 
             {vistaActiva === 'depositarios' && !mostrarFormularioContratante && (
               <section className="panel no-print compact-filter-panel">
@@ -23965,6 +24265,11 @@ const resultadosBusqueda = textoBusqueda
                   )}
                 </section>
               )}
+
+// =============================================================================
+// VISTA - CONTRATOS DE DEPOSITO
+// Consulta y gestion de contratos de administracion.
+// =============================================================================
 
             {vistaActiva === 'contratosDeposito' &&
               !mostrarFormularioContratoDeposito &&
@@ -24813,6 +25118,11 @@ const resultadosBusqueda = textoBusqueda
               </section>
             )}
 
+// =============================================================================
+// VISTA - LIQUIDACION DEPOSITARIO
+// Liquidacion mensual al depositario o propietarios.
+// =============================================================================
+
             {vistaActiva === 'liquidacionDeposito' && !extractoLiquidacionDepositoContexto && (
               <section className="panel no-print liquidacion-busqueda-panel">
                 <div className="section-title">
@@ -25387,6 +25697,11 @@ const resultadosBusqueda = textoBusqueda
 
           {mostrarArriendos && (
            <>
+// =============================================================================
+// VISTA - RENOVACIONES DE CONTRATO
+// Contratos proximos a vencer y renovacion.
+// =============================================================================
+
         {vistaActiva === 'renovacionesPendientes' && (
   <section className="panel no-print">
     <div className="section-title">
@@ -25756,6 +26071,11 @@ const resultadosBusqueda = textoBusqueda
     </section>
   </div>
 )}
+
+// =============================================================================
+// VISTA - CARTERA DE ARRIENDOS
+// Cartera diaria, gestiones y contratos en mora.
+// =============================================================================
 
         {vistaActiva === 'carteraArriendos' && !vistaCarteraDiaria && (
   <section
@@ -27691,6 +28011,11 @@ const resultadosBusqueda = textoBusqueda
       </section>
     )}
 
+// =============================================================================
+// VISTA - ADMINISTRACIONES PENDIENTES
+// Administraciones del mes sin actualizar o pagar.
+// =============================================================================
+
     {vistaActiva === 'administracionesPendientes' && (
       <PanelAdministracionesPendientes
         administracionesSinActualizar={administracionesSinActualizarMes}
@@ -27711,6 +28036,11 @@ const resultadosBusqueda = textoBusqueda
         }}
       />
     )}
+
+// =============================================================================
+// VISTA - ESTADO DE CUENTA ADMINISTRACION
+// Extracto de administracion por contrato.
+// =============================================================================
 
     {vistaActiva === 'estadoCuentaAdministracion' && (
       <>
@@ -27835,6 +28165,11 @@ const resultadosBusqueda = textoBusqueda
         )}
       </>
     )}
+
+// =============================================================================
+// VISTA - UNIDADES DE NEGOCIO
+// Consulta y registro de unidades.
+// =============================================================================
 
     {vistaActiva === 'unidades' && !mostrarFormularioUnidad && (
   <section className="panel no-print compact-filter-panel">
@@ -28169,6 +28504,11 @@ const resultadosBusqueda = textoBusqueda
       </div>
     </section>
     )}
+
+// =============================================================================
+// VISTA - DETALLE DE CONTRATO ARRIENDO
+// Informacion completa del contrato seleccionado.
+// =============================================================================
 
     {vistaActiva === 'detalleContrato' && contratoSeleccionado && (
       <section className="panel no-print">
@@ -29055,6 +29395,11 @@ const resultadosBusqueda = textoBusqueda
 
 {mostrarPredial && (
   <>
+// =============================================================================
+// VISTA - REGISTRAR VALOR PREDIAL
+// Formulario de valor predial anual por vigencia.
+// =============================================================================
+
   {vistaActiva === 'valorPredial' && puedeRegistrar && (
   <section className="form-panel no-print">
     <div className="section-title">
@@ -29210,6 +29555,11 @@ const resultadosBusqueda = textoBusqueda
 )}
 
 
+// =============================================================================
+// VISTA - PREDIALES SIN ACTUALIZAR
+// Vigencias prediales pendientes de valor anual.
+// =============================================================================
+
   {vistaActiva === 'predialesSinActualizar' && (
     <PanelPredialesSinActualizar
       prediosPredialSinActualizar={prediosPredialSinActualizar}
@@ -29232,6 +29582,11 @@ const resultadosBusqueda = textoBusqueda
       }}
     />
   )}
+
+// =============================================================================
+// VISTA - PREDIALES CON DEUDA
+// Predios con saldo predial pendiente.
+// =============================================================================
 
   {vistaActiva === 'predialesPendientes' && (
   <section className="panel predial-deuda-panel no-print">
@@ -29447,6 +29802,11 @@ const resultadosBusqueda = textoBusqueda
     )}
   </section>
 )}
+
+// =============================================================================
+// VISTA - REGISTRAR ABONO PREDIAL
+// Formulario de abono predial por vigencia.
+// =============================================================================
 
  {vistaActiva === 'pagoPredial' && puedeRegistrar && (
   <section className="form-panel no-print">
@@ -29732,6 +30092,11 @@ const resultadosBusqueda = textoBusqueda
     </div>
   </section>
 )}
+
+// =============================================================================
+// VISTA - CONSULTAR PREDIAL
+// Estado de cuenta predial del predio seleccionado.
+// =============================================================================
 
           {vistaActiva === 'verPredial' && codigoPredialConsultaSeleccionado && extractoPredialConsultaActivo && (
   <>
@@ -32990,6 +33355,11 @@ const resultadosBusqueda = textoBusqueda
   )
 }
 
+// =============================================================================
+// COMPONENTE - PANEL ADMINISTRACIONES PENDIENTES
+// Listado de administraciones por actualizar.
+// =============================================================================
+
 function PanelAdministracionesPendientes({
   administracionesSinActualizar,
   administracionesPendientesPago,
@@ -33221,6 +33591,11 @@ function PanelAdministracionesPendientes({
   )
 }
 
+// =============================================================================
+// COMPONENTE - PANEL SERVICIOS PENDIENTES
+// Alertas de servicios publicos pendientes.
+// =============================================================================
+
 function PanelServiciosPendientesAlerta({
   serviciosSinActualizar,
   serviciosPendientesPagoMes,
@@ -33434,6 +33809,11 @@ function PanelServiciosPendientesAlerta({
     </section>
   )
 }
+
+// =============================================================================
+// COMPONENTE - PANEL PREDIALES SIN ACTUALIZAR
+// Actualizacion de vigencias prediales.
+// =============================================================================
 
 function PanelPredialesSinActualizar({
   prediosPredialSinActualizar,
@@ -33658,6 +34038,11 @@ function PanelPredialesSinActualizar({
   )
 }
 
+// =============================================================================
+// COMPONENTE - SOPORTE DE ABONO PREDIAL
+// Subir documento de pago junto al abono.
+// =============================================================================
+
 function CeldaSoporteAbonoPredial({ fila, puedeRegistrar, onAdjuntar }) {
   if (fila.tipo !== 'pago' || !fila.pagoId) return <span>—</span>
 
@@ -33692,6 +34077,11 @@ function CeldaSoporteAbonoPredial({ fila, puedeRegistrar, onAdjuntar }) {
     />
   )
 }
+
+// =============================================================================
+// COMPONENTE - TABLA EXTRACTO PREDIAL
+// Movimientos prediales por vigencia.
+// =============================================================================
 
 function TablaExtractoPredial({
   movimientos,
@@ -33794,6 +34184,11 @@ function TablaExtractoPredial({
     </div>
   )
 }
+
+// =============================================================================
+// COMPONENTE - EXTRACTOS PREDIALES
+// Estado de cuenta predial completo para impresion.
+// =============================================================================
 
 function ExtractosPrediales({
   extractosPrediales,
@@ -34183,6 +34578,11 @@ const construirFilasExtractoServiciosUnificado = (extractos) => {
   })
 }
 
+// =============================================================================
+// COMPONENTE - ESTADO DE CUENTA SERVICIOS
+// Extracto unificado de servicios publicos.
+// =============================================================================
+
 function EstadoCuentaServiciosUnificado({ extractos, formatearDinero }) {
   if (!extractos.length) return null
 
@@ -34311,6 +34711,11 @@ function EstadoCuentaServiciosUnificado({ extractos, formatearDinero }) {
     </div>
   )
 }
+
+// =============================================================================
+// COMPONENTE - EXTRACTOS SERVICIOS PUBLICOS
+// Vista e impresion de servicios por unidad.
+// =============================================================================
 
 function ExtractosServicios({
   extractosServicios,
@@ -34599,6 +35004,11 @@ function ExtractosServicios({
   )
 }
 
+// =============================================================================
+// COMPONENTE - EXTRACTOS ADMINISTRACION
+// Estado de cuenta de administracion de arriendo.
+// =============================================================================
+
 function ExtractosAdministracion({
   extractosAdministracion,
   formatearDinero,
@@ -34796,6 +35206,11 @@ function ExtractosAdministracion({
   )
 }
 
+// =============================================================================
+// COMPONENTE - RECIBO DE ARRIENDO
+// Encabezado, firmas e impresion de recibos.
+// =============================================================================
+
 function EncabezadoReciboArriendo({
   banner = null,
   titulo = 'Recibo de pago',
@@ -34954,6 +35369,11 @@ function ReciboServicioPublicoImpresion({ recibo, formatearDinero, onImprimir, o
     </section>
   )
 }
+
+// =============================================================================
+// COMPONENTE - FORMULARIO RECIBO PAGO ARRIENDO
+// Captura de datos para recibo de pago.
+// =============================================================================
 
 function FormularioReciboPagoArriendo({
   contrato,
@@ -35387,6 +35807,11 @@ function ReciboPagoArriendoImpresion({
     </section>
   )
 }
+
+// =============================================================================
+// COMPONENTE - EXTRACTOS ARRIENDO
+// Estado de cuenta de arriendo para impresion.
+// =============================================================================
 
 function ExtractosArriendo({ extractosArriendo, formatearDinero }) {
   return (

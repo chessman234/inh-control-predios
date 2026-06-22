@@ -1,3 +1,8 @@
+// =============================================================================
+// ALMACENAMIENTO LOCAL - CONFIGURACION
+// Clave y nombre de la base IndexedDB.
+// =============================================================================
+
 export const STORAGE_KEY = 'inh-control-predios-v1'
 
 const DB_NAME = 'inh-control-predios-db'
@@ -6,6 +11,11 @@ const STORE_NAME = 'datos'
 
 let guardadoPendiente = null
 let temporizadorGuardado = null
+
+// =============================================================================
+// INDEXEDDB - CONEXION
+// Abre la base de datos del navegador.
+// =============================================================================
 
 function abrirBaseDatos() {
   return new Promise((resolve, reject) => {
@@ -84,6 +94,11 @@ function marcarMigracionLocalStorage() {
   }
 }
 
+// =============================================================================
+// CARGAR DATOS LOCALES
+// Lee datos desde IndexedDB o migra desde localStorage.
+// =============================================================================
+
 export async function cargarDatosLocales() {
   try {
     const datosIndexedDB = await leerIndexedDB()
@@ -109,6 +124,11 @@ export async function cargarDatosLocales() {
     throw error
   }
 }
+
+// =============================================================================
+// GUARDAR DATOS LOCALES
+// Persiste datos con debounce y manejo de cuota.
+// =============================================================================
 
 async function ejecutarGuardado(datos) {
   try {
@@ -157,6 +177,11 @@ export function guardarDatosLocales(datos, opciones = {}) {
     }, 400)
   })
 }
+
+// =============================================================================
+// CANCELAR GUARDADO PENDIENTE
+// Limpia temporizador de guardado diferido.
+// =============================================================================
 
 export function cancelarGuardadoDatosLocalesPendiente() {
   clearTimeout(temporizadorGuardado)

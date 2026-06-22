@@ -1,3 +1,8 @@
+/* =============================================================================
+   LAYOUT GENERAL - APP
+   Contenedor principal de la aplicacion.
+   ============================================================================= */
+
 .app {
   width: 100%;
   min-height: 100vh;
@@ -5,7 +10,10 @@
   background: #f3f5f8;
 }
 
-/* SIDEBAR */
+/* =============================================================================
+   SIDEBAR - MENU LATERAL
+   Menu de navegacion, logo y opciones del sistema.
+   ============================================================================= */
 .sidebar {
   width: 330px;
   min-width: 330px;
@@ -91,14 +99,20 @@
   background: rgba(242, 193, 78, 0.42) !important;
 }
 
-/* MAIN */
+/* =============================================================================
+   MAIN - AREA PRINCIPAL
+   Contenido central y paneles.
+   ============================================================================= */
 .main {
   flex: 1;
   padding: 28px 32px;
   overflow-x: hidden;
 }
 
-/* HERO */
+/* =============================================================================
+   HERO - ENCABEZADO SUPERIOR
+   Tarjeta superior con acciones rapidas.
+   ============================================================================= */
 .hero-card {
   width: 100%;
   background: white;
@@ -159,7 +173,10 @@
   justify-content: flex-end;
 }
 
-/* BUTTONS — Sistema unificado (referencia: Registrar inmueble) */
+/* =============================================================================
+   BOTONES - SISTEMA UNIFICADO
+   Estilos de botones primarios, secundarios y dorados.
+   ============================================================================= */
 :root {
   --btn-height: 44px;
   --btn-radius: 12px;
@@ -299,7 +316,10 @@
   line-height: 1;
 }
 
-/* ALERTAS */
+/* =============================================================================
+   ALERTAS Y MENSAJES
+   Avisos, errores y estados informativos.
+   ============================================================================= */
 .alert-panel {
   background: #fff8e1;
   border: 1px solid #f2c14e;
@@ -324,7 +344,10 @@
   margin-bottom: 8px;
 }
 
-/* CARDS */
+/* =============================================================================
+   TARJETAS Y PANELES
+   Cards del dashboard y paneles de informacion.
+   ============================================================================= */
 .cards {
   width: 100%;
   display: grid;
@@ -623,7 +646,10 @@ td.saldo-atraso,
   min-width: 760px;
 }
 
-/* FORMULARIO */
+/* =============================================================================
+   FORMULARIOS
+   Campos, grupos y acciones de formulario.
+   ============================================================================= */
 .form-panel,
 .panel,
 .property-detail-panel,
@@ -952,7 +978,10 @@ td.saldo-atraso,
   font-weight: 600;
 }
 
-/* EXTRACTOS */
+/* =============================================================================
+   EXTRACTOS Y ESTADOS DE CUENTA
+   Estilos de extractos bancarios y prediales.
+   ============================================================================= */
 .extracto-card {
   background: white;
   border-radius: 22px;
@@ -2402,7 +2431,10 @@ td.saldo-atraso,
   background: #d7a125;
 }
 
-/* RESPONSIVE */
+/* =============================================================================
+   RESPONSIVE - DISENO ADAPTABLE
+   Ajustes para tablet y movil.
+   ============================================================================= */
 @media (max-width: 1250px) {
   .property-form,
   .detail-grid,
@@ -2482,7 +2514,10 @@ td.saldo-atraso,
   }
 }
 
-/* IMPRESIÓN */
+/* =============================================================================
+   IMPRESION
+   Reglas CSS para impresion de documentos.
+   ============================================================================= */
 @media print {
   .no-print,
   .sidebar,
@@ -2533,6 +2568,11 @@ td.saldo-atraso,
   justify-content: center;
   cursor: pointer;
 }
+/* =============================================================================
+   LOGIN - PANTALLA DE ACCESO
+   Estilos del formulario de inicio de sesion.
+   ============================================================================= */
+
 .login-page {
   min-height: 100vh;
   background:
@@ -3774,7 +3814,10 @@ td.saldo-atraso,
   }
 }
 /* ============================= */
-/* CREACIÓN DE USUARIOS */
+/* =============================================================================
+   CREACION DE USUARIOS
+   Panel de usuarios y permisos.
+   ============================================================================= */
 /* ============================= */
 
 .create-user-panel {
@@ -4490,7 +4533,10 @@ td.saldo-atraso,
 }
 
 /* ============================= */
-/* MENÚ LATERAL DESPLEGABLE */
+/* =============================================================================
+   MENU LATERAL DESPLEGABLE MOVIL
+   Menu hamburguesa y barra superior movil.
+   ============================================================================= */
 /* ============================= */
 
 .menu {
@@ -4756,7 +4802,10 @@ td.saldo-atraso,
   font-weight: 700;
 }/* ============================= */
 /* ============================= */
-/* VISOR E IMPRESIÓN DE RECIBOS (media carta) */
+/* =============================================================================
+   VISOR E IMPRESION DE RECIBOS
+   Modal de recibos en media carta.
+   ============================================================================= */
 /* ============================= */
 
 #recibo-impresion-root {
@@ -4829,7 +4878,10 @@ body.imprimiendo-recibo #recibo-impresion-root {
 }
 
 /* ============================= */
-/* VISOR E IMPRESIÓN DE EXTRACTOS (carta) */
+/* =============================================================================
+   VISOR E IMPRESION DE EXTRACTOS
+   Modal de extractos en carta.
+   ============================================================================= */
 /* ============================= */
 
 #extracto-impresion-root {
@@ -8611,6 +8663,11 @@ body.imprimiendo-extracto #extracto-impresion-root {
   color: #0e1b42;
 }
 
+/* =============================================================================
+   UNIDADES DISPONIBLES - CONSULTA
+   Filtros y tabla de unidades disponibles.
+   ============================================================================= */
+
 .unidades-disponibles-filtros {
   display: grid;
   grid-template-columns:
@@ -8690,6 +8747,11 @@ body.imprimiendo-extracto #extracto-impresion-root {
     min-width: 760px;
   }
 }
+
+/* =============================================================================
+   IMPUESTO PREDIAL - RESUMEN DE ABONO
+   Panel resumen al registrar abono predial.
+   ============================================================================= */
 
 .predial-abono-resumen {
   background: #f8fafc;

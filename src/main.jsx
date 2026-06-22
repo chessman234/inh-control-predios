@@ -1,3 +1,8 @@
+// =============================================================================
+// IMPORTS
+// React, estilos globales y componente App.
+// =============================================================================
+
 import { Component, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -6,6 +11,11 @@ import App from './App.jsx'
 import logoInhUrl from './assets/logo-inh.png?url'
 
 document.documentElement.style.setProperty('--logo-inh-url', `url("${logoInhUrl}")`)
+
+// =============================================================================
+// ERROR BOUNDARY
+// Captura errores de render y muestra pantalla de recuperacion.
+// =============================================================================
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -88,6 +98,11 @@ class ErrorBoundary extends Component {
     return this.props.children
   }
 }
+
+// =============================================================================
+// MONTAJE DE LA APLICACION
+// Inicializa React en el elemento root.
+// =============================================================================
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
