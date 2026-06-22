@@ -11,6 +11,8 @@
     "db:test": "node server/test-db.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
+    "db:wait": "node server/wait-db.js",
+    "db:setup": "node server/wait-db.js && node server/test-db.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview --host",

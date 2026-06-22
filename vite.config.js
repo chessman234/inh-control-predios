@@ -1,7 +1,17 @@
+// =============================================================================
+// VITE - IMPORTS
+// Configuracion del bundler y plugin React.
+// =============================================================================
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
+// =============================================================================
+// VITE - CONFIGURACION
+// Base path, proxy API y servidor de desarrollo.
+// =============================================================================
+
 export default defineConfig(({ command }) => ({
   // En desarrollo siempre usar raíz; GitHub Pages usa VITE_BASE_PATH al compilar.
   base: command === 'serve' ? '/' : process.env.VITE_BASE_PATH || '/',
@@ -9,7 +19,7 @@ export default defineConfig(({ command }) => ({
   server: {
     host: true,
     port: 5173,
-    strictPort: true,
+    strictPort: false,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

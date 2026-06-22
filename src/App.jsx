@@ -1820,6 +1820,57 @@ const obtenerAdministracionContratoPuro = (contrato, anioPago, ajustesAdministra
   return Number(contrato.valorAdministracion || 0)
 }
 
+const resolverCanonBaseMesArriendo = (contrato, mes, incrementosArriendo = []) => {
+  if (!contrato?.fechaInicio || !mes) {
+    return { canonBase: 0, incrementoAplicado: 0 }
+  }
+
+  const anioPago = Number(mes.substring(0, 4))
+  const mesRenovacionCanon = contrato.fechaRenovacionCanon
+    ? String(contrato.fechaRenovacionCanon).slice(0, 7)
+    : null
+  const tieneRenovacionCanon =
+    mesRenovacionCanon && contrato.canonMensualAnterior != null
+
+  const buscarIncrementoAnio = (anio) => {
+    const incrementoDelAnio = (incrementosArriendo || []).find(
+      (incremento) =>
+        incremento.codigoPredio === contrato.codigoPredio &&
+        Number(incremento.anio) === Number(anio)
+    )
+    return incrementoDelAnio?.porcentaje ?? Number(contrato.incrementoAnual || 0)
+  }
+
+  let canonBase = 0
+  let incrementoAplicado = 0
+
+  if (tieneRenovacionCanon && mes >= mesRenovacionCanon) {
+    canonBase = Number(contrato.canonMensual || 0)
+    const anioRenovacion = Number(mesRenovacionCanon.substring(0, 4))
+    for (let anio = anioRenovacion + 1; anio <= anioPago; anio += 1) {
+      const porcentaje = buscarIncrementoAnio(anio)
+      canonBase = Math.round(canonBase * (1 + porcentaje / 100))
+      if (anio === anioPago) incrementoAplicado = porcentaje
+    }
+    return { canonBase, incrementoAplicado }
+  }
+
+  if (tieneRenovacionCanon && mes < mesRenovacionCanon) {
+    canonBase = Number(contrato.canonMensualAnterior ?? contrato.canonMensual ?? 0)
+  } else {
+    canonBase = Number(contrato.canonMensual || 0)
+  }
+
+  const anioInicio = Number(contrato.fechaInicio.substring(0, 4))
+  for (let anio = anioInicio + 1; anio <= anioPago; anio += 1) {
+    const porcentaje = buscarIncrementoAnio(anio)
+    canonBase = Math.round(canonBase * (1 + porcentaje / 100))
+    if (anio === anioPago) incrementoAplicado = porcentaje
+  }
+
+  return { canonBase, incrementoAplicado }
+}
+
 const calcularCanonArriendoPuro = (
   contrato,
   mes,
@@ -1831,18 +1882,7 @@ const calcularCanonArriendoPuro = (
   }
 
   const anioPago = Number(mes.substring(0, 4))
-  const anioInicio = Number(contrato.fechaInicio.substring(0, 4))
-  let canonBase = Number(contrato.canonMensual || 0)
-
-  for (let anio = anioInicio + 1; anio <= anioPago; anio++) {
-    const incrementoDelAnio = (incrementosArriendo || []).find(
-      (incremento) =>
-        incremento.codigoPredio === contrato.codigoPredio &&
-        Number(incremento.anio) === Number(anio)
-    )
-    const porcentaje = incrementoDelAnio?.porcentaje ?? Number(contrato.incrementoAnual || 0)
-    canonBase = Math.round(canonBase * (1 + porcentaje / 100))
-  }
+  const { canonBase } = resolverCanonBaseMesArriendo(contrato, mes, incrementosArriendo)
 
   const administracion = obtenerAdministracionContratoPuro(
     contrato,
@@ -3545,6 +3585,104 @@ const agregarDiasFechaISO = (fechaISO, dias) => {
   const fecha = new Date(`${fechaISO}T00:00:00`)
   fecha.setDate(fecha.getDate() + Number(dias || 0))
   return fecha.toISOString().slice(0, 10)
+}
+
+const calcularNuevaFechaFinRenovacionContrato = (contrato) => {
+  if (!contrato?.fechaFin) return ''
+  if (!contrato.fechaInicio) {
+    return agregarDiasFechaISO(contrato.fechaFin, 365)
+  }
+
+  const inicio = new Date(`${contrato.fechaInicio}T00:00:00`)
+  const fin = new Date(`${contrato.fechaFin}T00:00:00`)
+  const duracionMs = Math.max(0, fin.getTime() - inicio.getTime())
+  const nuevaFin = new Date(fin.getTime() + duracionMs)
+
+  return nuevaFin.toISOString().slice(0, 10)
+}
+
+const calcularInicioVigenciaRenovacionContrato = (contrato, nuevaFechaInicio = '') => {
+  if (nuevaFechaInicio) return nuevaFechaInicio
+  if (contrato?.fechaFin) return agregarDiasFechaISO(contrato.fechaFin, 1)
+  return new Date().toISOString().slice(0, 10)
+}
+
+const ejecutarRenovacionContratoArriendo = (
+  contrato,
+  {
+    nuevaFechaFin = '',
+    nuevaFechaInicioVigencia = '',
+    nuevoCanon = null,
+    nuevoIncremento = null,
+    nuevoPreaviso = null,
+    observacion = '',
+    automatica = false,
+  } = {}
+) => {
+  if (!contrato) return contrato
+
+  const canonAnterior = Number(contrato.canonMensual || 0)
+  const canonNuevo =
+    nuevoCanon != null && nuevoCanon !== '' ? Number(nuevoCanon) : canonAnterior
+  const cambioCanon = canonNuevo !== canonAnterior
+  const inicioVigencia = calcularInicioVigenciaRenovacionContrato(
+    contrato,
+    nuevaFechaInicioVigencia
+  )
+  const fechaFinFinal =
+    nuevaFechaFin || calcularNuevaFechaFinRenovacionContrato(contrato)
+
+  return {
+    ...contrato,
+    fechaFin: fechaFinFinal,
+    canonMensual: canonNuevo,
+    incrementoAnual: Number(
+      nuevoIncremento != null && nuevoIncremento !== ''
+        ? nuevoIncremento
+        : contrato.incrementoAnual || 0
+    ),
+    diasPreavisoRenovacion: Number(
+      nuevoPreaviso != null && nuevoPreaviso !== ''
+        ? nuevoPreaviso
+        : contrato.diasPreavisoRenovacion || 0
+    ),
+    estado: 'Activo',
+    estadoRenovacion: automatica ? 'Renovado automáticamente' : 'Renovado',
+    fechaRenovacion: new Date().toISOString().slice(0, 10),
+    observacionRenovacion: observacion.trim(),
+    ...(cambioCanon
+      ? {
+          canonMensualAnterior:
+            contrato.canonMensualAnterior != null
+              ? contrato.canonMensualAnterior
+              : canonAnterior,
+          fechaRenovacionCanon: inicioVigencia,
+        }
+      : {}),
+  }
+}
+
+const procesarRenovacionesAutomaticasContratos = (
+  contratos = [],
+  fechaReferencia = new Date()
+) => {
+  const hoyISO = fechaReferencia.toISOString().slice(0, 10)
+  let huboCambios = false
+
+  const actualizados = contratos.map((contrato) => {
+    if (contrato.estado !== 'Activo') return contrato
+    if (contrato.estadoRenovacion === 'No renovado') return contrato
+    if (!contrato.fechaFin || contrato.fechaFin >= hoyISO) return contrato
+
+    huboCambios = true
+    return ejecutarRenovacionContratoArriendo(contrato, {
+      automatica: true,
+      observacion:
+        'Renovación automática por vencimiento de vigencia sin cambios registrados.',
+    })
+  })
+
+  return huboCambios ? actualizados : contratos
 }
 
 const obtenerFechaVencimientoMesArriendo = (mesCausado) =>
@@ -7830,6 +7968,20 @@ const construirFacturasCobroFijoFaltantes = (
   return nuevasFacturas
 }
 
+const aplicarFacturasCobroFijoFaltantes = (
+  unidades,
+  contratos,
+  facturasActuales = []
+) => {
+  const nuevasFacturas = construirFacturasCobroFijoFaltantes(
+    unidades,
+    contratos,
+    facturasActuales
+  )
+  if (nuevasFacturas.length === 0) return facturasActuales
+  return [...nuevasFacturas, ...facturasActuales]
+}
+
 const generarMesesRango = (fechaInicio, fechaFin = null) => {
   if (!fechaInicio) return []
 
@@ -7879,42 +8031,57 @@ const construirServiciosPublicosSinActualizarMes = (
         unidad.codigoPredio
       )
 
-      if (!contratoActivo?.fechaInicio) return
+      const mesesContrato = contratoActivo?.fechaInicio
+        ? generarMesesRango(
+            contratoActivo.fechaInicio,
+            contratoActivo.fechaFin || null
+          )
+        : []
 
-      const mesesContrato = generarMesesRango(
-        contratoActivo.fechaInicio,
-        contratoActivo.fechaFin || null
-      )
+      const mesesEvaluar = mesesContrato.length > 0 ? mesesContrato : [mesActual]
 
-      if (!mesesContrato.includes(mesActual)) return
+      mesesEvaluar.forEach((periodo) => {
+        const contratoVigenteMes =
+          mesesContrato.length > 0 && mesesContrato.includes(periodo)
 
-      const tieneFacturaMes = facturasServiciosPublicos.some(
-        (factura) =>
-          facturaPerteneceAUnidadServicio(factura, unidad, index, idServicio) &&
-          factura.periodo === mesActual
-      )
+        const tieneFacturaMes = facturasServiciosPublicos.some(
+          (factura) =>
+            facturaPerteneceAUnidadServicio(factura, unidad, index, idServicio) &&
+            factura.periodo === periodo
+        )
 
-      if (tieneFacturaMes) return
+        if (tieneFacturaMes) return
 
-      resultados.push({
-        idUnidad: unidad.id,
-        nombreUnidad: unidad.nombre,
-        tipoUnidad: unidad.tipo || 'Sin tipo',
-        codigoPredio: unidad.codigoPredio,
-        idServicio,
-        tipoServicio: servicio.tipo,
-        empresa: servicio.empresa,
-        numeroCuenta: servicio.numeroCuenta,
-        responsable: servicio.responsable,
-        tipoCobro: servicio.tipoCobro,
-        periodo: mesActual,
-        diaPago: servicio.diaPago,
-        valorReferencia:
-          servicio.tipoCobro === 'Valor fijo mensual'
-            ? Number(servicio.valorFijo || 0)
-            : null,
-        unidad,
-        servicio,
+        const itemBase = {
+          idUnidad: unidad.id,
+          nombreUnidad: unidad.nombre,
+          tipoUnidad: unidad.tipo || 'Sin tipo',
+          codigoPredio: unidad.codigoPredio,
+          idServicio,
+          tipoServicio: servicio.tipo,
+          empresa: servicio.empresa,
+          numeroCuenta: servicio.numeroCuenta,
+          responsable: servicio.responsable,
+          tipoCobro: servicio.tipoCobro,
+          periodo,
+          diaPago: servicio.diaPago,
+          valorReferencia:
+            servicio.tipoCobro === 'Valor fijo mensual'
+              ? Number(servicio.valorFijo || 0)
+              : null,
+          unidad,
+          servicio,
+          sinContratoActivo: !contratoVigenteMes,
+        }
+
+        if (servicio.tipoCobro === 'Valor fijo mensual') {
+          if (!contratoVigenteMes && Number(servicio.valorFijo || 0) > 0) {
+            resultados.push(itemBase)
+          }
+          return
+        }
+
+        resultados.push(itemBase)
       })
     })
   })
@@ -7924,7 +8091,9 @@ const construirServiciosPublicosSinActualizarMes = (
     if (porPredio !== 0) return porPredio
     const porUnidad = String(a.nombreUnidad || '').localeCompare(String(b.nombreUnidad || ''))
     if (porUnidad !== 0) return porUnidad
-    return String(a.tipoServicio || '').localeCompare(String(b.tipoServicio || ''))
+    const porServicio = String(a.tipoServicio || '').localeCompare(String(b.tipoServicio || ''))
+    if (porServicio !== 0) return porServicio
+    return String(a.periodo || '').localeCompare(String(b.periodo || ''))
   })
 }
 
@@ -7935,7 +8104,6 @@ const construirServiciosPublicosPendientesPagoMes = (
   pagosServiciosPublicos = [],
   mesReferencia = null
 ) => {
-  const mesActual = mesReferencia || obtenerMesActualServicios()
   const resultados = []
 
   unidadesNegocio.forEach((unidad) => {
@@ -7954,31 +8122,31 @@ const construirServiciosPublicosPendientesPagoMes = (
         contratoActivo.fechaFin || null
       )
 
-      if (!mesesContrato.includes(mesActual)) return
+      mesesContrato.forEach((periodo) => {
+        const movimiento = calcularMovimientoServicioMes(
+          periodo,
+          servicio,
+          contextoMovimientoServicioUnidad(unidad, index),
+          facturasServiciosPublicos,
+          pagosServiciosPublicos
+        )
 
-      const movimiento = calcularMovimientoServicioMes(
-        mesActual,
-        servicio,
-        contextoMovimientoServicioUnidad(unidad, index),
-        facturasServiciosPublicos,
-        pagosServiciosPublicos
-      )
+        if (Number(movimiento.saldoDeuda || 0) <= 0) return
+        if (movimiento.faltaFactura) return
 
-      if (Number(movimiento.saldoDeuda || 0) <= 0) return
-      if (movimiento.faltaFactura) return
-
-      resultados.push({
-        idUnidad: unidad.id,
-        nombreUnidad: unidad.nombre,
-        tipoUnidad: unidad.tipo || 'Sin tipo',
-        codigoPredio: unidad.codigoPredio,
-        idServicio,
-        tipoServicio: servicio.tipo,
-        empresa: servicio.empresa,
-        periodo: mesActual,
-        saldoPendiente: Number(movimiento.saldoDeuda || 0),
-        unidad,
-        servicio,
+        resultados.push({
+          idUnidad: unidad.id,
+          nombreUnidad: unidad.nombre,
+          tipoUnidad: unidad.tipo || 'Sin tipo',
+          codigoPredio: unidad.codigoPredio,
+          idServicio,
+          tipoServicio: servicio.tipo,
+          empresa: servicio.empresa,
+          periodo,
+          saldoPendiente: Number(movimiento.saldoDeuda || 0),
+          unidad,
+          servicio,
+        })
       })
     })
   })
@@ -7988,7 +8156,9 @@ const construirServiciosPublicosPendientesPagoMes = (
     if (porPredio !== 0) return porPredio
     const porUnidad = String(a.nombreUnidad || '').localeCompare(String(b.nombreUnidad || ''))
     if (porUnidad !== 0) return porUnidad
-    return String(a.tipoServicio || '').localeCompare(String(b.tipoServicio || ''))
+    const porServicio = String(a.tipoServicio || '').localeCompare(String(b.tipoServicio || ''))
+    if (porServicio !== 0) return porServicio
+    return String(a.periodo || '').localeCompare(String(b.periodo || ''))
   })
 }
 
@@ -8020,7 +8190,7 @@ const construirServiciosPublicosPendientesAlerta = (
   const servicios = new Map()
 
   sinActualizar.forEach((item) => {
-    const clave = `${item.idUnidad}::${item.idServicio}`
+    const clave = `${item.idUnidad}::${item.idServicio}::${item.periodo}`
     servicios.set(clave, {
       ...item,
       sinActualizar: true,
@@ -8030,7 +8200,7 @@ const construirServiciosPublicosPendientesAlerta = (
   })
 
   pendientesPago.forEach((item) => {
-    const clave = `${item.idUnidad}::${item.idServicio}`
+    const clave = `${item.idUnidad}::${item.idServicio}::${item.periodo}`
     const existente = servicios.get(clave)
 
     if (existente) {
@@ -8054,7 +8224,9 @@ const construirServiciosPublicosPendientesAlerta = (
     if (porPredio !== 0) return porPredio
     const porUnidad = String(a.nombreUnidad || '').localeCompare(String(b.nombreUnidad || ''))
     if (porUnidad !== 0) return porUnidad
-    return String(a.tipoServicio || '').localeCompare(String(b.tipoServicio || ''))
+    const porServicio = String(a.tipoServicio || '').localeCompare(String(b.tipoServicio || ''))
+    if (porServicio !== 0) return porServicio
+    return String(a.periodo || '').localeCompare(String(b.periodo || ''))
   })
 }
 
@@ -8121,52 +8293,62 @@ const construirAdministracionesPendientesPagoMes = (
   incrementosArriendo = [],
   mesReferencia = null
 ) => {
-  const mesActual = mesReferencia || obtenerMesActualServicios()
-  const anioMes = Number(mesActual.substring(0, 4))
   const resultados = []
 
   contratosArriendo.forEach((contrato) => {
     if (!contratoAplicaAdministracion(contrato) || contrato.estado !== 'Activo') return
+    if (!contrato.fechaInicio) return
 
     const mesesContrato = generarMesesRango(
       contrato.fechaInicio,
       contrato.fechaFin || null
     )
 
-    if (!mesesContrato.includes(mesActual)) return
-    if (administracionRequiereAjusteAnio(contrato, anioMes, ajustesAdministracion)) return
+    mesesContrato.forEach((mes) => {
+      const anioMes = Number(mes.substring(0, 4))
+      if (administracionRequiereAjusteAnio(contrato, anioMes, ajustesAdministracion)) return
 
-    const movimiento = calcularMovimientoAdministracionMes(
-      contrato,
-      mesActual,
-      pagosAdministracion,
-      pagosArriendo,
-      incrementosArriendo,
-      ajustesAdministracion
-    )
+      const movimiento = calcularMovimientoAdministracionMes(
+        contrato,
+        mes,
+        pagosAdministracion,
+        pagosArriendo,
+        incrementosArriendo,
+        ajustesAdministracion
+      )
 
-    if (!movimiento || Number(movimiento.valorCausado || 0) <= 0) return
-    if (Number(movimiento.saldoDeuda || 0) <= 0) return
+      if (!movimiento || Number(movimiento.valorCausado || 0) <= 0) return
+      if (Number(movimiento.saldoDeuda || 0) <= 0) return
 
-    resultados.push({
-      idContrato: obtenerIdContrato(contrato),
-      idUnidad: contrato.idUnidad || '',
-      nombreUnidad: contrato.nombreUnidad || 'Sin unidad',
-      codigoPredio: contrato.codigoPredio,
-      arrendatario: contrato.arrendatario || '',
-      mes: mesActual,
-      anio: anioMes,
-      saldoPendiente: Number(movimiento.saldoDeuda || 0),
-      valorAdministracion: Number(movimiento.valorCausado || 0),
-      origenFondo: movimiento.origenFondo || '',
-      contrato,
+      resultados.push({
+        idContrato: obtenerIdContrato(contrato),
+        idUnidad: contrato.idUnidad || '',
+        nombreUnidad: contrato.nombreUnidad || 'Sin unidad',
+        codigoPredio: contrato.codigoPredio,
+        arrendatario: contrato.arrendatario || '',
+        mes,
+        anio: anioMes,
+        saldoPendiente: Number(movimiento.saldoDeuda || 0),
+        saldoDeudaTotal: calcularSaldoDeudaTotalAdministracionContrato(
+          contrato,
+          pagosAdministracion,
+          pagosArriendo,
+          incrementosArriendo,
+          ajustesAdministracion
+        ),
+        valorAdministracion: Number(movimiento.valorCausado || 0),
+        origenFondo: movimiento.origenFondo || '',
+        contrato,
+      })
     })
   })
 
   return resultados.sort((a, b) => {
     const porPredio = String(a.codigoPredio || '').localeCompare(String(b.codigoPredio || ''))
     if (porPredio !== 0) return porPredio
-    return String(a.nombreUnidad || '').localeCompare(String(b.nombreUnidad || ''))
+    const porUnidad = String(a.nombreUnidad || '').localeCompare(String(b.nombreUnidad || ''))
+    if (porUnidad !== 0) return porUnidad
+    return String(a.mes || '').localeCompare(String(b.mes || ''))
   })
 }
 
@@ -8209,7 +8391,8 @@ const construirAdministracionesPendientesAlerta = (
       unidades.set(item.idContrato, {
         ...existente,
         pendientePago: true,
-        saldoPendiente: item.saldoPendiente,
+        saldoPendiente: item.saldoDeudaTotal ?? item.saldoPendiente,
+        saldoDeudaTotal: item.saldoDeudaTotal,
         valorAdministracion: item.valorAdministracion,
         origenFondo: item.origenFondo,
       })
@@ -8220,10 +8403,29 @@ const construirAdministracionesPendientesAlerta = (
       ...item,
       sinActualizar: false,
       pendientePago: true,
+      saldoPendiente: item.saldoDeudaTotal ?? item.saldoPendiente,
     })
   })
 
-  return Array.from(unidades.values()).sort((a, b) => {
+  return Array.from(unidades.values())
+    .map((item) => {
+      const saldoDeudaTotal = calcularSaldoDeudaTotalAdministracionContrato(
+        item.contrato,
+        pagosAdministracion,
+        pagosArriendo,
+        incrementosArriendo,
+        ajustesAdministracion
+      )
+
+      return {
+        ...item,
+        saldoDeudaTotal,
+        pendientePago: saldoDeudaTotal > 0 || item.pendientePago,
+        saldoPendiente: saldoDeudaTotal > 0 ? saldoDeudaTotal : item.saldoPendiente,
+      }
+    })
+    .filter((item) => item.sinActualizar || Number(item.saldoDeudaTotal || 0) > 0)
+    .sort((a, b) => {
     const porPredio = String(a.codigoPredio || '').localeCompare(String(b.codigoPredio || ''))
     if (porPredio !== 0) return porPredio
     return String(a.nombreUnidad || '').localeCompare(String(b.nombreUnidad || ''))
@@ -8516,6 +8718,64 @@ const calcularMovimientoAdministracionMes = (
     administracionIncluidaEnCanon: incluidaEnCanon,
     faltaRecibo,
   }
+}
+
+const calcularSaldoDeudaTotalAdministracionContrato = (
+  contrato,
+  pagosAdministracion = [],
+  pagosArriendo = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = []
+) => {
+  if (!contrato || !contratoAplicaAdministracion(contrato) || !contrato.fechaInicio) return 0
+
+  const meses = generarMesesRango(contrato.fechaInicio, contrato.fechaFin || null)
+
+  return meses.reduce((total, mes) => {
+    const anioMes = Number(mes.substring(0, 4))
+    if (administracionRequiereAjusteAnio(contrato, anioMes, ajustesAdministracion)) return total
+
+    const movimiento = calcularMovimientoAdministracionMes(
+      contrato,
+      mes,
+      pagosAdministracion,
+      pagosArriendo,
+      incrementosArriendo,
+      ajustesAdministracion
+    )
+
+    return total + Number(movimiento?.saldoDeuda || 0)
+  }, 0)
+}
+
+const obtenerPrimerMesPendienteAdministracionContrato = (
+  contrato,
+  pagosAdministracion = [],
+  pagosArriendo = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = []
+) => {
+  if (!contrato?.fechaInicio) return null
+
+  const meses = generarMesesRango(contrato.fechaInicio, contrato.fechaFin || null)
+
+  for (const mes of meses) {
+    const anioMes = Number(mes.substring(0, 4))
+    if (administracionRequiereAjusteAnio(contrato, anioMes, ajustesAdministracion)) continue
+
+    const movimiento = calcularMovimientoAdministracionMes(
+      contrato,
+      mes,
+      pagosAdministracion,
+      pagosArriendo,
+      incrementosArriendo,
+      ajustesAdministracion
+    )
+
+    if (Number(movimiento?.saldoDeuda || 0) > 0) return mes
+  }
+
+  return null
 }
 
 // =============================================================================
@@ -10319,17 +10579,16 @@ useEffect(() => {
 useEffect(() => {
   if (!datosCargados) return
 
-  setFacturasServiciosPublicos((prev) => {
-    const nuevasFacturas = construirFacturasCobroFijoFaltantes(
-      unidadesNegocio,
-      contratosArriendo,
-      prev
-    )
-
-    if (nuevasFacturas.length === 0) return prev
-    return [...nuevasFacturas, ...prev]
-  })
+  setFacturasServiciosPublicos((prev) =>
+    aplicarFacturasCobroFijoFaltantes(unidadesNegocio, contratosArriendo, prev)
+  )
 }, [datosCargados, unidadesNegocio, contratosArriendo])
+
+useEffect(() => {
+  if (!datosCargados) return
+
+  setContratosArriendo((prev) => procesarRenovacionesAutomaticasContratos(prev))
+}, [datosCargados])
 
 useEffect(() => {
   if (!datosCargados) return
@@ -10686,7 +10945,14 @@ const importarRespaldo = (event) => {
       setLoginClave('')
       setErrorLogin('')
     } catch (error) {
-      setErrorLogin(error.message || 'ID de usuario o clave incorrectos.')
+      const mensaje = String(error?.message || '')
+      if (mensaje === 'Failed to fetch' || mensaje.includes('NetworkError')) {
+        setErrorLogin(
+          'No se pudo conectar al servidor. Inicie la API con npm run dev:api o use VITE_USE_API=false en .env.local.'
+        )
+      } else {
+        setErrorLogin(mensaje || 'ID de usuario o clave incorrectos.')
+      }
     }
     return
   }
@@ -11823,26 +12089,11 @@ const contratoActivoPorPredio = (codigoPredio) => {
     }
 
     const anioPago = Number(mes.substring(0, 4))
-    const anioInicio = Number(contrato.fechaInicio.substring(0, 4))
-    let canonBase = Number(contrato.canonMensual || 0)
-    let incrementoAplicado = 0
-
-    for (let anio = anioInicio + 1; anio <= anioPago; anio++) {
-      const incrementoDelAnio = incrementosArriendo.find(
-        (incremento) =>
-          incremento.codigoPredio === contrato.codigoPredio &&
-          Number(incremento.anio) === Number(anio)
-      )
-
-      const porcentaje =
-        incrementoDelAnio?.porcentaje ?? Number(contrato.incrementoAnual || 0)
-
-      canonBase = Math.round(canonBase * (1 + porcentaje / 100))
-
-      if (anio === anioPago) {
-        incrementoAplicado = porcentaje
-      }
-    }
+    const { canonBase, incrementoAplicado } = resolverCanonBaseMesArriendo(
+      contrato,
+      mes,
+      incrementosArriendo
+    )
 
      const administracion = obtenerAdministracionContrato(contrato, anioPago)
      const administracionCobro = obtenerAdministracionCobroArrendatario(contrato, administracion)
@@ -15325,6 +15576,9 @@ if (unidadEditando) {
   }
 
   setUnidadesNegocio(unidadesActualizadas)
+  setFacturasServiciosPublicos((prev) =>
+    aplicarFacturasCobroFijoFaltantes(unidadesActualizadas, contratosArriendo, prev)
+  )
 
   const clavesAdjuntosGuardados = registrarDocumentosAdjuntosUnidad({
     adjuntos: unidadDocumentosAdjuntos,
@@ -15366,7 +15620,11 @@ const nuevaUnidad = {
   observaciones: observacionesUnidad.trim(),
   serviciosPublicos: serviciosUnidadTemporales,
 }
-  setUnidadesNegocio([nuevaUnidad, ...unidadesNegocio])
+  const unidadesConNueva = [nuevaUnidad, ...unidadesNegocio]
+  setUnidadesNegocio(unidadesConNueva)
+  setFacturasServiciosPublicos((prev) =>
+    aplicarFacturasCobroFijoFaltantes(unidadesConNueva, contratosArriendo, prev)
+  )
 
   const clavesAdjuntosGuardados = registrarDocumentosAdjuntosUnidad({
     adjuntos: unidadDocumentosAdjuntos,
@@ -15437,19 +15695,16 @@ const renovarContratoArriendo = () => {
     return
   }
 
-  if (
-    !nuevaFechaInicioRenovacion ||
-    !nuevaFechaFinRenovacion ||
-    !nuevoCanonRenovacion ||
-    !nuevoIncrementoRenovacion ||
-    !nuevoPreavisoRenovacion
-  ) {
-    alert('Complete nueva fecha de inicio, fecha final, canon, incremento y preaviso.')
+  const fechaFinFinal =
+    nuevaFechaFinRenovacion || calcularNuevaFechaFinRenovacionContrato(contratoRenovar)
+
+  if (!fechaFinFinal) {
+    alert('Indique la nueva fecha final o verifique las fechas del contrato.')
     return
   }
 
   const confirmar = window.confirm(
-    'Esta acción renovará el contrato y actualizará sus fechas, canon e incremento. ¿Desea continuar?'
+    'Se renovará el contrato conservando el saldo pendiente del estado de cuenta y aplicando el canon en la nueva vigencia. ¿Desea continuar?'
   )
 
   if (!confirmar) return
@@ -15457,18 +15712,14 @@ const renovarContratoArriendo = () => {
   const contratosActualizados = contratosArriendo.map((contrato) => {
     if (!coincideContratoArriendo(contrato, contratoRenovar)) return contrato
 
-    return {
-      ...contrato,
-      fechaInicio: nuevaFechaInicioRenovacion,
-      fechaFin: nuevaFechaFinRenovacion,
-      canonMensual: Number(nuevoCanonRenovacion || 0),
-      incrementoAnual: Number(nuevoIncrementoRenovacion || 0),
-      diasPreavisoRenovacion: Number(nuevoPreavisoRenovacion || 0),
-      estado: 'Activo',
-      estadoRenovacion: 'Renovado',
-      fechaRenovacion: new Date().toISOString().slice(0, 10),
-      observacionRenovacion: observacionRenovacionContrato.trim(),
-    }
+    return ejecutarRenovacionContratoArriendo(contrato, {
+      nuevaFechaFin: fechaFinFinal,
+      nuevaFechaInicioVigencia: nuevaFechaInicioRenovacion,
+      nuevoCanon: nuevoCanonRenovacion,
+      nuevoIncremento: nuevoIncrementoRenovacion,
+      nuevoPreaviso: nuevoPreavisoRenovacion,
+      observacion: observacionRenovacionContrato,
+    })
   })
 
   setContratosArriendo(contratosActualizados)
@@ -16623,13 +16874,43 @@ const prepararPagoAdministracionPendiente = (item) => {
     return
   }
 
+  const contrato =
+    item.contrato ||
+    contratosArriendo.find((c) => obtenerIdContrato(c) === item.idContrato)
+
+  const saldoDeudaTotal =
+    Number(item.saldoDeudaTotal || 0) ||
+    (contrato
+      ? calcularSaldoDeudaTotalAdministracionContrato(
+          contrato,
+          pagosAdministracion,
+          pagosArriendo,
+          incrementosArriendo,
+          ajustesAdministracion
+        )
+      : 0)
+
+  const mesPago =
+    item.mes ||
+    (contrato
+      ? obtenerPrimerMesPendienteAdministracionContrato(
+          contrato,
+          pagosAdministracion,
+          pagosArriendo,
+          incrementosArriendo,
+          ajustesAdministracion
+        )
+      : null)
+
   cerrarFormularios()
   setSeccionActiva('arriendos')
   setVistaActiva('arriendos')
   setMostrarFormularioPagoAdministracion(true)
   setIdContratoPagoAdministracion(item.idContrato)
-  setMesPagoAdministracion(item.mes)
-  setValorPagadoAdministracion(String(item.saldoPendiente || item.valorAdministracion || ''))
+  setMesPagoAdministracion(mesPago || '')
+  setValorPagadoAdministracion(
+    String(saldoDeudaTotal || item.saldoPendiente || item.valorAdministracion || '')
+  )
   setFechaPagoAdministracion(new Date().toISOString().slice(0, 10))
   setReciboPagoAdministracion('')
   setMedioPagoAdministracion('')
@@ -17618,7 +17899,6 @@ const propietariosContratoSeleccionado = contratoSeleccionado
 
    const contratosConRenovacionPendiente = contratosArriendo
   .filter((contrato) => contrato.estado === 'Activo')
-  .filter((contrato) => contrato.estadoRenovacion !== 'Renovado')
   .filter((contrato) => contrato.estadoRenovacion !== 'No renovado')
   .map((contrato) => {
     if (!contrato.fechaFin) return null
@@ -21442,8 +21722,8 @@ const resultadosBusqueda = textoBusqueda
       <span className="panel-inicio-metric">{serviciosPublicosPendientesAlerta.length}</span>
       <p>
         {serviciosPublicosPendientesAlerta.length > 0
-          ? `Servicios sin factura y/o con pago pendiente de ${mesActualServicios}`
-          : 'Servicios del mes actualizados y pagos al día'}
+          ? `${serviciosPublicosPendientesAlerta.length} periodo(s) sin factura y/o con pago pendiente`
+          : 'Todos los periodos actualizados y pagos al día'}
       </p>
     </button>
 
@@ -21460,8 +21740,8 @@ const resultadosBusqueda = textoBusqueda
       <span className="panel-inicio-metric">{administracionesPendientesAlerta.length}</span>
       <p>
         {administracionesPendientesAlerta.length > 0
-          ? `Unidades sin actualizar y/o con pago pendiente de ${mesActualServicios}`
-          : 'Administraciones del mes actualizadas y pagas'}
+          ? `${administracionesPendientesAlerta.length} unidad(es) con deuda total o valor sin actualizar`
+          : 'Administraciones al día y valores actualizados'}
       </p>
     </button>
   </section>
@@ -25814,9 +26094,14 @@ const resultadosBusqueda = textoBusqueda
                         onClick={() => {
                           setContratoRenovar(item.contrato)
                           setNuevaFechaInicioRenovacion(item.fechaVencimiento)
-                          setNuevaFechaFinRenovacion('')
+                          setNuevaFechaFinRenovacion(
+                            calcularNuevaFechaFinRenovacionContrato(item.contrato)
+                          )
                           setNuevoCanonRenovacion(String(item.contrato.canonMensual || ''))
                           setNuevoIncrementoRenovacion(String(item.contrato.incrementoAnual || ''))
+                          setNuevoPreavisoRenovacion(
+                            String(item.contrato.diasPreavisoRenovacion || '')
+                          )
                           setObservacionRenovacionContrato('')
                         }}
                       >
@@ -25882,7 +26167,10 @@ const resultadosBusqueda = textoBusqueda
       </div>
 
       <p className="form-description">
-        Registre la nueva vigencia del contrato, el canon actualizado y el nuevo preaviso pactado.
+        Renueve la vigencia sin perder el saldo pendiente del estado de cuenta. Si no cambia
+        canon ni condiciones, puede guardar con los valores actuales. Si modifica el canon, los
+        meses anteriores conservan el valor histórico y la nueva vigencia usa el canon actualizado.
+        Los contratos vencidos sin acción se renuevan automáticamente con las mismas condiciones.
       </p>
 
       <div className="detail-grid">
@@ -25905,13 +26193,32 @@ const resultadosBusqueda = textoBusqueda
           <span>Canon actual</span>
           <strong>{formatearDinero(contratoRenovar.canonMensual)}</strong>
         </div>
+
+        <div>
+          <span>Saldo pendiente (se conserva)</span>
+          <strong className="saldo-atraso">
+            {formatearDinero(
+              extractosArriendo.find(
+                (extracto) =>
+                  obtenerIdContrato(extracto.contrato) === obtenerIdContrato(contratoRenovar)
+              )?.resumen?.saldoDeudaTotal || 0
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>Vigencia actual</span>
+          <strong>
+            {contratoRenovar.fechaInicio || '—'} → {contratoRenovar.fechaFin || 'Vigente'}
+          </strong>
+        </div>
       </div>
 
       <div className="property-form">
         <div className="form-section-title full">Datos de renovación</div>
 
         <div className="form-group">
-          <label>Nueva fecha de inicio</label>
+          <label>Inicio nueva vigencia</label>
           <input
             type="date"
             value={nuevaFechaInicioRenovacion}
@@ -25925,6 +26232,7 @@ const resultadosBusqueda = textoBusqueda
             type="date"
             value={nuevaFechaFinRenovacion}
             onChange={(e) => setNuevaFechaFinRenovacion(e.target.value)}
+            placeholder="Se calcula automáticamente si se deja vacío"
           />
         </div>
 
@@ -27914,9 +28222,10 @@ const resultadosBusqueda = textoBusqueda
         </div>
 
         <p className="form-description">
-          Registre el pago mensual a la administración del edificio con su recibo. Si la
-          administración está incluida en el canon, el fondo proviene del descuento a
-          propietarios; si no, del cobro al arrendatario.
+          Registre el pago a la administración del edificio con su recibo. Al seleccionar el
+          contrato se carga la deuda total acumulada pendiente. Si la administración está incluida
+          en el canon, el fondo proviene del descuento a propietarios; si no, del cobro al
+          arrendatario.
         </p>
 
         <div className="property-form">
@@ -27925,8 +28234,37 @@ const resultadosBusqueda = textoBusqueda
             <select
               value={idContratoPagoAdministracion}
               onChange={(e) => {
-                setIdContratoPagoAdministracion(e.target.value)
-                setValorPagadoAdministracion('')
+                const idContrato = e.target.value
+                setIdContratoPagoAdministracion(idContrato)
+
+                const contrato = contratosArriendo.find(
+                  (item) => obtenerIdContrato(item) === idContrato
+                )
+
+                if (!contrato) {
+                  setValorPagadoAdministracion('')
+                  setMesPagoAdministracion('')
+                  return
+                }
+
+                const saldoDeudaTotal = calcularSaldoDeudaTotalAdministracionContrato(
+                  contrato,
+                  pagosAdministracion,
+                  pagosArriendo,
+                  incrementosArriendo,
+                  ajustesAdministracion
+                )
+                const mesPendiente =
+                  obtenerPrimerMesPendienteAdministracionContrato(
+                    contrato,
+                    pagosAdministracion,
+                    pagosArriendo,
+                    incrementosArriendo,
+                    ajustesAdministracion
+                  ) || mesPagoAdministracion
+
+                setMesPagoAdministracion(mesPendiente || '')
+                setValorPagadoAdministracion(String(saldoDeudaTotal || ''))
               }}
             >
               <option value="">Seleccione un contrato con administración</option>
@@ -27949,21 +28287,30 @@ const resultadosBusqueda = textoBusqueda
             <input
               type="month"
               value={mesPagoAdministracion}
-              onChange={(e) => {
-                const mes = e.target.value
-                setMesPagoAdministracion(mes)
-                const contrato = contratosArriendo.find(
-                  (item) => obtenerIdContrato(item) === idContratoPagoAdministracion
-                )
-                if (contrato && mes) {
-                  const anio = Number(mes.substring(0, 4))
-                  setValorPagadoAdministracion(
-                    String(obtenerAdministracionContrato(contrato, anio) || '')
-                  )
-                }
-              }}
+              onChange={(e) => setMesPagoAdministracion(e.target.value)}
             />
           </div>
+
+          {idContratoPagoAdministracion && (
+            <div className="form-group">
+              <label>Deuda total con administración</label>
+              <input
+                type="text"
+                readOnly
+                value={formatearDinero(
+                  calcularSaldoDeudaTotalAdministracionContrato(
+                    contratosArriendo.find(
+                      (item) => obtenerIdContrato(item) === idContratoPagoAdministracion
+                    ),
+                    pagosAdministracion,
+                    pagosArriendo,
+                    incrementosArriendo,
+                    ajustesAdministracion
+                  )
+                )}
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label>Fecha de pago</label>
@@ -27975,7 +28322,7 @@ const resultadosBusqueda = textoBusqueda
           </div>
 
           <div className="form-group">
-            <label>Valor pagado</label>
+            <label>Valor pagado (deuda total cargada)</label>
             <InputValor
               value={valorPagadoAdministracion}
               onChange={setValorPagadoAdministracion}
@@ -28800,7 +29147,9 @@ const resultadosBusqueda = textoBusqueda
     onClick={() => {
       setContratoRenovar(contratoSeleccionado)
       setNuevaFechaInicioRenovacion(contratoSeleccionado.fechaFin || '')
-      setNuevaFechaFinRenovacion('')
+      setNuevaFechaFinRenovacion(
+        calcularNuevaFechaFinRenovacionContrato(contratoSeleccionado)
+      )
       setNuevoCanonRenovacion(String(contratoSeleccionado.canonMensual || ''))
       setNuevoIncrementoRenovacion(String(contratoSeleccionado.incrementoAnual || ''))
       setNuevoPreavisoRenovacion(String(contratoSeleccionado.diasPreavisoRenovacion || ''))
@@ -30043,7 +30392,7 @@ const resultadosBusqueda = textoBusqueda
             <AdjuntoArchivoInline
               etiqueta="Documento de pago"
               adjunto={documentoPagoPredialAdjunto}
-              textoBoton="Subir documento de pago"
+              textoBoton="Subir documento"
               onSeleccionarArchivo={async (evento) => {
                 const archivo = evento.target.files?.[0]
                 if (!archivo) return
@@ -33370,10 +33719,13 @@ function PanelAdministracionesPendientes({
   onVerEstadoCuenta,
 }) {
   const obtenerEstadoAlerta = (item) => {
-    if (item.sinActualizar && item.pendientePago) {
-      return 'Falta actualizar valor y pago pendiente'
+    const tieneDeuda = Number(item.saldoDeudaTotal || 0) > 0
+
+    if (item.sinActualizar && tieneDeuda) {
+      return 'Falta actualizar valor y deuda total pendiente'
     }
     if (item.sinActualizar) return 'Falta actualizar valor del año'
+    if (tieneDeuda) return 'Deuda total pendiente de pago'
     return 'Pendiente de pago'
   }
 
@@ -33385,10 +33737,9 @@ function PanelAdministracionesPendientes({
       </div>
 
       <p className="form-description">
-        Unidades con contrato vigente que aplica administración de edificio en el periodo{' '}
-        <strong>{mesActual}</strong>. El contador del panel principal muestra unidades con falta de
-        actualización del valor anual, pago pendiente del mes, o ambas situaciones. Cuando todas
-        estén actualizadas y pagas, el total queda en cero.
+        Unidades con contrato vigente que aplica administración de edificio. El contador del panel
+        principal muestra unidades con falta de actualización del valor anual y/o deuda total
+        acumulada pendiente de pago con la administración.
       </p>
 
       <div className="simple-table-wrapper">
@@ -33398,22 +33749,22 @@ function PanelAdministracionesPendientes({
               <th>Unidad</th>
               <th>Predio</th>
               <th>Arrendatario</th>
-              <th>Periodo</th>
               <th>Estado</th>
-              <th>Saldo pendiente</th>
+              <th>Deuda total</th>
               <th>Acción</th>
             </tr>
           </thead>
           <tbody>
             {administracionesPendientesAlerta.map((item) => (
-              <tr key={`alerta-${item.idContrato}-${item.mes}`}>
+              <tr key={`alerta-${item.idContrato}`}>
                 <td>{item.nombreUnidad}</td>
                 <td>{item.codigoPredio}</td>
                 <td>{item.arrendatario}</td>
-                <td>{item.mes}</td>
                 <td>{obtenerEstadoAlerta(item)}</td>
-                <td className={item.pendientePago ? 'saldo-atraso' : ''}>
-                  {item.pendientePago ? formatearDinero(item.saldoPendiente) : '—'}
+                <td className={Number(item.saldoDeudaTotal || 0) > 0 ? 'saldo-atraso' : ''}>
+                  {Number(item.saldoDeudaTotal || 0) > 0
+                    ? formatearDinero(item.saldoDeudaTotal)
+                    : '—'}
                 </td>
                 <td>
                   <div className="table-actions">
@@ -33426,7 +33777,7 @@ function PanelAdministracionesPendientes({
                         Actualizar valor
                       </button>
                     )}
-                    {item.pendientePago && puedeRegistrar && (
+                    {Number(item.saldoDeudaTotal || 0) > 0 && puedeRegistrar && (
                       <button
                         type="button"
                         className="btn-small btn-gold"
@@ -33449,8 +33800,8 @@ function PanelAdministracionesPendientes({
 
             {administracionesPendientesAlerta.length === 0 && (
               <tr>
-                <td colSpan="7">
-                  Todas las unidades con administración están actualizadas y pagas para {mesActual}.
+                <td colSpan="6">
+                  Todas las unidades con administración están actualizadas y sin deuda pendiente.
                 </td>
               </tr>
             )}
@@ -33520,12 +33871,12 @@ function PanelAdministracionesPendientes({
 
       <div className="section-title administraciones-pendientes-mes-titulo">
         <div className="section-icon">$</div>
-        <h3>Con valor del mes — pendiente de pago</h3>
+        <h3>Pendiente de pago — detalle por periodo</h3>
       </div>
 
       <p className="form-description">
-        Unidades del periodo <strong>{mesActual}</strong> con valor de administración causado y saldo
-        pendiente de pago.
+        Desglose mes a mes de la deuda con la administración. La columna &quot;Deuda total&quot;
+        muestra el saldo acumulado de todos los periodos pendientes del contrato.
       </p>
 
       <div className="simple-table-wrapper">
@@ -33537,7 +33888,8 @@ function PanelAdministracionesPendientes({
               <th>Arrendatario</th>
               <th>Periodo</th>
               <th>Origen fondo</th>
-              <th>Saldo pendiente</th>
+              <th>Saldo del mes</th>
+              <th>Deuda total</th>
               <th>Acción</th>
             </tr>
           </thead>
@@ -33550,6 +33902,7 @@ function PanelAdministracionesPendientes({
                 <td>{item.mes}</td>
                 <td>{item.origenFondo || '—'}</td>
                 <td className="saldo-atraso">{formatearDinero(item.saldoPendiente)}</td>
+                <td className="saldo-atraso">{formatearDinero(item.saldoDeudaTotal || 0)}</td>
                 <td>
                   <div className="table-actions">
                     {puedeRegistrar ? (
@@ -33577,9 +33930,7 @@ function PanelAdministracionesPendientes({
 
             {administracionesPendientesPago.length === 0 && (
               <tr>
-                <td colSpan="7">
-                  No hay unidades con saldo pendiente de administración en {mesActual}.
-                </td>
+                <td colSpan="8">No hay periodos con saldo pendiente de administración.</td>
               </tr>
             )}
           </tbody>
@@ -33604,11 +33955,25 @@ function PanelServiciosPendientesAlerta({
   onRegistrarFactura,
   onVerEstadoCuenta,
 }) {
+  const serviciosSinFacturaVariable = serviciosSinActualizar.filter(
+    (item) => item.tipoCobro !== 'Valor fijo mensual'
+  )
+
   const obtenerEstadoAlerta = (item) => {
+    if (item.sinContratoActivo) {
+      if (item.tipoCobro === 'Valor fijo mensual') {
+        return 'Cobro fijo configurado — requiere contrato activo'
+      }
+      return 'Falta registrar factura — requiere contrato activo'
+    }
     if (item.sinActualizar && item.pendientePago) {
       return 'Falta factura y pago pendiente'
     }
-    if (item.sinActualizar) return 'Falta registrar factura'
+    if (item.sinActualizar) {
+      return item.tipoCobro === 'Valor fijo mensual'
+        ? 'Pendiente de pago (cobro fijo)'
+        : 'Falta registrar factura'
+    }
     return 'Pendiente de pago'
   }
 
@@ -33620,9 +33985,9 @@ function PanelServiciosPendientesAlerta({
       </div>
 
       <p className="form-description">
-        Servicios de unidades con contrato vigente en el periodo <strong>{mesActual}</strong>. El
-        contador del panel principal muestra servicios sin factura del mes, con saldo pendiente de
-        pago, o ambas situaciones. Cuando todos estén actualizados y pagos, el total queda en cero.
+        Detalle mes a mes de cada servicio con alerta. Cada fila corresponde a un periodo (YYYY-MM)
+        sin factura registrada, con saldo pendiente de pago, o ambas situaciones. El contador del
+        panel principal suma todos esos periodos pendientes.
       </p>
 
       <div className="simple-table-wrapper">
@@ -33653,7 +34018,10 @@ function PanelServiciosPendientesAlerta({
                 </td>
                 <td>
                   <div className="table-actions">
-                    {item.sinActualizar && puedeRegistrar && (
+                    {item.sinActualizar &&
+                      puedeRegistrar &&
+                      !item.sinContratoActivo &&
+                      item.tipoCobro !== 'Valor fijo mensual' && (
                       <button
                         type="button"
                         className="btn-small btn-gold"
@@ -33677,8 +34045,8 @@ function PanelServiciosPendientesAlerta({
             {serviciosPendientesAlerta.length === 0 && (
               <tr>
                 <td colSpan="8">
-                  Todos los servicios con contrato vigente están actualizados y pagos para{' '}
-                  {mesActual}.
+                  No hay periodos pendientes: todos los servicios están actualizados y pagos al
+                  día.
                 </td>
               </tr>
             )}
@@ -33688,12 +34056,12 @@ function PanelServiciosPendientesAlerta({
 
       <div className="section-title servicios-pendientes-mes-titulo">
         <div className="section-icon">!</div>
-        <h3>Sin factura del mes</h3>
+        <h3>Sin factura registrada — detalle por periodo</h3>
       </div>
 
       <p className="form-description">
-        Servicios de unidades con contrato vigente que no tienen factura registrada para el periodo{' '}
-        <strong>{mesActual}</strong>.
+        Cada fila es un mes (periodo) del contrato de arriendo vigente en el que aún no se ha
+        registrado la factura del servicio variable. Esta es la causa principal de la alerta.
       </p>
 
       <div className="simple-table-wrapper">
@@ -33711,7 +34079,7 @@ function PanelServiciosPendientesAlerta({
             </tr>
           </thead>
           <tbody>
-            {serviciosSinActualizar.map((item) => (
+            {serviciosSinFacturaVariable.map((item) => (
               <tr key={`${item.idUnidad}-${item.idServicio}-${item.periodo}`}>
                 <td>{item.nombreUnidad}</td>
                 <td>{item.codigoPredio}</td>
@@ -33722,7 +34090,7 @@ function PanelServiciosPendientesAlerta({
                 <td>{item.periodo}</td>
                 <td>
                   <div className="table-actions">
-                    {puedeRegistrar ? (
+                    {puedeRegistrar && !item.sinContratoActivo ? (
                       <button
                         type="button"
                         className="btn-small btn-gold"
@@ -33730,6 +34098,8 @@ function PanelServiciosPendientesAlerta({
                       >
                         Registrar factura
                       </button>
+                    ) : puedeRegistrar && item.sinContratoActivo ? (
+                      <span className="form-description">Requiere contrato activo</span>
                     ) : (
                       <span className="form-description">Solo consulta</span>
                     )}
@@ -33738,11 +34108,10 @@ function PanelServiciosPendientesAlerta({
               </tr>
             ))}
 
-            {serviciosSinActualizar.length === 0 && (
+            {serviciosSinFacturaVariable.length === 0 && (
               <tr>
                 <td colSpan="8">
-                  Todos los servicios con contrato vigente tienen factura registrada para{' '}
-                  {mesActual}.
+                  Todos los periodos con contrato vigente tienen factura registrada.
                 </td>
               </tr>
             )}
@@ -33752,12 +34121,12 @@ function PanelServiciosPendientesAlerta({
 
       <div className="section-title servicios-pendientes-mes-titulo">
         <div className="section-icon">$</div>
-        <h3>Con factura del mes — pendiente de pago</h3>
+        <h3>Con factura registrada — pendiente de pago por periodo</h3>
       </div>
 
       <p className="form-description">
-        Servicios del periodo <strong>{mesActual}</strong> que ya tienen factura registrada y aún
-        presentan saldo por pagar.
+        Periodos que ya tienen factura registrada y aún presentan saldo por pagar, discriminados
+        mes a mes.
       </p>
 
       <div className="simple-table-wrapper">
@@ -33796,9 +34165,7 @@ function PanelServiciosPendientesAlerta({
 
             {serviciosPendientesPagoMes.length === 0 && (
               <tr>
-                <td colSpan="7">
-                  No hay servicios con saldo pendiente de pago en el periodo {mesActual}.
-                </td>
+                <td colSpan="7">No hay periodos con saldo pendiente de pago.</td>
               </tr>
             )}
           </tbody>

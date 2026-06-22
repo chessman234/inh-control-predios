@@ -104,10 +104,23 @@ class ErrorBoundary extends Component {
 // Inicializa React en el elemento root.
 // =============================================================================
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </StrictMode>,
-)
+const rootElement = document.getElementById('root')
+const appRoot = createRoot(rootElement)
+
+function renderApp() {
+  appRoot.render(
+    <StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </StrictMode>,
+  )
+}
+
+renderApp()
+
+if (import.meta.hot) {
+  import.meta.hot.accept('./App.jsx', () => {
+    renderApp()
+  })
+}
