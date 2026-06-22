@@ -294,6 +294,11 @@ const obtenerTextoBusquedaContratoDeposito = (
     .toLowerCase()
 }
 
+// =============================================================================
+// CONTRATOS DEPOSITO - NORMALIZACION
+// Estructura y validacion de contratos de administracion.
+// =============================================================================
+
 const normalizarContratosDeposito = (lista = []) =>
   (lista || []).map((contrato) => {
     const propietariosContrato = contrato?.propietarios?.length
@@ -4117,6 +4122,11 @@ function InputValor({ value, onChange, className = '', placeholder, disabled, re
   )
 }
 
+// =============================================================================
+// COMPONENTE - CONDICIONES DE PAGO INH
+// Detalle de condiciones y medios de pago INH.
+// =============================================================================
+
 function DetalleCondicionesPagoInh({
   condiciones,
   tipoPagoLiquidacion,
@@ -4667,6 +4677,11 @@ const envolverCuerpoVentanaUnaCarta = (doc) => {
   body.appendChild(envoltorio)
   return envoltorio
 }
+
+// =============================================================================
+// IMPRESION - VENTANA UNA CARTA
+// Abre y dispara impresion en ventana emergente.
+// =============================================================================
 
 const imprimirVentanaUnaCarta = (ventana) => {
   if (!ventana?.document) return
@@ -7414,6 +7429,11 @@ const formatearDocumentoPropietarioExtractoPredial = (propietario) => {
   return numero ? `${etiqueta} ${numero}` : etiqueta
 }
 
+// =============================================================================
+// ARRIENDOS - FILAS ESTADO DE CUENTA
+// Movimientos, mora y saldos por mes en arriendo.
+// =============================================================================
+
 const construirFilasEstadoCuentaArriendo = (contrato, movimientos, fechaCorte = '') => {
   const fechaCorteEfectiva = fechaCorte || new Date().toISOString().slice(0, 10)
 
@@ -7551,6 +7571,11 @@ const construirFilasEstadoCuentaArriendo = (contrato, movimientos, fechaCorte = 
       return filas
     })
 }
+
+// =============================================================================
+// ARRIENDOS - FILAS DE EXTRACTO
+// Detalle de cargos y abonos para extracto de arriendo.
+// =============================================================================
 
 const generarFilasExtractoArriendo = (movimiento) => {
   const pagosDetalle = obtenerPagosDetalleMovimientoArriendo(movimiento)
@@ -8493,6 +8518,11 @@ const calcularMovimientoAdministracionMes = (
   }
 }
 
+// =============================================================================
+// ADMINISTRACION - FILAS ESTADO DE CUENTA
+// Movimientos de administracion por contrato.
+// =============================================================================
+
 const construirFilasEstadoCuentaAdministracion = (contrato, movimientos) => {
   const diaCobro = contrato?.fechaInicio?.slice(8, 10) || '01'
 
@@ -8546,6 +8576,11 @@ const construirFilasEstadoCuentaAdministracion = (contrato, movimientos) => {
       return filas
     })
 }
+
+// =============================================================================
+// SERVICIOS PUBLICOS - FILAS ESTADO DE CUENTA
+// Facturas y pagos por servicio publico.
+// =============================================================================
 
 const construirFilasEstadoCuentaServicio = (servicio, movimientos) =>
   movimientos
@@ -9522,6 +9557,11 @@ function TablaEstadoCuentaArriendo({
   )
 }
 
+// =============================================================================
+// COMPONENTE - TABLA ESTADO CUENTA SERVICIOS
+// Tabla de movimientos de servicios publicos.
+// =============================================================================
+
 function TablaEstadoCuentaServicio({
   servicio,
   movimientos,
@@ -10357,6 +10397,11 @@ useEffect(() => {
   usuariosSistema,
 ])
 
+// =============================================================================
+// ACCIONES - RESPALDOS DEL SISTEMA
+// Descargar y restaurar copias de seguridad JSON.
+// =============================================================================
+
 const descargarRespaldo = () => {
     if (!puedeAdministrar) {
     alert('Solo el administrador puede descargar respaldos.')
@@ -10921,6 +10966,11 @@ const limpiarFormularioUsuario = () => {
   setNuevoUsuarioClave('')
   setNuevoUsuarioRol('Consulta')
 }
+
+// =============================================================================
+// ACCIONES - CREAR USUARIO DEL SISTEMA
+// Alta de usuarios con rol y permisos.
+// =============================================================================
 
 const crearUsuarioSistema = () => {
   if (!puedeAdministrar) {
@@ -15787,6 +15837,11 @@ cerrarFormularioContrato({
 })
   }
 
+// =============================================================================
+// IMPRESION - RECIBO PAGO ARRIENDO
+// Genera HTML e imprime recibo de arriendo.
+// =============================================================================
+
 const imprimirReciboPagoArriendo = (recibo) => {
   if (!recibo) {
     alert('No hay recibo para imprimir.')
@@ -19589,10 +19644,6 @@ const resultadosBusqueda = textoBusqueda
 
   setTimeout(() => imprimirVentanaUnaCarta(ventana), 500)
 }
-// =============================================================================
-// VISTA - PANTALLA DE LOGIN
-// Formulario de acceso y restablecimiento de clave.
-// =============================================================================
 
   if (!usuarioActual) {
   return (
@@ -19733,10 +19784,6 @@ const resultadosBusqueda = textoBusqueda
   )
 }
 
-// =============================================================================
-// VISTA - LAYOUT PRINCIPAL
-// Sidebar, barra de usuario y area de contenido.
-// =============================================================================
 
   return (
     <div className={`app${menuMovilAbierto ? ' menu-movil-abierto' : ''}`}>
@@ -19746,6 +19793,7 @@ const resultadosBusqueda = textoBusqueda
         aria-label="Cerrar menú"
         onClick={() => setMenuMovilAbierto(false)}
       />
+
       <aside className="sidebar no-print">
         <div className="sidebar-mobile-head no-print">
           <strong>Menú</strong>
@@ -20511,6 +20559,7 @@ const resultadosBusqueda = textoBusqueda
 </div>
 </div>
 
+
 {mostrarFormularioUsuario && puedeAdministrar && vistaGestionUsuarios === 'crear' && (
   <div className="create-user-panel">
     <div className="cuenta-panel-topbar">
@@ -20714,6 +20763,7 @@ const resultadosBusqueda = textoBusqueda
     </div>
   </div>
 )}
+
 
 {mostrarFormularioUsuario && puedeAdministrar && vistaGestionUsuarios === 'lista' && (
   <div className="users-list-panel">
@@ -20999,6 +21049,7 @@ const resultadosBusqueda = textoBusqueda
           </div>
         </section>
         )}
+
 
         {panelUnidadesDisponiblesAbierto && (
       <>
@@ -22912,10 +22963,6 @@ const resultadosBusqueda = textoBusqueda
                   )}
               
                 
-// =============================================================================
-// VISTA - PREDIOS
-// Consulta, registro y detalle de predios.
-// =============================================================================
 
            {vistaActiva === 'predios' &&
               !mostrarFormularioContratoDeposito &&
@@ -23485,10 +23532,6 @@ const resultadosBusqueda = textoBusqueda
               </section>
             )}
 
-// =============================================================================
-// VISTA - PREDIOS POR PROPIETARIO
-// Extracto de predios asociados a un propietario.
-// =============================================================================
 
             {vistaActiva === 'prediosPorPropietario' &&
               !mostrarFormularioContratoDeposito &&
@@ -23832,10 +23875,6 @@ const resultadosBusqueda = textoBusqueda
               </section>
             )}
 
-// =============================================================================
-// VISTA - DEPOSITANTES
-// Consulta y registro de depositantes.
-// =============================================================================
 
             {vistaActiva === 'depositarios' && !mostrarFormularioContratante && (
               <section className="panel no-print compact-filter-panel">
@@ -24266,10 +24305,6 @@ const resultadosBusqueda = textoBusqueda
                 </section>
               )}
 
-// =============================================================================
-// VISTA - CONTRATOS DE DEPOSITO
-// Consulta y gestion de contratos de administracion.
-// =============================================================================
 
             {vistaActiva === 'contratosDeposito' &&
               !mostrarFormularioContratoDeposito &&
@@ -25118,10 +25153,6 @@ const resultadosBusqueda = textoBusqueda
               </section>
             )}
 
-// =============================================================================
-// VISTA - LIQUIDACION DEPOSITARIO
-// Liquidacion mensual al depositario o propietarios.
-// =============================================================================
 
             {vistaActiva === 'liquidacionDeposito' && !extractoLiquidacionDepositoContexto && (
               <section className="panel no-print liquidacion-busqueda-panel">
@@ -25697,10 +25728,6 @@ const resultadosBusqueda = textoBusqueda
 
           {mostrarArriendos && (
            <>
-// =============================================================================
-// VISTA - RENOVACIONES DE CONTRATO
-// Contratos proximos a vencer y renovacion.
-// =============================================================================
 
         {vistaActiva === 'renovacionesPendientes' && (
   <section className="panel no-print">
@@ -26072,10 +26099,6 @@ const resultadosBusqueda = textoBusqueda
   </div>
 )}
 
-// =============================================================================
-// VISTA - CARTERA DE ARRIENDOS
-// Cartera diaria, gestiones y contratos en mora.
-// =============================================================================
 
         {vistaActiva === 'carteraArriendos' && !vistaCarteraDiaria && (
   <section
@@ -27499,6 +27522,7 @@ const resultadosBusqueda = textoBusqueda
       </section>
     )}
 
+
     {mostrarFormularioPagoArriendo && puedeRegistrar && (
       <>
       <section className="form-panel no-print">
@@ -28011,10 +28035,6 @@ const resultadosBusqueda = textoBusqueda
       </section>
     )}
 
-// =============================================================================
-// VISTA - ADMINISTRACIONES PENDIENTES
-// Administraciones del mes sin actualizar o pagar.
-// =============================================================================
 
     {vistaActiva === 'administracionesPendientes' && (
       <PanelAdministracionesPendientes
@@ -28037,10 +28057,6 @@ const resultadosBusqueda = textoBusqueda
       />
     )}
 
-// =============================================================================
-// VISTA - ESTADO DE CUENTA ADMINISTRACION
-// Extracto de administracion por contrato.
-// =============================================================================
 
     {vistaActiva === 'estadoCuentaAdministracion' && (
       <>
@@ -28166,10 +28182,6 @@ const resultadosBusqueda = textoBusqueda
       </>
     )}
 
-// =============================================================================
-// VISTA - UNIDADES DE NEGOCIO
-// Consulta y registro de unidades.
-// =============================================================================
 
     {vistaActiva === 'unidades' && !mostrarFormularioUnidad && (
   <section className="panel no-print compact-filter-panel">
@@ -28403,6 +28415,7 @@ const resultadosBusqueda = textoBusqueda
 </section>
 )}
   
+
   {mostrarArriendos && vistaActiva === 'arriendos' && !hayFormularioArriendoAbierto && (
   <section className="panel no-print compact-filter-panel">
     <div className="section-title compact-title">
@@ -28505,10 +28518,6 @@ const resultadosBusqueda = textoBusqueda
     </section>
     )}
 
-// =============================================================================
-// VISTA - DETALLE DE CONTRATO ARRIENDO
-// Informacion completa del contrato seleccionado.
-// =============================================================================
 
     {vistaActiva === 'detalleContrato' && contratoSeleccionado && (
       <section className="panel no-print">
@@ -29395,10 +29404,6 @@ const resultadosBusqueda = textoBusqueda
 
 {mostrarPredial && (
   <>
-// =============================================================================
-// VISTA - REGISTRAR VALOR PREDIAL
-// Formulario de valor predial anual por vigencia.
-// =============================================================================
 
   {vistaActiva === 'valorPredial' && puedeRegistrar && (
   <section className="form-panel no-print">
@@ -29555,10 +29560,6 @@ const resultadosBusqueda = textoBusqueda
 )}
 
 
-// =============================================================================
-// VISTA - PREDIALES SIN ACTUALIZAR
-// Vigencias prediales pendientes de valor anual.
-// =============================================================================
 
   {vistaActiva === 'predialesSinActualizar' && (
     <PanelPredialesSinActualizar
@@ -29583,10 +29584,6 @@ const resultadosBusqueda = textoBusqueda
     />
   )}
 
-// =============================================================================
-// VISTA - PREDIALES CON DEUDA
-// Predios con saldo predial pendiente.
-// =============================================================================
 
   {vistaActiva === 'predialesPendientes' && (
   <section className="panel predial-deuda-panel no-print">
@@ -29803,10 +29800,6 @@ const resultadosBusqueda = textoBusqueda
   </section>
 )}
 
-// =============================================================================
-// VISTA - REGISTRAR ABONO PREDIAL
-// Formulario de abono predial por vigencia.
-// =============================================================================
 
  {vistaActiva === 'pagoPredial' && puedeRegistrar && (
   <section className="form-panel no-print">
@@ -30093,10 +30086,6 @@ const resultadosBusqueda = textoBusqueda
   </section>
 )}
 
-// =============================================================================
-// VISTA - CONSULTAR PREDIAL
-// Estado de cuenta predial del predio seleccionado.
-// =============================================================================
 
           {vistaActiva === 'verPredial' && codigoPredialConsultaSeleccionado && extractoPredialConsultaActivo && (
   <>
@@ -30119,6 +30108,7 @@ const resultadosBusqueda = textoBusqueda
 
 {mostrarServicios && (
   <>
+
     {vistaActiva === 'registrarFacturaServicio' && puedeRegistrar && (
       <section className="form-panel no-print">
         <div className="section-title">
@@ -30302,6 +30292,7 @@ const resultadosBusqueda = textoBusqueda
         </div>
       </section>
     )}
+
 
     {vistaActiva === 'registrarPagoServicio' && puedeRegistrar && (
       <section className="form-panel no-print">
@@ -30489,6 +30480,7 @@ const resultadosBusqueda = textoBusqueda
         </div>
       </section>
     )}
+
 
     {vistaActiva === 'verServicios' && (
       <>
@@ -30736,6 +30728,7 @@ const resultadosBusqueda = textoBusqueda
       </>
     )}
 
+
     {vistaActiva === 'estadoCuentaServicios' && (
       <>
         {origenEstadoCuentaServicios && (
@@ -30818,6 +30811,7 @@ const resultadosBusqueda = textoBusqueda
         )}
       </>
     )}
+
 
     {vistaActiva === 'serviciosPendientesAlerta' && (
       <PanelServiciosPendientesAlerta
@@ -31762,6 +31756,7 @@ const resultadosBusqueda = textoBusqueda
           </>
         )}
 
+
         {mostrarDocumentos && vistaActiva === 'cargarDocumento' && puedeRegistrar && (
           <section className="panel no-print">
             <div className="section-title">
@@ -31863,6 +31858,7 @@ const resultadosBusqueda = textoBusqueda
             </div>
           </section>
         )}
+
 
         {mostrarImpresionExtractos && (
           <>
@@ -32194,6 +32190,7 @@ const resultadosBusqueda = textoBusqueda
               )}
           </>
         )}
+
 
         {mostrarRecibosPago && (
           <>
@@ -33285,6 +33282,7 @@ const resultadosBusqueda = textoBusqueda
             )}
           </section>
         )}
+
 
         {mostrarVistaRespaldos && (
           <section className="panel no-print">
@@ -34442,6 +34440,11 @@ const imprimirExtractosLiquidacionConjunto = (contenedor, tituloDocumento = 'Liq
 
   abrirVisorExtractoImpresion(tituloDocumento, wrapper.innerHTML)
 }
+
+// =============================================================================
+// IMPRESION - EXTRACTO DESDE CARD
+// Impresion de extractos desde tarjeta del panel.
+// =============================================================================
 
 const imprimirExtractoCard = (boton, tituloDocumento = 'Estado de cuenta') => {
   const card = boton?.closest?.('.extracto-card')

@@ -48,6 +48,11 @@ function insertarPorAnclas(rutaArchivo, secciones, tipo = 'js') {
       continue
     }
     if (yaTieneTitulo(lines, idx)) continue
+    const anclaTrim = seccion.ancla.trimStart()
+    if (anclaTrim.startsWith('{') || anclaTrim.startsWith('<')) {
+      console.warn(`[${rutaArchivo}] Omitido en JSX: ${seccion.ancla}`)
+      continue
+    }
     inserciones.push({ idx, texto: bloque(seccion.titulo, seccion.descripcion) })
   }
 
@@ -117,23 +122,6 @@ const appJsx = [
   { ancla: 'const guardarPagoArriendo', titulo: 'ACCIONES - ARRIENDOS - REGISTRAR PAGO', descripcion: 'Pagos de arriendo, mora, IVA y asignacion multi-mes.' },
   { ancla: 'const iniciarSesion', titulo: 'ACCIONES - LOGIN Y SESION', descripcion: 'Inicio de sesion, cierre y restablecimiento de clave.' },
   { ancla: 'if (!usuarioActual) {', titulo: 'VISTA - PANTALLA DE LOGIN', descripcion: 'Formulario de acceso y restablecimiento de clave.' },
-  { ancla: '<div className="app">', titulo: 'VISTA - LAYOUT PRINCIPAL', descripcion: 'Sidebar, barra de usuario y area de contenido.' },
-  { ancla: "{vistaActiva === 'predios' &&", titulo: 'VISTA - PREDIOS', descripcion: 'Consulta, registro y detalle de predios.' },
-  { ancla: "{vistaActiva === 'prediosPorPropietario' &&", titulo: 'VISTA - PREDIOS POR PROPIETARIO', descripcion: 'Extracto de predios asociados a un propietario.' },
-  { ancla: "{vistaActiva === 'depositarios' && !mostrarFormularioContratante", titulo: 'VISTA - DEPOSITANTES', descripcion: 'Consulta y registro de depositantes.' },
-  { ancla: "{vistaActiva === 'contratosDeposito' &&", titulo: 'VISTA - CONTRATOS DE DEPOSITO', descripcion: 'Consulta y gestion de contratos de administracion.' },
-  { ancla: "{vistaActiva === 'liquidacionDeposito' && !extractoLiquidacionDepositoContexto", titulo: 'VISTA - LIQUIDACION DEPOSITARIO', descripcion: 'Liquidacion mensual al depositario o propietarios.' },
-  { ancla: "{vistaActiva === 'renovacionesPendientes' &&", titulo: 'VISTA - RENOVACIONES DE CONTRATO', descripcion: 'Contratos proximos a vencer y renovacion.' },
-  { ancla: "{vistaActiva === 'carteraArriendos' && !vistaCarteraDiaria", titulo: 'VISTA - CARTERA DE ARRIENDOS', descripcion: 'Cartera diaria, gestiones y contratos en mora.' },
-  { ancla: "{vistaActiva === 'administracionesPendientes' &&", titulo: 'VISTA - ADMINISTRACIONES PENDIENTES', descripcion: 'Administraciones del mes sin actualizar o pagar.' },
-  { ancla: "{vistaActiva === 'estadoCuentaAdministracion' &&", titulo: 'VISTA - ESTADO DE CUENTA ADMINISTRACION', descripcion: 'Extracto de administracion por contrato.' },
-  { ancla: "{vistaActiva === 'unidades' && !mostrarFormularioUnidad", titulo: 'VISTA - UNIDADES DE NEGOCIO', descripcion: 'Consulta y registro de unidades.' },
-  { ancla: "{vistaActiva === 'detalleContrato' && contratoSeleccionado", titulo: 'VISTA - DETALLE DE CONTRATO ARRIENDO', descripcion: 'Informacion completa del contrato seleccionado.' },
-  { ancla: "{vistaActiva === 'valorPredial' && puedeRegistrar", titulo: 'VISTA - REGISTRAR VALOR PREDIAL', descripcion: 'Formulario de valor predial anual por vigencia.' },
-  { ancla: "{vistaActiva === 'predialesSinActualizar' &&", titulo: 'VISTA - PREDIALES SIN ACTUALIZAR', descripcion: 'Vigencias prediales pendientes de valor anual.' },
-  { ancla: "{vistaActiva === 'predialesPendientes' &&", titulo: 'VISTA - PREDIALES CON DEUDA', descripcion: 'Predios con saldo predial pendiente.' },
-  { ancla: "{vistaActiva === 'pagoPredial' && puedeRegistrar", titulo: 'VISTA - REGISTRAR ABONO PREDIAL', descripcion: 'Formulario de abono predial por vigencia.' },
-  { ancla: '{vistaActiva === \'verPredial\' && codigoPredialConsultaSeleccionado', titulo: 'VISTA - CONSULTAR PREDIAL', descripcion: 'Estado de cuenta predial del predio seleccionado.' },
   { ancla: 'function PanelAdministracionesPendientes', titulo: 'COMPONENTE - PANEL ADMINISTRACIONES PENDIENTES', descripcion: 'Listado de administraciones por actualizar.' },
   { ancla: 'function PanelServiciosPendientesAlerta', titulo: 'COMPONENTE - PANEL SERVICIOS PENDIENTES', descripcion: 'Alertas de servicios publicos pendientes.' },
   { ancla: 'function PanelPredialesSinActualizar', titulo: 'COMPONENTE - PANEL PREDIALES SIN ACTUALIZAR', descripcion: 'Actualizacion de vigencias prediales.' },
@@ -146,6 +134,18 @@ const appJsx = [
   { ancla: 'function EncabezadoReciboArriendo', titulo: 'COMPONENTE - RECIBO DE ARRIENDO', descripcion: 'Encabezado, firmas e impresion de recibos.' },
   { ancla: 'function FormularioReciboPagoArriendo', titulo: 'COMPONENTE - FORMULARIO RECIBO PAGO ARRIENDO', descripcion: 'Captura de datos para recibo de pago.' },
   { ancla: 'function ExtractosArriendo', titulo: 'COMPONENTE - EXTRACTOS ARRIENDO', descripcion: 'Estado de cuenta de arriendo para impresion.' },
+  { ancla: 'const normalizarContratosDeposito =', titulo: 'CONTRATOS DEPOSITO - NORMALIZACION', descripcion: 'Estructura y validacion de contratos de administracion.' },
+  { ancla: 'const construirFilasEstadoCuentaArriendo', titulo: 'ARRIENDOS - FILAS ESTADO DE CUENTA', descripcion: 'Movimientos, mora y saldos por mes en arriendo.' },
+  { ancla: 'const generarFilasExtractoArriendo', titulo: 'ARRIENDOS - FILAS DE EXTRACTO', descripcion: 'Detalle de cargos y abonos para extracto de arriendo.' },
+  { ancla: 'const construirFilasEstadoCuentaAdministracion', titulo: 'ADMINISTRACION - FILAS ESTADO DE CUENTA', descripcion: 'Movimientos de administracion por contrato.' },
+  { ancla: 'const construirFilasEstadoCuentaServicio', titulo: 'SERVICIOS PUBLICOS - FILAS ESTADO DE CUENTA', descripcion: 'Facturas y pagos por servicio publico.' },
+  { ancla: 'function DetalleCondicionesPagoInh', titulo: 'COMPONENTE - CONDICIONES DE PAGO INH', descripcion: 'Detalle de condiciones y medios de pago INH.' },
+  { ancla: 'function TablaEstadoCuentaServicio', titulo: 'COMPONENTE - TABLA ESTADO CUENTA SERVICIOS', descripcion: 'Tabla de movimientos de servicios publicos.' },
+  { ancla: 'const descargarRespaldo =', titulo: 'ACCIONES - RESPALDOS DEL SISTEMA', descripcion: 'Descargar y restaurar copias de seguridad JSON.' },
+  { ancla: 'const crearUsuarioSistema =', titulo: 'ACCIONES - CREAR USUARIO DEL SISTEMA', descripcion: 'Alta de usuarios con rol y permisos.' },
+  { ancla: 'const imprimirVentanaUnaCarta', titulo: 'IMPRESION - VENTANA UNA CARTA', descripcion: 'Abre y dispara impresion en ventana emergente.' },
+  { ancla: 'const imprimirReciboPagoArriendo =', titulo: 'IMPRESION - RECIBO PAGO ARRIENDO', descripcion: 'Genera HTML e imprime recibo de arriendo.' },
+  { ancla: 'const imprimirExtractoCard =', titulo: 'IMPRESION - EXTRACTO DESDE CARD', descripcion: 'Impresion de extractos desde tarjeta del panel.' },
 ]
 
 const appCss = [
@@ -202,6 +202,60 @@ function insertarCssConReemplazo(rutaArchivo, secciones) {
   console.log(`[${rutaArchivo}] titulos CSS actualizados`)
 }
 
+function normalizarComentariosCssCortos(rutaArchivo) {
+  const ruta = path.join(root, rutaArchivo)
+  let lines = fs.readFileSync(ruta, 'utf8').split('\n')
+  let cambios = 0
+
+  for (let i = 0; i < lines.length - 2; i += 1) {
+    const l1 = lines[i].trim()
+    const l2 = lines[i + 1]?.trim() || ''
+    const l3 = lines[i + 2]?.trim() || ''
+    if (
+      /^\/\* =+\s*\*\/$/.test(l1) &&
+      /^\/\*.+\*\/$/.test(l2) &&
+      !l2.includes('=====') &&
+      /^\/\* =+\s*\*\/$/.test(l3)
+    ) {
+      const titulo = l2.replace(/^\/\*\s*/, '').replace(/\s*\*\/$/, '').trim().toUpperCase()
+      const bloque = bloqueCss(titulo).split('\n')
+      lines.splice(i, 3, ...bloque)
+      cambios += 1
+      i += bloque.length - 1
+      continue
+    }
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const linea = lines[i]
+    const m = linea.match(/^(\s*)\/\*\s*(.+?)\s*\*\/\s*$/)
+    if (!m) continue
+    if (m[2].includes('=====') || m[2].includes('===')) continue
+    if (/^[a-záéíóúñ]/.test(m[2].trim())) continue
+    if (yaTieneTitulo(lines, i)) continue
+    const titulo = m[2].trim().toUpperCase()
+    const bloque = bloqueCss(titulo).split('\n')
+    lines.splice(i, 1, ...bloque)
+    cambios += 1
+    i += bloque.length - 1
+  }
+
+  fs.writeFileSync(ruta, lines.join('\n'), 'utf8')
+  console.log(`[${rutaArchivo}] ${cambios} comentarios CSS cortos normalizados`)
+}
+
+function limpiarSeparadoresCssHuerfanos(rutaArchivo) {
+  const ruta = path.join(root, rutaArchivo)
+  let content = fs.readFileSync(ruta, 'utf8')
+  const antes = content
+  content = content.replace(/^\s*\/\* =+\s*\*\/\r?\n/gm, '')
+  content = content.replace(/\}\s*\/\* =+\s*\*\/\s*\r?\n/g, '}\n')
+  if (content !== antes) {
+    fs.writeFileSync(ruta, content, 'utf8')
+    console.log(`[${rutaArchivo}] separadores CSS huerfanos eliminados`)
+  }
+}
+
 const otrosArchivos = [
   {
     archivo: 'src/main.jsx',
@@ -233,18 +287,140 @@ const otrosArchivos = [
     ],
   },
   {
-    archivo: 'src/index.css',
+    archivo: 'server/index.js',
     secciones: [
-      { ancla: '/*', titulo: 'ESTILOS GLOBALES BASE', descripcion: 'Reset, body, imagenes y tipografia base.' },
+      { ancla: 'import express', titulo: 'API - IMPORTS Y CONFIGURACION', descripcion: 'Express, CORS, variables de entorno y puerto.' },
+      { ancla: 'app.get(\'/api/health\'', titulo: 'API - HEALTH CHECK', descripcion: 'Verifica conexion a SQL Server.' },
+      { ancla: 'app.use(\'/api/auth\'', titulo: 'API - RUTAS DE AUTENTICACION', descripcion: 'Montaje del router de login.' },
+      { ancla: 'try {', titulo: 'API - INICIO DEL SERVIDOR', descripcion: 'Inicializa base de datos y escucha peticiones.' },
+    ],
+  },
+  {
+    archivo: 'server/db.js',
+    secciones: [
+      { ancla: 'import sql', titulo: 'BASE DE DATOS - IMPORTS', descripcion: 'Driver mssql y datos iniciales.' },
+      { ancla: 'const NOMBRE_BASE_DATOS', titulo: 'BASE DE DATOS - CONFIGURACION', descripcion: 'Nombre de base y cadena de conexion.' },
+      { ancla: 'function buildConfig', titulo: 'BASE DE DATOS - CONSTRUIR CONFIG', descripcion: 'Variables de entorno y opciones de conexion.' },
+      { ancla: 'export async function getPool', titulo: 'BASE DE DATOS - POOL DE CONEXION', descripcion: 'Singleton del pool mssql.' },
+      { ancla: 'async function asegurarBaseDatos', titulo: 'BASE DE DATOS - CREAR BASE', descripcion: 'Crea la base si no existe en SQL Server.' },
+      { ancla: 'async function asegurarTablaDatosApp', titulo: 'BASE DE DATOS - ESQUEMA DATOSAPP', descripcion: 'Tabla principal con JSON de la aplicacion.' },
+      { ancla: 'export async function initDb', titulo: 'BASE DE DATOS - INICIALIZACION', descripcion: 'Asegura esquema y datos iniciales.' },
+      { ancla: 'export async function obtenerDatosCompletos', titulo: 'BASE DE DATOS - LEER DATOS', descripcion: 'Obtiene el JSON completo de la aplicacion.' },
+      { ancla: 'export async function guardarDatosCompletos', titulo: 'BASE DE DATOS - GUARDAR DATOS', descripcion: 'Persiste el JSON completo en SQL Server.' },
+      { ancla: 'export async function buscarUsuarioLogin', titulo: 'BASE DE DATOS - LOGIN DE USUARIO', descripcion: 'Valida credenciales contra usuarios del JSON.' },
+    ],
+  },
+  {
+    archivo: 'server/auth.js',
+    secciones: [
+      { ancla: 'import jwt', titulo: 'AUTENTICACION - IMPORTS', descripcion: 'JWT y secreto de firma.' },
+      { ancla: 'export function signToken', titulo: 'AUTENTICACION - FIRMAR TOKEN', descripcion: 'Genera JWT con id, usuario y rol.' },
+      { ancla: 'export function authMiddleware', titulo: 'AUTENTICACION - MIDDLEWARE', descripcion: 'Valida Bearer token en peticiones protegidas.' },
+      { ancla: 'export function puedeModificarDatos', titulo: 'AUTENTICACION - PERMISOS DE ESCRITURA', descripcion: 'Roles autorizados para guardar cambios.' },
+    ],
+  },
+  {
+    archivo: 'server/defaultData.js',
+    secciones: [
+      { ancla: 'export const usuariosInicialesDb', titulo: 'DATOS INICIALES - USUARIOS', descripcion: 'Usuarios de prueba admin, operador y consulta.' },
+      { ancla: 'export const datosInicialesDb', titulo: 'DATOS INICIALES - ESTRUCTURA VACIA', descripcion: 'Plantilla JSON inicial para nueva instalacion.' },
+    ],
+  },
+  {
+    archivo: 'server/routes/auth.js',
+    secciones: [
+      { ancla: 'import { Router }', titulo: 'RUTAS AUTH - IMPORTS', descripcion: 'Router Express y dependencias de login.' },
+      { ancla: "router.post('/login'", titulo: 'RUTAS AUTH - LOGIN', descripcion: 'Autentica usuario y devuelve token con datos.' },
+    ],
+  },
+  {
+    archivo: 'server/routes/datos.js',
+    secciones: [
+      { ancla: 'import { Router }', titulo: 'RUTAS DATOS - IMPORTS', descripcion: 'Router Express, auth y acceso a SQL.' },
+      { ancla: "router.get('/'", titulo: 'RUTAS DATOS - OBTENER DATOS', descripcion: 'GET protegido del JSON completo.' },
+      { ancla: "router.put('/'", titulo: 'RUTAS DATOS - GUARDAR DATOS', descripcion: 'PUT protegido con validacion de rol.' },
+    ],
+  },
+  {
+    archivo: 'server/wait-db.js',
+    secciones: [
+      { ancla: 'import dotenv', titulo: 'WAIT-DB - IMPORTS Y CONFIG', descripcion: 'Espera a que SQL Server este listo en Docker.' },
+      { ancla: 'for (let intento', titulo: 'WAIT-DB - BUCLE DE REINTENTOS', descripcion: 'Reintenta conexion hasta agotar intentos.' },
+    ],
+  },
+  {
+    archivo: 'server/test-db.js',
+    secciones: [
+      { ancla: 'import dotenv', titulo: 'TEST-DB - IMPORTS', descripcion: 'Script de prueba de conexion a SQL Server.' },
+      { ancla: 'try {', titulo: 'TEST-DB - VERIFICACION', descripcion: 'Inicializa DB y consulta tabla DatosApp.' },
+    ],
+  },
+  {
+    archivo: 'vite.config.js',
+    secciones: [
+      { ancla: 'import { defineConfig }', titulo: 'VITE - IMPORTS', descripcion: 'Configuracion del bundler y plugin React.' },
+      { ancla: 'export default defineConfig', titulo: 'VITE - CONFIGURACION', descripcion: 'Base path, proxy API y servidor de desarrollo.' },
+    ],
+  },
+  {
+    archivo: 'eslint.config.js',
+    secciones: [
+      { ancla: 'import js', titulo: 'ESLINT - IMPORTS', descripcion: 'Plugins React Hooks, Refresh y globals.' },
+      { ancla: 'export default defineConfig', titulo: 'ESLINT - CONFIGURACION FLAT', descripcion: 'Reglas recomendadas para JS y JSX.' },
     ],
   },
 ]
 
 insertarPorAnclas('src/App.jsx', appJsx)
 insertarCssConReemplazo('src/App.css', appCss)
+normalizarComentariosCssCortos('src/App.css')
+limpiarSeparadoresCssHuerfanos('src/App.css')
 
 for (const archivo of otrosArchivos) {
   insertarPorAnclas(archivo.archivo, archivo.secciones)
 }
+
+function verificarComentariosEnJsx(rutaArchivo) {
+  const ruta = path.join(root, rutaArchivo)
+  const lines = fs.readFileSync(ruta, 'utf8').split('\n')
+  let inApp = false
+  let inReturn = false
+  let depth = 0
+  const errores = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const t = line.trim()
+
+    if (line.match(/^function App\(/)) inApp = true
+    if (!inApp) continue
+
+    if (t === 'return (') {
+      inReturn = true
+      depth = 1
+      continue
+    }
+    if (!inReturn) continue
+
+    depth += (line.match(/\(/g) || []).length
+    depth -= (line.match(/\)/g) || []).length
+
+    if (t.startsWith('//')) errores.push(i + 1)
+
+    if (depth <= 0) inReturn = false
+  }
+
+  if (errores.length) {
+    console.error(
+      `[${rutaArchivo}] Comentarios // dentro del JSX (visibles en pantalla): ${errores.join(', ')}`
+    )
+    process.exitCode = 1
+    return
+  }
+
+  console.log(`[${rutaArchivo}] OK: comentarios solo en codigo, no en la interfaz`)
+}
+
+verificarComentariosEnJsx('src/App.jsx')
 
 console.log('Listo.')
