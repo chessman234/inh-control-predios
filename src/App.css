@@ -8690,3 +8690,42 @@ body.imprimiendo-extracto #extracto-impresion-root {
     min-width: 760px;
   }
 }
+
+.predial-abono-resumen {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 8px;
+}
+
+.predial-abono-resumen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.predial-abono-resumen-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.predial-abono-resumen-grid span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.predial-abono-resumen-grid strong {
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.col-soporte-predial {
+  min-width: 150px;
+  white-space: nowrap;
+}

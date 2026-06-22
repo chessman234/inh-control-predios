@@ -10,12 +10,16 @@ import {
   setSesionApi,
   usaApiRemota,
 } from './api/datos.js'
+import {
+  cancelarGuardadoDatosLocalesPendiente,
+  cargarDatosLocales,
+  guardarDatosLocales,
+} from './storage/datosLocales.js'
 
 const LOGO_INH = logoInhUrl
 const obtenerUrlAbsolutaLogoInh = () =>
   new URL(logoInhUrl, window.location.origin).href
 
-const STORAGE_KEY = 'inh-control-predios-v1'
 const PORCENTAJE_GASTOS_COBRANZA_DEFECTO = 10
 const TIPOS_COMISION_DEPOSITO = ['Administración', 'Solo arrendar']
 const TIPOS_PAGO_LIQUIDACION_DEPOSITO = [
@@ -8491,6 +8495,71 @@ const calcularTotalAPagarPredial = (movimiento) => {
   )
 }
 
+const calcularResumenVigenciaPredial = (
+  codigoPredio,
+  anio,
+  valoresPrediales = [],
+  pagosPrediales = [],
+  descuentoNuevo = 0,
+  interesesNuevo = 0,
+  valorPagadoNuevo = 0
+) => {
+  const valorAnual = valoresPrediales.find(
+    (item) => item.codigoPredio === codigoPredio && Number(item.anio) === Number(anio)
+  )
+
+  if (!valorAnual) return null
+
+  const pagosDelAnio = pagosPrediales.filter(
+    (item) => item.codigoPredio === codigoPredio && Number(item.anio) === Number(anio)
+  )
+
+  const totalDescuentoPrevio = pagosDelAnio.reduce(
+    (total, pago) => total + Number(pago.descuento || 0),
+    0
+  )
+  const totalInteresesPrevio = pagosDelAnio.reduce(
+    (total, pago) => total + Number(pago.intereses || 0),
+    0
+  )
+  const totalPagadoPrevio = pagosDelAnio.reduce(
+    (total, pago) => total + Number(pago.valorPagado || 0),
+    0
+  )
+
+  const valorImpuesto = Number(valorAnual.valorImpuesto || 0)
+  const descuentoAbono = Number(descuentoNuevo || 0)
+  const interesesAbono = Number(interesesNuevo || 0)
+  const valorAbono = Number(valorPagadoNuevo || 0)
+  const totalDescuento = totalDescuentoPrevio + descuentoAbono
+  const totalIntereses = totalInteresesPrevio + interesesAbono
+  const totalAPagar = valorImpuesto - totalDescuento + totalIntereses
+  const totalPagado = totalPagadoPrevio + valorAbono
+  const saldoPendiente = totalAPagar - totalPagado
+
+  return {
+    valorImpuesto,
+    fechaLimite: valorAnual.fechaLimite || '',
+    totalDescuentoPrevio,
+    totalInteresesPrevio,
+    totalPagadoPrevio,
+    totalDescuento,
+    totalIntereses,
+    totalAPagar,
+    totalPagado,
+    saldoPendiente,
+    pagosDelAnio,
+    vigenciaCompleta: saldoPendiente <= 0 && totalPagado > 0,
+  }
+}
+
+const obtenerAniosVigenciaPredialPredio = (codigoPredio, valoresPrediales = []) =>
+  valoresPrediales
+    .filter((item) => item.codigoPredio === codigoPredio)
+    .map((item) => Number(item.anio))
+    .filter((anio) => Number.isFinite(anio))
+    .sort((a, b) => b - a)
+
 const ordenarPagosPredialCronologico = (pagos = []) =>
   pagos
     .slice()
@@ -8501,7 +8570,7 @@ const obtenerPagosDetalleMovimientoPredial = (movimiento) => {
     return ordenarPagosPredialCronologico(movimiento.pagosDetalle)
   }
 
-  if (Number(movimiento?.valorPagado || 0) > 0) {
+  if (Number(movimiento.valorPagado || 0) > 0) {
     return [
       {
         id: `${movimiento.anio}-pago-unico`,
@@ -8510,6 +8579,7 @@ const obtenerPagosDetalleMovimientoPredial = (movimiento) => {
         descuento: Number(movimiento.descuento || 0),
         intereses: Number(movimiento.intereses || 0),
         valorPagado: Number(movimiento.valorPagado || 0),
+        documentoPago: movimiento.documentoPago || null,
       },
     ]
   }
@@ -8589,6 +8659,8 @@ const construirFilasAnioExtractoPredial = (movimiento) => {
         detalle: `Abono - Recibo ${numeroRecibo}`,
         valorMovimiento: -Number(pago.valorPagado || 0),
         tipo: 'pago',
+        pagoId: pago.id,
+        documentoPago: pago.documentoPago || null,
       })
     }
   })
@@ -9816,6 +9888,7 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [interesesPredial, setInteresesPredial] = useState('')
   const [valorPagadoPredial, setValorPagadoPredial] = useState('')
   const [estadoPagoPredial, setEstadoPagoPredial] = useState('Pagado')
+  const [documentoPagoPredialAdjunto, setDocumentoPagoPredialAdjunto] = useState(null)
 
   const [predios, setPredios] = useState([])
   const [propietarios, setPropietarios] = useState([])
@@ -9966,14 +10039,13 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
           }
         }
       } else {
-        const datosGuardados = localStorage.getItem(STORAGE_KEY)
-        if (datosGuardados) {
-          try {
-            const datos = JSON.parse(datosGuardados)
-            if (!cancelado) cargarDatosEnEstado(datos)
-          } catch (error) {
-            console.error('Error al cargar los datos guardados:', error)
-            alert('No se pudieron cargar los datos guardados.')
+        try {
+          const datos = await cargarDatosLocales()
+          if (!cancelado && datos) cargarDatosEnEstado(datos)
+        } catch (error) {
+          console.error('Error al cargar los datos guardados:', error)
+          if (!cancelado) {
+            alert('No se pudieron cargar los datos guardados. Si tiene un respaldo, impórtelo desde Reportes y respaldos.')
           }
         }
       }
@@ -10055,7 +10127,18 @@ useEffect(() => {
     return
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(datosParaGuardar))
+  let cancelado = false
+
+  guardarDatosLocales(datosParaGuardar).then((resultado) => {
+    if (!cancelado && resultado && !resultado.ok) {
+      alert(resultado.mensaje)
+    }
+  })
+
+  return () => {
+    cancelado = true
+    cancelarGuardadoDatosLocalesPendiente()
+  }
 }, [
   datosCargados,
   predios,
@@ -16040,32 +16123,55 @@ if (
     return
     }
     if (!codigoPredioPagoPredial || !anioPagoPredial || !valorPagadoPredial) {
-      alert('Complete predio, año y valor pagado.')
+      alert('Complete predio, vigencia y valor pagado.')
       return
     }
 
-    
-    const valorPredialRegistrado = valoresPrediales.find(
-  (item) =>
-    item.codigoPredio === codigoPredioPagoPredial &&
-    Number(item.anio) === Number(anioPagoPredial)
-)
+    const vigenciaRegistrada = valoresPrediales.some(
+      (item) =>
+        item.codigoPredio === codigoPredioPagoPredial &&
+        Number(item.anio) === Number(anioPagoPredial)
+    )
 
-if (!valorPredialRegistrado) {
-  alert('Primero registre el valor predial anual.')
-  return
-}
+    if (!vigenciaRegistrada) {
+      alert('Primero registre el valor predial anual de esa vigencia.')
+      return
+    }
 
-const valorImpuesto = Number(valorPredialRegistrado.valorImpuesto || 0)
-const valorPago = Number(valorPagadoPredial || 0)
+    const resumen = calcularResumenVigenciaPredial(
+      codigoPredioPagoPredial,
+      anioPagoPredial,
+      valoresPrediales,
+      pagosPrediales,
+      descuentoPredial,
+      interesesPredial,
+      valorPagadoPredial
+    )
 
-if (valorPago > valorImpuesto) {
-  const confirmar = window.confirm(
-    `El valor pagado (${formatearDinero(valorPago)}) es mayor al impuesto registrado (${formatearDinero(valorImpuesto)}). ¿Desea guardar de todas formas?`
-  )
+    if (!resumen) {
+      alert('No se pudo calcular la obligación de la vigencia seleccionada.')
+      return
+    }
 
-  if (!confirmar) return
-}
+    const valorAbono = Number(valorPagadoPredial || 0)
+    if (valorAbono <= 0) {
+      alert('El valor pagado debe ser mayor a cero.')
+      return
+    }
+
+    if (resumen.saldoPendiente < 0) {
+      alert(
+        `El abono excede el saldo de la vigencia ${anioPagoPredial}. ` +
+          `Los pagos prediales son exclusivos de cada año y no pueden aplicarse a otra vigencia. ` +
+          `Saldo pendiente antes del abono: ${formatearDinero(
+            resumen.totalAPagar - resumen.totalPagadoPrevio
+          )}.`
+      )
+      return
+    }
+
+    const estadoCalculado =
+      resumen.saldoPendiente === 0 ? 'Pagado' : valorAbono > 0 ? 'Abono registrado' : estadoPagoPredial
 
     setPagosPrediales([
   {
@@ -16076,8 +16182,9 @@ if (valorPago > valorImpuesto) {
     fechaPago: fechaPagoPredial || '',
     descuento: Number(descuentoPredial || 0),
     intereses: Number(interesesPredial || 0),
-    valorPagado: Number(valorPagadoPredial || 0),
-    estado: estadoPagoPredial,
+    valorPagado: valorAbono,
+    estado: estadoCalculado,
+    documentoPago: documentoPagoPredialAdjunto,
   },
   ...pagosPrediales,
 ])
@@ -16090,7 +16197,42 @@ if (valorPago > valorImpuesto) {
     setInteresesPredial('')
     setValorPagadoPredial('')
     setEstadoPagoPredial('Pagado')
+    setDocumentoPagoPredialAdjunto(null)
     setMostrarFormularioPagoPredial(false)
+  }
+
+  const adjuntarDocumentoPagoPredial = async (pagoId, archivoOrNull) => {
+    if (!puedeRegistrar) {
+      alert('No tiene permisos para adjuntar documentos de pago predial.')
+      return
+    }
+
+    let documentoPago = null
+
+    if (archivoOrNull) {
+      try {
+        const contenido = await leerArchivoComoDataUrl(archivoOrNull)
+        documentoPago = {
+          nombreArchivo: archivoOrNull.name,
+          contenido,
+          tamano: archivoOrNull.size,
+        }
+      } catch (error) {
+        alert('No se pudo leer el documento de pago.')
+        return
+      }
+    }
+
+    setPagosPrediales((prev) =>
+      prev.map((pago) => (pago.id === pagoId ? { ...pago, documentoPago } : pago))
+    )
+  }
+
+  const limpiarCamposAbonoPredial = () => {
+    setDescuentoPredial('')
+    setInteresesPredial('')
+    setValorPagadoPredial('')
+    setDocumentoPagoPredialAdjunto(null)
   }
 
   const limpiarFormularioFacturaServicio = () => {
@@ -16355,6 +16497,7 @@ alert('Pago de servicio público guardado correctamente.')
         descuento: Number(pago.descuento || 0),
         intereses: Number(pago.intereses || 0),
         valorPagado: Number(pago.valorPagado || 0),
+        documentoPago: pago.documentoPago || null,
       }))
 
       const totalPagado = pagosDetalle.reduce(
@@ -29313,9 +29456,9 @@ const resultadosBusqueda = textoBusqueda
     </div>
 
     <p className="form-description">
-      Busque y seleccione el predio al que se le registrará el pago predial.
-      Antes de guardar el pago debe existir el valor predial anual registrado para ese año.
-      Solo aparecen inmuebles con contrato de depósito de administración que incluya seguimiento predial.
+      Busque y seleccione el predio al que se le registrará el abono predial.
+      Cada abono aplica únicamente a la vigencia (año) seleccionada; no puede trasladarse a otro año.
+      Antes de guardar debe existir el valor predial anual de esa vigencia.
     </p>
 
     <div className="property-form">
@@ -29367,6 +29510,24 @@ const resultadosBusqueda = textoBusqueda
                           setBusquedaPredioPagoPredial(
                             `${predio.codigo} - ${predio.barrio} - ${predio.direccion}`
                           )
+                          const aniosVigencia = obtenerAniosVigenciaPredialPredio(
+                            predio.codigo,
+                            valoresPrediales
+                          )
+                          const anioSugerido =
+                            aniosVigencia.find((anio) => {
+                              const resumen = calcularResumenVigenciaPredial(
+                                predio.codigo,
+                                anio,
+                                valoresPrediales,
+                                pagosPrediales
+                              )
+                              return resumen && resumen.saldoPendiente > 0
+                            }) ||
+                            aniosVigencia[0] ||
+                            anioActual
+                          setAnioPagoPredial(String(anioSugerido))
+                          limpiarCamposAbonoPredial()
                         }}
                       >
                         Registrar pago predial
@@ -29388,7 +29549,7 @@ const resultadosBusqueda = textoBusqueda
 
       {codigoPredioPagoPredial && (
         <>
-          <div className="form-section-title full">Datos del pago predial</div>
+          <div className="form-section-title full">Datos del abono predial</div>
 
           <div className="form-group">
             <label>Predio seleccionado</label>
@@ -29401,13 +29562,84 @@ const resultadosBusqueda = textoBusqueda
           </div>
 
           <div className="form-group">
-            <label>Año</label>
-            <input
-              type="number"
+            <label>Vigencia (año)</label>
+            <select
               value={anioPagoPredial}
-              onChange={(e) => setAnioPagoPredial(e.target.value)}
-            />
+              onChange={(e) => {
+                setAnioPagoPredial(e.target.value)
+                limpiarCamposAbonoPredial()
+              }}
+            >
+              {obtenerAniosVigenciaPredialPredio(codigoPredioPagoPredial, valoresPrediales).map(
+                (anio) => (
+                  <option key={anio} value={anio}>
+                    {anio}
+                  </option>
+                )
+              )}
+            </select>
           </div>
+
+          {(() => {
+            const resumen = calcularResumenVigenciaPredial(
+              codigoPredioPagoPredial,
+              anioPagoPredial,
+              valoresPrediales,
+              pagosPrediales,
+              descuentoPredial,
+              interesesPredial,
+              valorPagadoPredial
+            )
+
+            if (!resumen) {
+              return (
+                <div className="form-group full">
+                  <p className="form-description">
+                    Esta vigencia no tiene valor predial registrado. Regístrelo antes de abonar.
+                  </p>
+                </div>
+              )
+            }
+
+            return (
+              <div className="predial-abono-resumen full">
+                <div className="predial-abono-resumen-grid">
+                  <div>
+                    <span>Impuesto vigencia {anioPagoPredial}</span>
+                    <strong>{formatearDinero(resumen.valorImpuesto)}</strong>
+                  </div>
+                  <div>
+                    <span>Descuentos acumulados</span>
+                    <strong>{formatearDinero(resumen.totalDescuento)}</strong>
+                  </div>
+                  <div>
+                    <span>Intereses acumulados</span>
+                    <strong>{formatearDinero(resumen.totalIntereses)}</strong>
+                  </div>
+                  <div>
+                    <span>Total obligación vigencia</span>
+                    <strong>{formatearDinero(resumen.totalAPagar)}</strong>
+                  </div>
+                  <div>
+                    <span>Abonado en esta vigencia</span>
+                    <strong>{formatearDinero(resumen.totalPagado)}</strong>
+                  </div>
+                  <div>
+                    <span>Saldo pendiente vigencia</span>
+                    <strong className={resumen.saldoPendiente > 0 ? 'saldo-atraso' : ''}>
+                      {formatearDinero(Math.max(0, resumen.saldoPendiente))}
+                    </strong>
+                  </div>
+                </div>
+                <p className="form-description">
+                  Los descuentos e intereses que registre aquí solo afectan la vigencia {anioPagoPredial}.
+                  {resumen.fechaLimite
+                    ? ` Fecha límite de pago: ${resumen.fechaLimite}.`
+                    : ''}
+                </p>
+              </div>
+            )
+          })()}
 
           <div className="form-group">
             <label>Número de recibo</label>
@@ -29428,7 +29660,7 @@ const resultadosBusqueda = textoBusqueda
           </div>
 
           <div className="form-group">
-            <label>Descuento</label>
+            <label>Descuento de esta vigencia</label>
             <InputValor
               value={descuentoPredial}
               onChange={setDescuentoPredial}
@@ -29437,7 +29669,7 @@ const resultadosBusqueda = textoBusqueda
           </div>
 
           <div className="form-group">
-            <label>Intereses</label>
+            <label>Intereses de esta vigencia</label>
             <InputValor
               value={interesesPredial}
               onChange={setInteresesPredial}
@@ -29446,7 +29678,7 @@ const resultadosBusqueda = textoBusqueda
           </div>
 
           <div className="form-group">
-            <label>Valor pagado</label>
+            <label>Valor del abono</label>
             <InputValor
               value={valorPagadoPredial}
               onChange={setValorPagadoPredial}
@@ -29454,16 +29686,28 @@ const resultadosBusqueda = textoBusqueda
             />
           </div>
 
-          <div className="form-group">
-            <label>Estado del pago</label>
-            <select
-              value={estadoPagoPredial}
-              onChange={(e) => setEstadoPagoPredial(e.target.value)}
-            >
-              <option>Pagado</option>
-              <option>Pendiente</option>
-              <option>En mora</option>
-            </select>
+          <div className="form-group full">
+            <AdjuntoArchivoInline
+              etiqueta="Documento de pago"
+              adjunto={documentoPagoPredialAdjunto}
+              textoBoton="Subir documento de pago"
+              onSeleccionarArchivo={async (evento) => {
+                const archivo = evento.target.files?.[0]
+                if (!archivo) return
+                try {
+                  const contenido = await leerArchivoComoDataUrl(archivo)
+                  setDocumentoPagoPredialAdjunto({
+                    nombreArchivo: archivo.name,
+                    contenido,
+                    tamano: archivo.size,
+                  })
+                } catch {
+                  alert('No se pudo leer el documento de pago.')
+                }
+                evento.target.value = ''
+              }}
+              onQuitar={() => setDocumentoPagoPredialAdjunto(null)}
+            />
           </div>
 
           <div className="form-actions full">
@@ -29473,13 +29717,14 @@ const resultadosBusqueda = textoBusqueda
               onClick={() => {
                 setCodigoPredioPagoPredial('')
                 setBusquedaPredioPagoPredial('')
+                limpiarCamposAbonoPredial()
               }}
             >
               Cancelar
             </button>
 
             <button type="button" className="btn-primary" onClick={guardarPagoPredial}>
-              Guardar pago predial
+              Guardar abono predial
             </button>
           </div>
         </>
@@ -29499,6 +29744,8 @@ const resultadosBusqueda = textoBusqueda
     <ExtractosPrediales
       extractosPrediales={[extractoPredialConsultaActivo]}
       formatearDinero={formatearDinero}
+      puedeRegistrar={puedeRegistrar}
+      onAdjuntarDocumentoPagoPredial={adjuntarDocumentoPagoPredial}
     />
   </>
 )}
@@ -33411,7 +33658,48 @@ function PanelPredialesSinActualizar({
   )
 }
 
-function TablaExtractoPredial({ movimientos, formatearDinero, extracto }) {
+function CeldaSoporteAbonoPredial({ fila, puedeRegistrar, onAdjuntar }) {
+  if (fila.tipo !== 'pago' || !fila.pagoId) return <span>—</span>
+
+  if (!puedeRegistrar && !fila.documentoPago) return <span>—</span>
+
+  if (fila.documentoPago && !puedeRegistrar) {
+    return (
+      <a
+        className="btn-small btn-adjunto-archivo"
+        href={fila.documentoPago.contenido}
+        download={fila.documentoPago.nombreArchivo}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Ver soporte
+      </a>
+    )
+  }
+
+  return (
+    <AdjuntoArchivoInline
+      etiqueta="Documento de pago"
+      ocultarEtiqueta
+      adjunto={fila.documentoPago}
+      textoBoton="Subir soporte"
+      onSeleccionarArchivo={async (evento) => {
+        const archivo = evento.target.files?.[0]
+        if (archivo && onAdjuntar) await onAdjuntar(fila.pagoId, archivo)
+        evento.target.value = ''
+      }}
+      onQuitar={() => onAdjuntar?.(fila.pagoId, null)}
+    />
+  )
+}
+
+function TablaExtractoPredial({
+  movimientos,
+  formatearDinero,
+  extracto,
+  puedeRegistrar = false,
+  onAdjuntarDocumentoPagoPredial,
+}) {
   const bloques = construirBloquesExtractoPredialPorAnio(movimientos)
   const marcarSaldoAtraso = esSaldoEnAtraso(opcionesAtrasoExtracto(extracto || { resumen: {} }))
 
@@ -33469,6 +33757,7 @@ function TablaExtractoPredial({ movimientos, formatearDinero, extracto }) {
                     <th>Detalle</th>
                     <th className="col-monto-predial">Valor</th>
                     <th className="col-monto-predial">Saldo</th>
+                    <th className="col-soporte-predial no-print">Soporte</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -33486,6 +33775,13 @@ function TablaExtractoPredial({ movimientos, formatearDinero, extracto }) {
                       >
                         {formatearDinero(item.saldoAcumulado)}
                       </td>
+                      <td className="col-soporte-predial no-print">
+                        <CeldaSoporteAbonoPredial
+                          fila={item}
+                          puedeRegistrar={puedeRegistrar}
+                          onAdjuntar={onAdjuntarDocumentoPagoPredial}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -33499,7 +33795,12 @@ function TablaExtractoPredial({ movimientos, formatearDinero, extracto }) {
   )
 }
 
-function ExtractosPrediales({ extractosPrediales, formatearDinero }) {
+function ExtractosPrediales({
+  extractosPrediales,
+  formatearDinero,
+  puedeRegistrar = false,
+  onAdjuntarDocumentoPagoPredial,
+}) {
   return (
     <section className="extracts-container extracts-container-moderno">
       <div className="section-title no-print">
@@ -33627,6 +33928,8 @@ function ExtractosPrediales({ extractosPrediales, formatearDinero }) {
               movimientos={extracto.movimientos}
               formatearDinero={formatearDinero}
               extracto={extracto}
+              puedeRegistrar={puedeRegistrar}
+              onAdjuntarDocumentoPagoPredial={onAdjuntarDocumentoPagoPredial}
             />
           </div>
         </article>
