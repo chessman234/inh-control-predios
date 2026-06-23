@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host --open",
+    "start": "vite --host --open",
     "dev:lan": "vite --host",
     "dev:server": "node server/index.js",
     "dev:api": "node server/index.js",
@@ -17,7 +18,8 @@
     "lint": "eslint .",
     "preview": "vite preview --host",
     "deploy:vercel": "npm run build && vercel deploy --prod --yes",
-    "deploy:netlify": "npm run build && netlify deploy --prod --dir=dist"
+    "deploy:netlify": "npm run build && netlify deploy --prod --dir=dist",
+    "titulos:seccion": "node scripts/agregar-titulos-seccion.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

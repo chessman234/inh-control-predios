@@ -20,6 +20,7 @@ export default defineConfig(({ command }) => ({
     host: true,
     port: 5173,
     strictPort: false,
+    open: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
