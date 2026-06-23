@@ -37,6 +37,7 @@ const TIPOS_PAGO_LIQUIDACION_DEPOSITO = [
   'Solo al depositario',
 ]
 const MEDIOS_PAGO_INH = ['Transferencia o consignación', 'Cheque o efectivo']
+const MEDIOS_PAGO_DEPOSITANTE = ['Consignación', 'Transferencia', 'Cheque', 'Efectivo']
 const TIPOS_CUENTA_BANCARIA_INH = ['Ahorros', 'Corriente']
 const PAGO_SOLO_DEPOSITARIO_LEGACY = 'Solo al contratante'
 
@@ -4022,6 +4023,42 @@ const calcularMoraAcumuladaMesArriendo = ({
   return Math.round(moraTotal)
 }
 
+const construirDesglosePendientePagoArriendo = (movimiento) => {
+  if (!movimiento) {
+    return {
+      mensualidadPendiente: 0,
+      moraPendiente: 0,
+      gastosCobranza: 0,
+      ivaMoraCobranza: 0,
+      pagadoPeriodo: 0,
+      subtotalPeriodo: 0,
+      totalPendiente: 0,
+    }
+  }
+
+  const mensualidadPendiente = Math.max(
+    0,
+    Number(movimiento.canonCausadoBase || 0) - Number(movimiento.descuento || 0)
+  )
+  const moraPendiente = Math.max(0, Number(movimiento.mora || 0))
+  const gastosCobranza = Math.max(0, Number(movimiento.sancionCobranza || 0))
+  const ivaMoraCobranza = Math.max(0, Number(movimiento.ivaInteresesSancion || 0))
+  const pagadoPeriodo = Math.max(0, Number(movimiento.pagado || 0))
+  const subtotalPeriodo =
+    mensualidadPendiente + moraPendiente + gastosCobranza + ivaMoraCobranza
+  const totalPendiente = Math.max(0, Number(movimiento.saldoDeuda || 0))
+
+  return {
+    mensualidadPendiente,
+    moraPendiente,
+    gastosCobranza,
+    ivaMoraCobranza,
+    pagadoPeriodo,
+    subtotalPeriodo,
+    totalPendiente,
+  }
+}
+
 const calcularMoraSugeridaPagoArriendo = ({
   contrato,
   mesCausado,
@@ -4319,12 +4356,16 @@ function DetalleCondicionesPagoInh({
   if (!datos.medioPago) {
     if (variant === 'bloque') {
       return (
-        <section className="bloque-forma-pago-liquidacion sin-configurar">
-          <div className="form-section-title subtitulo-seccion-compacta">Medio de pago acordado</div>
-          <p className="forma-pago-descripcion">
-            No se registró el medio de pago en el documento de administración.
-          </p>
-        </section>
+        <>
+          <div className="form-section-title full medio-pago-acordado-titulo">
+            Medio de pago acordado
+          </div>
+          <section className="bloque-forma-pago-liquidacion sin-configurar">
+            <p className="forma-pago-descripcion forma-pago-descripcion-sola">
+              No se registró el medio de pago en el documento de administración.
+            </p>
+          </section>
+        </>
       )
     }
     return null
@@ -4348,13 +4389,15 @@ function DetalleCondicionesPagoInh({
     }
 
     return (
-      <section
-        className={`bloque-forma-pago-liquidacion${
-          esTransferencia ? ' es-transferencia' : ' es-cheque-efectivo'
-        }`}
-      >
-        <div className="form-section-title subtitulo-seccion-compacta">Medio de pago acordado</div>
-
+      <>
+        <div className="form-section-title full medio-pago-acordado-titulo">
+          Medio de pago acordado
+        </div>
+        <section
+          className={`bloque-forma-pago-liquidacion${
+            esTransferencia ? ' es-transferencia' : ' es-cheque-efectivo'
+          }`}
+        >
         <div className="forma-pago-liquidacion-grid">
           <div className="forma-pago-item">
             <span>Destinatario del pago</span>
@@ -4422,7 +4465,8 @@ function DetalleCondicionesPagoInh({
             <strong>{observacionesAutorizacionPago}</strong>
           </div>
         )}
-      </section>
+        </section>
+      </>
     )
   }
 
@@ -10115,12 +10159,21 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [busquedaLiquidacionDeposito, setBusquedaLiquidacionDeposito] = useState('')
   const [idDepositarioLiquidacionSeleccionado, setIdDepositarioLiquidacionSeleccionado] = useState('')
   const [extractoLiquidacionDepositoContexto, setExtractoLiquidacionDepositoContexto] = useState(null)
-  const [mostrarFormularioAbonoDeposito, setMostrarFormularioAbonoDeposito] = useState(false)
+  const [idContratoPagoDepositante, setIdContratoPagoDepositante] = useState('')
+  const [busquedaContratoPagoDepositante, setBusquedaContratoPagoDepositante] = useState('')
   const [mesAbonoDeposito, setMesAbonoDeposito] = useState('')
   const [claveUnidadAbonoDeposito, setClaveUnidadAbonoDeposito] = useState('')
   const [idBeneficiarioAbonoDeposito, setIdBeneficiarioAbonoDeposito] = useState('')
   const [fechaAbonoDeposito, setFechaAbonoDeposito] = useState('')
+  const [valorPagoDepositante, setValorPagoDepositante] = useState('')
   const [observacionesAbonoDeposito, setObservacionesAbonoDeposito] = useState('')
+  const [medioPagoDepositante, setMedioPagoDepositante] = useState('Transferencia')
+  const [bancoPagoDepositante, setBancoPagoDepositante] = useState('')
+  const [cuentaPagoDepositante, setCuentaPagoDepositante] = useState('')
+  const [referenciaPagoDepositante, setReferenciaPagoDepositante] = useState('')
+  const [numeroChequePagoDepositante, setNumeroChequePagoDepositante] = useState('')
+  const [comprobanteEgresoPagoDepositante, setComprobanteEgresoPagoDepositante] = useState('')
+  const [documentoPagoDepositanteAdjunto, setDocumentoPagoDepositanteAdjunto] = useState(null)
   const [mostrarTodosPredios, setMostrarTodosPredios] = useState(false)
   const [busquedaUnidades, setBusquedaUnidades] = useState('')
   const [mostrarTodasUnidades, setMostrarTodasUnidades] = useState(false)
@@ -10175,7 +10228,7 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [pagosLiquidacionDeposito, setPagosLiquidacionDeposito] = useState([])
   const [mostrarFormularioContratoDeposito, setMostrarFormularioContratoDeposito] = useState(false)
   const [seccionOrigenFormularioContratoDeposito, setSeccionOrigenFormularioContratoDeposito] =
-    useState('predios')
+    useState('registroInmueble')
   const [contratoDepositoEditando, setContratoDepositoEditando] = useState(null)
   const [edicionCompletaContratoDeposito, setEdicionCompletaContratoDeposito] = useState(false)
   const [depCodigoPredio, setDepCodigoPredio] = useState('')
@@ -10324,7 +10377,6 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [valorPagadoArriendo, setValorPagadoArriendo] = useState('')
   const [reciboArriendoImprimir, setReciboArriendoImprimir] = useState(null)
   const [reciboServicioImprimir, setReciboServicioImprimir] = useState(null)
-  const [moraArriendo, setMoraArriendo] = useState('')
   const [descuentoArriendo, setDescuentoArriendo] = useState('')
   const [medioPagoArriendo, setMedioPagoArriendo] = useState('Transferencia')
   const [reciboPagoArriendo, setReciboPagoArriendo] = useState('')
@@ -11500,8 +11552,8 @@ const guardarEdicionUsuarioAdmin = () => {
   }
 
   const GRUPO_POR_SECCION = {
-    predios: 'predios',
     depositos: 'depositos',
+    depositantes: 'depositantes',
     predial: 'predial',
     servicios: 'servicios',
     documentos: 'documentos',
@@ -11512,7 +11564,7 @@ const guardarEdicionUsuarioAdmin = () => {
 
   const CLAVE_FORMULARIO_MENU = {
     contratoDeposito: { clave: 'predioNuevo', grupo: 'depositos' },
-    predio: { clave: 'consultarPredios', grupo: 'predios' },
+    predio: { clave: 'consultarPredios', grupo: 'depositos' },
     unidad: { clave: 'unidadNueva', grupo: 'unidades' },
     contrato: { clave: 'contratoArriendoNuevo', grupo: 'arriendos' },
     pagoArriendo: { clave: 'pagoArriendoNuevo', grupo: 'arriendos' },
@@ -11625,7 +11677,14 @@ const guardarEdicionUsuarioAdmin = () => {
   }
 
   const irSubmenu = (config) => {
-    const { seccion, vista, clave, grupo = null, onAntes = null } = config
+    const {
+      seccion,
+      vista,
+      clave,
+      grupo = null,
+      onAntes = null,
+      preservarPagoDepositante = false,
+    } = config
     const esCambioModulo = seccion !== seccionActiva
 
     if (onAntes) onAntes()
@@ -11698,6 +11757,10 @@ const guardarEdicionUsuarioAdmin = () => {
       setIdDepositarioLiquidacionSeleccionado('')
       setFiltroContratoLiquidacionDeposito(null)
       setCodigoPredioLiquidacionSeleccionado('')
+    }
+
+    if (vista === 'pagoDepositantes' && !preservarPagoDepositante) {
+      limpiarFormularioPagoDepositante()
     }
 
     if (vista === 'prediosPorPropietario') {
@@ -11864,7 +11927,7 @@ const volverInicio = () => {
   if (formulario === 'contratoDeposito') {
     limpiarFormularioContratoDeposito()
     setDepFechaInicio(new Date().toISOString().slice(0, 10))
-    setSeccionOrigenFormularioContratoDeposito('predios')
+    setSeccionOrigenFormularioContratoDeposito('registroInmueble')
     setMostrarFormularioContratoDeposito(true)
   }
   if (formulario === 'unidad') {
@@ -12497,30 +12560,32 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
   const verContratoDepositoConsulta = (contrato) => {
     setContratoDepositoConsultaSeleccionado(contrato)
-    setMostrarFormularioAbonoDeposito(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const abrirFormularioAbonoDeposito = (contrato) => {
-    if (!puedeRegistrar) {
-      alert('No tiene permisos para registrar abonos al depositario o propietario.')
-      return
-    }
+  const limpiarFormularioPagoDepositante = () => {
+    setIdContratoPagoDepositante('')
+    setBusquedaContratoPagoDepositante('')
+    setMesAbonoDeposito('')
+    setClaveUnidadAbonoDeposito('')
+    setIdBeneficiarioAbonoDeposito('')
+    setFechaAbonoDeposito('')
+    setValorPagoDepositante('')
+    setObservacionesAbonoDeposito('')
+    setMedioPagoDepositante('Transferencia')
+    setBancoPagoDepositante('')
+    setCuentaPagoDepositante('')
+    setReferenciaPagoDepositante('')
+    setNumeroChequePagoDepositante('')
+    setComprobanteEgresoPagoDepositante('')
+    setDocumentoPagoDepositanteAdjunto(null)
+  }
 
-    if (!contrato?.codigoPredio) {
-      alert('El contrato debe tener un inmueble vinculado para registrar abonos.')
-      return
-    }
-
+  const prepararSeleccionPagoDepositante = (contrato) => {
     const pendientes = obtenerLiquidacionesPendientesContratoDeposito(
-      liquidacionesDepositoHistorial,
+      liquidacionesDepositoHistorialCompleto,
       contrato.id
     )
-
-    if (pendientes.length === 0) {
-      alert('No hay meses pendientes de abono para este contrato de depósito.')
-      return
-    }
 
     const primerMes = pendientes[0]?.mes || ''
     const unidadesPrimerMes = pendientes.filter((item) => item.mes === primerMes)
@@ -12529,42 +12594,84 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       (item) => item.claveUnidad === primerUnidad
     )
     const primerBeneficiario = beneficiariosPrimerUnidad[0]?.idPropietario || ''
+    const liquidacionInicial = pendientes.find(
+      (item) =>
+        item.mes === primerMes &&
+        item.claveUnidad === primerUnidad &&
+        item.idPropietario === primerBeneficiario
+    )
 
-    setContratoDepositoConsultaSeleccionado(contrato)
-    setMostrarFormularioAbonoDeposito(true)
+    setIdContratoPagoDepositante(contrato.id)
+    setBusquedaContratoPagoDepositante(
+      `${obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)} — ${contrato.codigoPredio || 'Sin predio'}`
+    )
     setMesAbonoDeposito(primerMes)
     setClaveUnidadAbonoDeposito(primerUnidad)
     setIdBeneficiarioAbonoDeposito(primerBeneficiario)
     setFechaAbonoDeposito(new Date().toISOString().slice(0, 10))
+    setValorPagoDepositante(
+      liquidacionInicial ? String(Math.round(Number(liquidacionInicial.deudaInmobiliaria || 0))) : ''
+    )
     setObservacionesAbonoDeposito('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setMedioPagoDepositante('Transferencia')
+    setBancoPagoDepositante('')
+    setCuentaPagoDepositante('')
+    setReferenciaPagoDepositante('')
+    setNumeroChequePagoDepositante('')
+    setComprobanteEgresoPagoDepositante('')
+    setDocumentoPagoDepositanteAdjunto(null)
   }
 
-  const cerrarFormularioAbonoDeposito = () => {
-    setMostrarFormularioAbonoDeposito(false)
-    setMesAbonoDeposito('')
-    setClaveUnidadAbonoDeposito('')
-    setIdBeneficiarioAbonoDeposito('')
-    setFechaAbonoDeposito('')
-    setObservacionesAbonoDeposito('')
+  const irPagoDepositanteDesdeContrato = (contrato) => {
+    if (!puedeRegistrar) {
+      alert('No tiene permisos para registrar pagos a depositantes.')
+      return
+    }
+
+    if (!contrato?.codigoPredio) {
+      alert('El contrato debe tener un inmueble vinculado para registrar el pago.')
+      return
+    }
+
+    const pendientes = obtenerLiquidacionesPendientesContratoDeposito(
+      liquidacionesDepositoHistorialCompleto,
+      contrato.id
+    )
+
+    if (pendientes.length === 0) {
+      alert('No hay liquidaciones pendientes de pago para este contrato de depósito.')
+      return
+    }
+
+    prepararSeleccionPagoDepositante(contrato)
+    irSubmenu({
+      seccion: 'depositantes',
+      vista: 'pagoDepositantes',
+      clave: 'pagoDepositantes',
+      grupo: 'depositantes',
+      preservarPagoDepositante: true,
+    })
   }
 
 // =============================================================================
 // ACCIONES - LIQUIDACION DEPOSITARIO
-// Registrar abonos y liquidaciones al depositario.
+// Registrar pagos y liquidaciones al depositario.
 // =============================================================================
 
-  const guardarAbonoDepositoContrato = () => {
+  const guardarPagoDepositante = () => {
     if (!puedeRegistrar) {
-      alert('No tiene permisos para registrar abonos.')
+      alert('No tiene permisos para registrar pagos a depositantes.')
       return
     }
 
-    const contrato = contratoDepositoConsultaSeleccionado
-    if (!contrato) return
+    const contrato = contratosDeposito.find((item) => item.id === idContratoPagoDepositante)
+    if (!contrato) {
+      alert('Seleccione un contrato de depósito con liquidación pendiente.')
+      return
+    }
 
     if (!mesAbonoDeposito) {
-      alert('Seleccione el mes causado del abono.')
+      alert('Seleccione el mes causado del pago.')
       return
     }
 
@@ -12574,16 +12681,57 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     }
 
     if (!idBeneficiarioAbonoDeposito) {
-      alert('Seleccione el depositario o propietario beneficiario del abono.')
+      alert('Seleccione el depositario o propietario beneficiario del pago.')
       return
     }
 
     if (!fechaAbonoDeposito) {
-      alert('Indique la fecha del abono.')
+      alert('Indique la fecha del pago.')
       return
     }
 
-    const liquidacion = encontrarLiquidacionDeposito(liquidacionesDepositoHistorial, {
+    if (!medioPagoDepositante) {
+      alert('Seleccione el mecanismo de pago.')
+      return
+    }
+
+    if (medioPagoDepositante === 'Consignación' || medioPagoDepositante === 'Transferencia') {
+      if (!bancoPagoDepositante.trim()) {
+        alert('Indique el banco del pago.')
+        return
+      }
+      if (!referenciaPagoDepositante.trim()) {
+        alert('Indique la referencia del pago.')
+        return
+      }
+      if (medioPagoDepositante === 'Consignación' && !cuentaPagoDepositante.trim()) {
+        alert('Indique la cuenta de consignación.')
+        return
+      }
+    }
+
+    if (medioPagoDepositante === 'Cheque') {
+      if (!numeroChequePagoDepositante.trim()) {
+        alert('Indique el número de cheque.')
+        return
+      }
+      if (!comprobanteEgresoPagoDepositante.trim()) {
+        alert('Indique el comprobante de egreso.')
+        return
+      }
+    }
+
+    if (medioPagoDepositante === 'Efectivo' && !comprobanteEgresoPagoDepositante.trim()) {
+      alert('Indique el comprobante de egreso.')
+      return
+    }
+
+    if (!documentoPagoDepositanteAdjunto) {
+      alert('Debe subir el documento de pago antes de guardar.')
+      return
+    }
+
+    const liquidacion = encontrarLiquidacionDeposito(liquidacionesDepositoHistorialCompleto, {
       idContratoDeposito: contrato.id,
       mes: mesAbonoDeposito,
       idPropietario: idBeneficiarioAbonoDeposito,
@@ -12591,29 +12739,43 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     })
 
     if (!liquidacion) {
-      alert('No se encontró liquidación pendiente para el mes y beneficiario seleccionados.')
+      alert('No se encontró liquidación pendiente para el mes, unidad y beneficiario seleccionados.')
       return
     }
 
     if (liquidacion.estadoPago === 'Pagado') {
-      alert('Este mes ya fue abonado al beneficiario seleccionado.')
+      alert('Este mes ya fue pagado al beneficiario seleccionado.')
       return
     }
 
-    if (Number(liquidacion.deudaInmobiliaria || 0) <= 0) {
-      alert('No hay valor pendiente de abono para el mes seleccionado.')
+    const montoPendiente = Number(liquidacion.deudaInmobiliaria || 0)
+    const montoPagar = Number(String(valorPagoDepositante || '').replace(/\D/g, '')) || 0
+
+    if (montoPendiente <= 0) {
+      alert('No hay valor pendiente de pago para la selección actual.')
+      return
+    }
+
+    if (montoPagar <= 0) {
+      alert('Indique el valor del pago.')
+      return
+    }
+
+    if (montoPagar > montoPendiente) {
+      alert(
+        `El valor del pago (${formatearDinero(montoPagar)}) no puede superar el pendiente (${formatearDinero(montoPendiente)}).`
+      )
       return
     }
 
     const pagosPendientes = liquidacion.pagosPendientes || []
     const detalleUnidades = agruparDetalleLiquidacionPorUnidad(pagosPendientes)
-    const montoPagar = Number(liquidacion.deudaInmobiliaria || 0)
     const idsPagosArriendo = pagosPendientes.map(
       (pago) => pago.idPagoArriendo || obtenerIdPagoArriendo(pago)
     )
 
     const confirmar = window.confirm(
-      `¿Registrar abono a ${liquidacion.esContratante ? 'depositario' : 'propietario'} ${
+      `¿Registrar pago a ${liquidacion.esContratante ? 'depositario' : 'propietario'} ${
         liquidacion.propietario.nombre
       } por ${formatearDinero(montoPagar)} del mes ${liquidacion.mes}, unidad ${
         liquidacion.unidad || 'Sin unidad'
@@ -12654,6 +12816,15 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       porcentajeComision: liquidacion.porcentajeComision,
       fechaPago: fechaAbonoDeposito,
       observaciones: observacionesAbonoDeposito.trim(),
+      medioPago: medioPagoDepositante,
+      detalleMedioPago: {
+        banco: bancoPagoDepositante.trim(),
+        cuenta: cuentaPagoDepositante.trim(),
+        referencia: referenciaPagoDepositante.trim(),
+        numeroCheque: numeroChequePagoDepositante.trim(),
+        comprobanteEgreso: comprobanteEgresoPagoDepositante.trim(),
+      },
+      documentoPago: documentoPagoDepositanteAdjunto,
     }
 
     setPagosLiquidacionDeposito([nuevoPago, ...pagosLiquidacionDeposito])
@@ -12673,31 +12844,35 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
     registrarHistorial({
       accion: 'Registro',
-      modulo: 'Contratos de depósito',
+      modulo: 'Pago a depositantes',
       entidadId: nuevoPago.id,
-      detalle: `Abono depósito ${liquidacion.mes} - predio ${liquidacion.codigoPredio} - ${liquidacion.unidad || 'Sin unidad'} - ${liquidacion.propietario.nombre}`,
+      detalle: `Pago depósito ${liquidacion.mes} - predio ${liquidacion.codigoPredio} - ${liquidacion.unidad || 'Sin unidad'} - ${liquidacion.propietario.nombre}`,
       valorNuevo: formatearDinero(montoPagar),
     })
 
-    cerrarFormularioAbonoDeposito()
-    alert('Abono al depositario o propietario registrado correctamente.')
+    limpiarFormularioPagoDepositante()
+    alert('Pago al depositante o propietario registrado correctamente.')
   }
 
   const cerrarFormularioContratoDeposito = (opciones = {}) => {
     const { mensaje } = opciones
-    const seccionDestino = seccionOrigenFormularioContratoDeposito || 'predios'
-    const vistaDestino = seccionDestino === 'predios' ? 'predios' : 'contratosDeposito'
+    const seccionDestino = 'depositos'
+    const vistaDestino =
+      seccionOrigenFormularioContratoDeposito === 'registroInmueble'
+        ? 'predios'
+        : 'contratosDeposito'
 
     limpiarFormularioContratoDeposito()
     setMostrarFormularioContratoDeposito(false)
     setSeccionActiva(seccionDestino)
     setVistaActiva(vistaDestino)
 
-    if (seccionDestino === 'predios') {
-      activarSubmenu('predios', 'consultarPredios')
-    } else {
-      activarSubmenu('depositos', 'consultarContratosDeposito')
-    }
+    activarSubmenu(
+      'depositos',
+      seccionOrigenFormularioContratoDeposito === 'registroInmueble'
+        ? 'consultarPredios'
+        : 'consultarContratosDeposito'
+    )
 
     if (mensaje) {
       setTimeout(() => alert(mensaje), 0)
@@ -12729,9 +12904,9 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       cargarContratanteEnFormularioDeposito(propietariosPredio[0].id, 'Propietario')
     }
 
-    setSeccionOrigenFormularioContratoDeposito('predios')
+    setSeccionOrigenFormularioContratoDeposito('registroInmueble')
     setMostrarFormularioContratoDeposito(true)
-    setSeccionActiva('predios')
+    setSeccionActiva('depositos')
     setVistaActiva('predios')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -12804,11 +12979,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     setMostrarFormularioContratante(false)
     setSeccionOrigenFormularioContratoDeposito(seccionOrigen)
     setMostrarFormularioContratoDeposito(true)
-    setSeccionActiva(edicionCompleta ? 'predios' : seccionOrigen)
+    setSeccionActiva('depositos')
     setVistaActiva(
       edicionCompleta
         ? 'contratosDeposito'
-        : seccionOrigen === 'predios'
+        : seccionOrigen === 'registroInmueble'
         ? 'predios'
         : 'contratosDeposito'
     )
@@ -13139,7 +13314,7 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
     setContratosDeposito([nuevoContrato, ...contratosDeposito])
 
-    if (!contratoDepositoEditando && !depCodigoPredio && seccionActiva === 'predios') {
+    if (!contratoDepositoEditando && !depCodigoPredio && seccionActiva === 'depositos') {
       persistirDocumentosAdjuntosInmueble({
         codigoPredio: resultadoInmueble.nuevoCodigoPredio,
         idPropietario: idContratante,
@@ -13188,6 +13363,10 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     if (vistaOrigen !== 'contratosDeposito') {
       setContratoDepositoConsultaSeleccionado(null)
     }
+    if (vistaOrigen === 'depositarios') {
+      setSeccionActiva('depositantes')
+      activarSubmenu('depositantes', 'consultarDepositarios', 'depositantes')
+    }
     setVistaOrigenFormularioContratante('depositarios')
   }
 
@@ -13227,12 +13406,12 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     setContRepLegalCorreo(representanteLegal?.correo || '')
     setContratanteSeleccionado(null)
     setMostrarFormularioContratoDeposito(false)
-    setMostrarFormularioAbonoDeposito(false)
     setMostrarFormularioContratante(true)
-    setSeccionActiva('depositos')
+    setSeccionActiva('depositantes')
     const vistaOrigen = opciones.vistaOrigen || 'depositarios'
     setVistaOrigenFormularioContratante(vistaOrigen)
     setVistaActiva(vistaOrigen)
+    activarSubmenu('depositantes', 'consultarDepositarios', 'depositantes')
     if (opciones.idContratoDeposito) {
       const contrato = contratosDeposito.find((item) => item.id === opciones.idContratoDeposito)
       setContratoDepositoConsultaSeleccionado(contrato || null)
@@ -13321,6 +13500,8 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     cerrarFormularioContratanteEdicion()
 
     if (vistaOrigen === 'depositarios') {
+      setSeccionActiva('depositantes')
+      activarSubmenu('depositantes', 'consultarDepositarios', 'depositantes')
       setContratanteSeleccionado(
         propietariosActualizados.find((item) => item.id === idContratanteGuardado) || null
       )
@@ -13367,11 +13548,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     limpiarFormularioContratoDeposito()
     cargarContratanteEnFormularioDeposito(contratante.id, 'Propietario')
     setDepFechaInicio(new Date().toISOString().slice(0, 10))
-    setSeccionOrigenFormularioContratoDeposito('predios')
+    setSeccionOrigenFormularioContratoDeposito('registroInmueble')
     setContratanteSeleccionado(null)
     setBusquedaContratantes('')
     setMostrarTodosContratantes(false)
-    setSeccionActiva('predios')
+    setSeccionActiva('depositos')
     setVistaActiva('predios')
     activarSubmenu('depositos', 'predioNuevo', 'depositos')
     setMostrarFormularioContratoDeposito(true)
@@ -14516,7 +14697,7 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
   )
 
   setMostrarFormularioPredio(true)
-  setSeccionActiva('predios')
+  setSeccionActiva('depositos')
   setVistaActiva('predio')
 
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -14798,7 +14979,7 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
     limpiarFormularioPredio()
     irSubmenu({
-      seccion: 'predios',
+      seccion: 'depositos',
       vista: 'predios',
       clave: 'consultarPredios',
     })
@@ -15258,7 +15439,7 @@ const regresarVistaUnidadServicios = () => {
   if (origen.vista === 'predios') {
     const predio = predios.find((item) => item.codigo === origen.codigoPredio)
 
-    setSeccionActiva('predios')
+    setSeccionActiva('depositos')
     setVistaActiva('predios')
     setBusquedaPredios(origen.busquedaPredios || '')
     setMostrarTodosPredios(!!origen.mostrarTodosPredios)
@@ -16342,7 +16523,6 @@ const reimprimirReciboPagoCatalogo = ({
     setMesPagoArriendo('')
     setFechaPagoArriendo('')
     setValorPagadoArriendo('')
-    setMoraArriendo('')
     setDescuentoArriendo('')
     setMedioPagoArriendo('Transferencia')
     setReciboPagoArriendo('')
@@ -17249,7 +17429,12 @@ alert('Pago de servicio público guardado correctamente.')
   return meses
 }   
   
-const calcularMovimientoArriendoMes = (contrato, mes, idContratoActual = null) => {
+const calcularMovimientoArriendoMes = (
+  contrato,
+  mes,
+  idContratoActual = null,
+  fechaCorteMoraReferencia = null
+) => {
   const idContrato = idContratoActual || obtenerIdContrato(contrato)
 
   const pagosDelMes = pagosArriendo.filter(
@@ -17300,7 +17485,8 @@ const calcularMovimientoArriendoMes = (contrato, mes, idContratoActual = null) =
   })
 
   const porcentajeInteresMora = Number(contrato.porcentajeInteresMora || 0)
-  const fechaCorteMora = new Date().toISOString().slice(0, 10)
+  const fechaCorteMora =
+    fechaCorteMoraReferencia || new Date().toISOString().slice(0, 10)
   let moraContratoMes = calcularMoraAcumuladaMesArriendo({
     baseMora: canonCausadoBase,
     porcentajeInteresMora,
@@ -17480,30 +17666,32 @@ const opcionesConceptoPagoArriendo = enAtrasoPagoArriendo
 
 const canonMensualPagoArriendo = Number(canonCalculado?.canonCausado || 0)
 
+const movimientoPagoArriendoMes =
+  contratoPagoArriendo && mesPagoArriendo
+    ? calcularMovimientoArriendoMes(
+        contratoPagoArriendo,
+        mesPagoArriendo,
+        null,
+        fechaPagoArriendo || null
+      )
+    : null
+
+const desglosePagoArriendo = construirDesglosePendientePagoArriendo(movimientoPagoArriendoMes)
+const totalPendientePeriodoPago = desglosePagoArriendo.totalPendiente
+
 const obtenerSaldosReciboPagoArriendo = () => {
   const valorPagado = Number(valorPagadoArriendo || 0)
+  const saldoAnterior = totalPendientePeriodoPago
 
-  if (enAtrasoPagoArriendo) {
-    return {
-      saldoAnterior: saldoActualPagoArriendo,
-      saldoPosterior: saldoActualPagoArriendo - valorPagado,
-    }
+  return {
+    saldoAnterior,
+    saldoPosterior: Math.max(0, saldoAnterior - valorPagado),
+    deudaTotalContrato: saldoActualPagoArriendo,
+    deudaTotalPosterior: Math.max(0, saldoActualPagoArriendo - valorPagado),
   }
-
-  if (
-    conceptoPagoArriendo === CONCEPTO_PAGO_CANON_ARRIENDO ||
-    conceptoPagoArriendo === CONCEPTO_ABONO_CANON_ARRIENDO
-  ) {
-    return {
-      saldoAnterior: canonMensualPagoArriendo,
-      saldoPosterior: Math.max(0, canonMensualPagoArriendo - valorPagado),
-    }
-  }
-
-  return { saldoAnterior: 0, saldoPosterior: 0 }
 }
 
-const { saldoAnterior: saldoAnteriorReciboPago, saldoPosterior: saldoPosteriorReciboPago } =
+const { saldoAnterior: saldoAnteriorReciboPago, saldoPosterior: saldoPosteriorReciboPago, deudaTotalContrato: deudaTotalContratoReciboPago, deudaTotalPosterior: deudaTotalPosteriorReciboPago } =
   obtenerSaldosReciboPagoArriendo()
 
 const valorPagoArriendoBloqueado =
@@ -17512,24 +17700,27 @@ const valorPagoArriendoBloqueado =
 const aplicarValorSegunConceptoPago = (concepto, contrato, mes) => {
   if (!contrato || !mes) return
 
-  const extracto = extractosArriendo.find(
-    (item) => obtenerIdContrato(item.contrato) === obtenerIdContrato(contrato)
+  const movimiento = calcularMovimientoArriendoMes(
+    contrato,
+    mes,
+    null,
+    fechaPagoArriendo || null
   )
-  const saldo = Number(extracto?.resumen?.saldoDeudaTotal || 0)
-  const canon = calcularCanonArriendo(contrato, mes)
+  const totalPendiente = construirDesglosePendientePagoArriendo(movimiento).totalPendiente
 
-  if (saldo <= 0) {
-    if (concepto === CONCEPTO_PAGO_CANON_ARRIENDO) {
-      setValorPagadoArriendo(String(canon.canonCausado))
-      return
-    }
-    if (concepto === CONCEPTO_ABONO_CANON_ARRIENDO) {
-      setValorPagadoArriendo('')
-      return
-    }
+  if (totalPendiente > 0) {
+    setValorPagadoArriendo(String(totalPendiente))
+    return
   }
 
-  if (saldo > 0) {
+  const canon = calcularCanonArriendo(contrato, mes)
+
+  if (concepto === CONCEPTO_PAGO_CANON_ARRIENDO) {
+    setValorPagadoArriendo(String(canon.canonCausado))
+    return
+  }
+
+  if (concepto === CONCEPTO_ABONO_CANON_ARRIENDO) {
     setValorPagadoArriendo('')
   }
 }
@@ -17562,12 +17753,20 @@ const manejarCambioFechaPagoArriendo = (fecha) => {
 
   if (!mesReferencia) return
 
-  const extracto = extractosArriendo.find(
-    (item) => obtenerIdContrato(item.contrato) === obtenerIdContrato(contratoPagoArriendo)
+  const movimiento = calcularMovimientoArriendoMes(
+    contratoPagoArriendo,
+    mesReferencia,
+    null,
+    fecha || null
   )
-  const saldo = Number(extracto?.resumen?.saldoDeudaTotal || 0)
+  const totalPendiente = construirDesglosePendientePagoArriendo(movimiento).totalPendiente
 
-  if (saldo <= 0 && conceptoPagoArriendo === CONCEPTO_PAGO_CANON_ARRIENDO) {
+  if (totalPendiente > 0) {
+    setValorPagadoArriendo(String(totalPendiente))
+    return
+  }
+
+  if (conceptoPagoArriendo === CONCEPTO_PAGO_CANON_ARRIENDO) {
     const canon = calcularCanonArriendo(contratoPagoArriendo, mesReferencia)
     setValorPagadoArriendo(String(canon.canonCausado))
   }
@@ -17575,7 +17774,6 @@ const manejarCambioFechaPagoArriendo = (fecha) => {
 
 useEffect(() => {
   if (!idContratoPagoArriendo || !mesPagoArriendo || !fechaPagoArriendo) {
-    setMoraArriendo('')
     return
   }
 
@@ -17583,48 +17781,37 @@ useEffect(() => {
     (item) => obtenerIdContrato(item) === idContratoPagoArriendo
   )
   if (!contrato) {
-    setMoraArriendo('')
     return
   }
 
-  const calculoMes = calcularCanonArriendo(contrato, mesPagoArriendo)
-  const canonCausadoBase = calcularMontoCanonArrendatarioMes({
-    canonBase: Number(calculoMes.canonBase || 0),
-    administracion: Number(calculoMes.administracion || 0),
-    ivaCanon: Number(calculoMes.iva || 0),
+  const movimiento = calcularMovimientoArriendoMes(
     contrato,
-  })
-  const pagosPrevios = pagosArriendo.filter(
-    (pago) =>
-      pago.idContrato === idContratoPagoArriendo && pago.mes === mesPagoArriendo
+    mesPagoArriendo,
+    null,
+    fechaPagoArriendo
   )
-  const descuentoPrevio = pagosPrevios.reduce(
-    (total, pago) => total + Number(pago.descuento || 0),
-    0
-  )
-  const mora = calcularMoraSugeridaPagoArriendo({
-    contrato,
-    mesCausado: mesPagoArriendo,
-    fechaPago: fechaPagoArriendo,
-    canonCausadoBase,
-    pagosPrevios,
-    totalDescuentoPrevio: descuentoPrevio,
-  })
+  const desglose = construirDesglosePendientePagoArriendo(movimiento)
 
-  setMoraArriendo(mora > 0 ? String(mora) : '')
+  if (desglose.totalPendiente > 0) {
+    setValorPagadoArriendo(String(desglose.totalPendiente))
+  } else if (conceptoPagoArriendo === CONCEPTO_PAGO_CANON_ARRIENDO) {
+    const canon = calcularCanonArriendo(contrato, mesPagoArriendo)
+    setValorPagadoArriendo(String(canon.canonCausado))
+  }
 }, [
   idContratoPagoArriendo,
   mesPagoArriendo,
   fechaPagoArriendo,
   pagosArriendo,
   contratosArriendo,
+  gestionesCartera,
+  conceptoPagoArriendo,
 ])
 
 useEffect(() => {
   if (!idContratoPagoArriendo || !enAtrasoPagoArriendo) return
 
   setConceptoPagoArriendo(CONCEPTO_ABONO_CANON_ARRIENDO)
-  setValorPagadoArriendo('')
 }, [enAtrasoPagoArriendo, idContratoPagoArriendo])
 
 const reiniciarRegistroPagoArriendo = () => {
@@ -17682,6 +17869,13 @@ const construirReciboPagoArriendoActual = () => {
 
   const calculoMes = calcularCanonArriendo(contrato, mesPagoArriendo)
   const saldosRecibo = obtenerSaldosReciboPagoArriendo()
+  const movimientoMesPago = calcularMovimientoArriendoMes(
+    contrato,
+    mesPagoArriendo,
+    null,
+    fechaPagoArriendo
+  )
+  const desgloseMesPago = construirDesglosePendientePagoArriendo(movimientoMesPago)
   const canonCausadoBase = calcularMontoCanonArrendatarioMes({
     canonBase: Number(calculoMes.canonBase || 0),
     administracion: Number(calculoMes.administracion || 0),
@@ -17704,6 +17898,8 @@ const construirReciboPagoArriendoActual = () => {
     pagosPrevios,
     totalDescuentoPrevio: descuentoPrevio,
   })
+  const moraRegistro =
+    desgloseMesPago.moraPendiente > 0 ? desgloseMesPago.moraPendiente : moraCalculada
 
   const nuevoPago = {
     id: `PAG-ARR-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -17726,7 +17922,7 @@ const construirReciboPagoArriendoActual = () => {
     incrementoAplicado: calculoMes.incrementoAplicado,
     iva: calculoMes.iva,
     canonCausado: calculoMes.canonCausado,
-    mora: moraCalculada,
+    mora: moraRegistro,
     descuento: Number(descuentoArriendo || 0),
     valorPagado,
     medioPago: medioPagoArriendo,
@@ -18935,6 +19131,33 @@ const unidadesDisponiblesResultado = unidadesDisponiblesConsultadas
       )
     : liquidacionesDepositoHistorialCompleto
 
+  const textoBusquedaContratoPagoDepositante = busquedaContratoPagoDepositante.trim().toLowerCase()
+
+  const contratosConLiquidacionPendientePago = contratosDeposito.filter(
+    (contrato) =>
+      contrato.codigoPredio &&
+      obtenerLiquidacionesPendientesContratoDeposito(
+        liquidacionesDepositoHistorialCompleto,
+        contrato.id
+      ).length > 0
+  )
+
+  const contratosPagoDepositanteFiltrados = textoBusquedaContratoPagoDepositante
+    ? contratosConLiquidacionPendientePago.filter((contrato) =>
+        obtenerTextoBusquedaContratoDeposito(
+          contrato,
+          contratosDeposito,
+          predioPropietarios,
+          propietarios,
+          predios
+        ).includes(textoBusquedaContratoPagoDepositante)
+      )
+    : []
+
+  const contratoPagoDepositanteSeleccionado = idContratoPagoDepositante
+    ? contratosDeposito.find((item) => item.id === idContratoPagoDepositante) || null
+    : null
+
   const catalogoExtractosPredioImpresion = predioImpresionExtractos
     ? construirCatalogoExtractosPredio({
         codigoPredio: predioImpresionExtractos.codigo,
@@ -19428,11 +19651,12 @@ const resultadosBusqueda = textoBusqueda
   : null  
   const GRUPO_POR_CLAVE_SUBMENU = {
     predioNuevo: 'depositos',
-    consultarPredios: 'predios',
-    prediosPorPropietario: 'predios',
-    consultarDepositarios: 'depositos',
+    consultarPredios: 'depositos',
+    prediosPorPropietario: 'depositos',
+    consultarDepositarios: 'depositantes',
     consultarContratosDeposito: 'depositos',
-    liquidacionDeposito: 'depositos',
+    liquidacionDeposito: 'depositantes',
+    pagoDepositantes: 'depositantes',
     unidadNueva: 'unidades',
     consultarUnidades: 'unidades',
     unidadesDisponibles: 'unidades',
@@ -19466,26 +19690,25 @@ const resultadosBusqueda = textoBusqueda
   }
 
   const inferirClaveSubmenuActiva = () => {
-    if (seccionActiva === 'predios') {
-      if (mostrarFormularioContratoDeposito) return 'predioNuevo'
-      if (mostrarFormularioPredio) return 'consultarPredios'
-      if (vistaActiva === 'prediosPorPropietario') return 'prediosPorPropietario'
-      return 'consultarPredios'
-    }
-
     if (seccionActiva === 'depositos') {
       if (mostrarFormularioContratoDeposito) {
-        return seccionOrigenFormularioContratoDeposito === 'predios' &&
-          !contratoDepositoEditando &&
-          !depCodigoPredio.trim()
+        return !contratoDepositoEditando && !depCodigoPredio.trim()
           ? 'predioNuevo'
           : 'consultarContratosDeposito'
       }
-      if (mostrarFormularioContratante) return 'consultarDepositarios'
-      if (vistaActiva === 'depositarios') return 'consultarDepositarios'
+      if (mostrarFormularioPredio) return 'consultarPredios'
+      if (vistaActiva === 'prediosPorPropietario') return 'prediosPorPropietario'
+      if (vistaActiva === 'predios') return 'consultarPredios'
       if (vistaActiva === 'verDocumentos') return 'consultarContratosDeposito'
       if (vistaActiva === 'contratosDeposito') return 'consultarContratosDeposito'
+      return 'consultarContratosDeposito'
+    }
+
+    if (seccionActiva === 'depositantes') {
+      if (mostrarFormularioContratante) return 'consultarDepositarios'
+      if (vistaActiva === 'depositarios') return 'consultarDepositarios'
       if (vistaActiva === 'liquidacionDeposito') return 'liquidacionDeposito'
+      if (vistaActiva === 'pagoDepositantes') return 'pagoDepositantes'
       return 'consultarDepositarios'
     }
 
@@ -19604,8 +19827,9 @@ const resultadosBusqueda = textoBusqueda
       return false
     }
 
-    if (grupo === 'predios') return seccionActiva === 'predios'
+    if (grupo === 'predios') return false
     if (grupo === 'depositos') return seccionActiva === 'depositos'
+    if (grupo === 'depositantes') return seccionActiva === 'depositantes'
     if (grupo === 'predial') return seccionActiva === 'predial'
     if (grupo === 'servicios') return seccionActiva === 'servicios'
     if (grupo === 'documentos') return seccionActiva === 'documentos'
@@ -19653,8 +19877,8 @@ const resultadosBusqueda = textoBusqueda
   const panelCuentaUsuarioAbierto = mostrarCambioClave || mostrarFormularioUsuario
   const panelUnidadesDisponiblesAbierto =
     vistaActiva === 'unidadesDisponibles' && !mostrarFormularioUnidad
-  const mostrarPredios = seccionActiva === 'predios'
   const mostrarDepositos = seccionActiva === 'depositos'
+  const mostrarDepositantes = seccionActiva === 'depositantes'
   const mostrarPredial = seccionActiva === 'predial'
   const mostrarArriendos = seccionActiva === 'arriendos'
   const mostrarServicios = seccionActiva === 'servicios'
@@ -19668,8 +19892,8 @@ const resultadosBusqueda = textoBusqueda
   const obtenerNombreSeccionActual = () => {
     const nombresSeccion = {
       inicio: 'Panel principal',
-      predios: 'Módulo de predios',
-      depositos: 'Módulo de registro de nuevos inmuebles',
+      depositos: 'Módulo de registro de inmuebles',
+      depositantes: 'Módulo de depositantes',
       predial: 'Módulo de impuesto predial (por predio)',
       arriendos: 'Módulo de contratos y pagos',
       servicios: 'Módulo de servicios públicos',
@@ -19730,11 +19954,11 @@ const resultadosBusqueda = textoBusqueda
       return 'Estados de cuenta'
     }
 
-    if (seccionActiva === 'predios' && propietarioExtractoPredios && vistaActiva === 'prediosPorPropietario') {
+    if (seccionActiva === 'depositos' && propietarioExtractoPredios && vistaActiva === 'prediosPorPropietario') {
       return `Predios por propietario – ${propietarioExtractoPredios.nombre}`
     }
 
-    if (seccionActiva === 'predios' && predioSeleccionado && vistaActiva === 'predios') {
+    if (seccionActiva === 'depositos' && predioSeleccionado && vistaActiva === 'predios') {
       return `Detalle del predio ${predioSeleccionado.codigo}`
     }
 
@@ -19750,7 +19974,7 @@ const resultadosBusqueda = textoBusqueda
         : 'Registro de unidad de negocio'
     }
 
-    if (mostrarFormularioContratoDeposito && seccionActiva === 'predios') {
+    if (mostrarFormularioContratoDeposito && seccionActiva === 'depositos') {
       if (edicionCompletaContratoDeposito) {
         return `Editar inmueble y documento - ${contratoDepositoEditando?.codigoPredio || 'sin inmueble'}`
       }
@@ -19771,16 +19995,16 @@ const resultadosBusqueda = textoBusqueda
         : 'Registro de documento de administración'
     }
 
-    if (mostrarFormularioContratante && seccionActiva === 'depositos') {
+    if (mostrarFormularioContratante && seccionActiva === 'depositantes') {
       return 'Editar depositante'
     }
 
-    if (seccionActiva === 'depositos' && contratanteSeleccionado && vistaActiva === 'depositarios') {
+    if (seccionActiva === 'depositantes' && contratanteSeleccionado && vistaActiva === 'depositarios') {
       return `Depositante ${contratanteSeleccionado.nombre}`
     }
 
     if (
-      seccionActiva === 'depositos' &&
+      (seccionActiva === 'depositos' || seccionActiva === 'depositantes') &&
       vistaActiva === 'liquidacionDeposito' &&
       extractoLiquidacionDepositoContexto
     ) {
@@ -19848,6 +20072,7 @@ const resultadosBusqueda = textoBusqueda
       depositarios: 'Consulta de depositantes',
       contratosDeposito: 'Documentos de administración',
       liquidacionDeposito: 'Liquidación al depositante',
+      pagoDepositantes: 'Pago a depositantes',
       unidades: 'Consulta de unidades',
       unidadesDisponibles: 'Unidades disponibles sin contrato de arriendo',
       arriendos: 'Consulta de contratos de arriendo',
@@ -20116,24 +20341,11 @@ const resultadosBusqueda = textoBusqueda
           <button
             type="button"
             className={claseSubmenuItem(esSubmenuActivo('predioNuevo'))}
-            onClick={() => abrirFormulario('predios', 'contratoDeposito')}
+            onClick={() => abrirFormulario('depositos', 'contratoDeposito')}
           >
             Registrar inmueble
           </button>
         )}
-        <button
-          type="button"
-          className={claseSubmenuItem(esSubmenuActivo('consultarDepositarios'))}
-          onClick={() =>
-            irSubmenu({
-              seccion: 'depositos',
-              vista: 'depositarios',
-              clave: 'consultarDepositarios',
-            })
-          }
-        >
-          Consultar depositantes
-        </button>
         <button
           type="button"
           className={claseSubmenuItem(esSubmenuActivo('consultarContratosDeposito'))}
@@ -20149,39 +20361,10 @@ const resultadosBusqueda = textoBusqueda
         </button>
         <button
           type="button"
-          className={claseSubmenuItem(esSubmenuActivo('liquidacionDeposito'))}
-          onClick={() =>
-            irSubmenu({
-              seccion: 'depositos',
-              vista: 'liquidacionDeposito',
-              clave: 'liquidacionDeposito',
-            })
-          }
-        >
-          Liquidación al depositante
-        </button>
-      </div>
-    )}
-  </div>
-
-  <div className={`menu-group${menuGrupoActivo('predios') ? ' section-active-group' : ''}`}>
-    <button
-      type="button"
-      className={claseMenuItem('predios')}
-      onClick={() => alternarMenu('predios')}
-    >
-      <span>▦</span>Predios
-      <strong>{menuAbierto === 'predios' ? '−' : '+'}</strong>
-    </button>
-
-    {submenuVisible('predios') && (
-      <div className="submenu">
-        <button
-          type="button"
           className={claseSubmenuItem(esSubmenuActivo('consultarPredios'))}
           onClick={() =>
             irSubmenu({
-              seccion: 'predios',
+              seccion: 'depositos',
               vista: 'predios',
               clave: 'consultarPredios',
             })
@@ -20194,7 +20377,7 @@ const resultadosBusqueda = textoBusqueda
           className={claseSubmenuItem(esSubmenuActivo('prediosPorPropietario'))}
           onClick={() =>
             irSubmenu({
-              seccion: 'predios',
+              seccion: 'depositos',
               vista: 'prediosPorPropietario',
               clave: 'prediosPorPropietario',
             })
@@ -20202,6 +20385,66 @@ const resultadosBusqueda = textoBusqueda
         >
           Predios por propietario
         </button>
+      </div>
+    )}
+  </div>
+
+  <div className={`menu-group${menuGrupoActivo('depositantes') ? ' section-active-group' : ''}`}>
+    <button
+      type="button"
+      className={claseMenuItem('depositantes')}
+      onClick={() => alternarMenu('depositantes')}
+    >
+      <span>▦</span>Depositantes
+      <strong>{menuAbierto === 'depositantes' ? '−' : '+'}</strong>
+    </button>
+
+    {submenuVisible('depositantes') && (
+      <div className="submenu">
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('consultarDepositarios'))}
+          onClick={() =>
+            irSubmenu({
+              seccion: 'depositantes',
+              vista: 'depositarios',
+              clave: 'consultarDepositarios',
+              grupo: 'depositantes',
+            })
+          }
+        >
+          Consultar depositantes
+        </button>
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('liquidacionDeposito'))}
+          onClick={() =>
+            irSubmenu({
+              seccion: 'depositantes',
+              vista: 'liquidacionDeposito',
+              clave: 'liquidacionDeposito',
+              grupo: 'depositantes',
+            })
+          }
+        >
+          Liquidación al depositante
+        </button>
+        {puedeRegistrar && (
+          <button
+            type="button"
+            className={claseSubmenuItem(esSubmenuActivo('pagoDepositantes'))}
+            onClick={() =>
+              irSubmenu({
+                seccion: 'depositantes',
+                vista: 'pagoDepositantes',
+                clave: 'pagoDepositantes',
+                grupo: 'depositantes',
+              })
+            }
+          >
+            Pago a depositantes
+          </button>
+        )}
       </div>
     )}
   </div>
@@ -21268,7 +21511,7 @@ const resultadosBusqueda = textoBusqueda
   <button
     type="button"
     className={claseHeroAction('predioNuevo')}
-    onClick={() => abrirFormulario('predios', 'contratoDeposito')}
+    onClick={() => abrirFormulario('depositos', 'contratoDeposito')}
   >
     <span className="estado-cuenta-tipo-icon hero-action-icon">🏠</span>Registrar inmueble
   </button>
@@ -21612,20 +21855,6 @@ const resultadosBusqueda = textoBusqueda
     <button
       type="button"
       className={claseTarjetaPanelInicio(false)}
-      onClick={() => {
-        cambiarSeccion('predios')
-        setVistaActiva('predios')
-      }}
-    >
-      <span className="estado-cuenta-tipo-icon">🏠</span>
-      <strong>Predios existentes</strong>
-      <span className="panel-inicio-metric">{predios.length}</span>
-      <p>Total de predios registrados</p>
-    </button>
-
-    <button
-      type="button"
-      className={claseTarjetaPanelInicio(false)}
       onClick={abrirUnidadesDisponibles}
     >
       <span className="estado-cuenta-tipo-icon">▤</span>
@@ -21750,7 +21979,7 @@ const resultadosBusqueda = textoBusqueda
 
        
 
-            {(mostrarPredios || mostrarDepositos) && mostrarFormularioContratoDeposito && puedeRegistrar && (
+            {mostrarDepositos && mostrarFormularioContratoDeposito && puedeRegistrar && (
               <section className="form-panel form-registro-contrato-deposito no-print">
                 <div className="section-title">
                   <div className="section-icon">📋</div>
@@ -21761,7 +21990,7 @@ const resultadosBusqueda = textoBusqueda
                       ? 'Editar contrato de depósito'
                       : vinculandoContratoDepositoPredioExistente
                       ? 'Vincular contrato de depósito al inmueble'
-                      : seccionActiva === 'predios'
+                      : seccionActiva === 'depositos'
                       ? 'Registro de nuevo inmueble'
                       : 'Registro de contrato de depósito'}
                   </h2>
@@ -21774,12 +22003,12 @@ const resultadosBusqueda = textoBusqueda
                     ? 'Actualice los datos del documento de administración y del depositante.'
                     : vinculandoContratoDepositoPredioExistente
                     ? `Complete el documento de administración para el inmueble ${depCodigoPredio}. El depositante queda identificado con su número de documento o NIT.`
-                    : seccionActiva === 'predios'
+                    : seccionActiva === 'depositos'
                     ? 'Comience por el documento del depositario, luego el predio, el contrato de depósito, la unidad de negocio y el contrato de arriendo.'
                     : 'Registre en orden: documento del depositario, predio, contrato de depósito, unidad de negocio y contrato de arriendo de la unidad.'}
                 </p>
 
-                {(seccionActiva === 'predios' || edicionCompletaContratoDeposito) &&
+                {(seccionActiva === 'depositos' || edicionCompletaContratoDeposito) &&
                   !vinculandoContratoDepositoPredioExistente &&
                   (!depCodigoPredio || edicionCompletaContratoDeposito) &&
                   (!contratoDepositoEditando || edicionCompletaContratoDeposito) && (
@@ -22702,14 +22931,14 @@ const resultadosBusqueda = textoBusqueda
                       ? 'Actualizar contrato'
                       : vinculandoContratoDepositoPredioExistente
                       ? 'Vincular contrato de depósito'
-                      : seccionActiva === 'predios'
+                      : seccionActiva === 'depositos'
                       ? 'Guardar inmueble'
                       : 'Guardar contrato e inmueble'}
                   </button>
                 </div>
               </section>
             )}
-        {mostrarPredios && (
+        {mostrarDepositos && (
           <>
             {mostrarFormularioPredio && puedeRegistrar && (
               <section className="form-panel no-print">
@@ -23214,7 +23443,7 @@ const resultadosBusqueda = textoBusqueda
                             setMostrarFormularioPredio(false)
                             limpiarFormularioPredio()
                             editarContratoDeposito(contratoDepositoPredioEditando, {
-                              seccionOrigen: 'predios',
+                              seccionOrigen: 'registroInmueble',
                             })
                           }}
                         />
@@ -23575,7 +23804,7 @@ const resultadosBusqueda = textoBusqueda
                   onAdjuntar={() => adjuntarContratoDepositoAPredio(predioSeleccionado)}
                   onEditar={() => {
                     editarContratoDeposito(contratoDepositoPredioSeleccionado, {
-                      seccionOrigen: 'predios',
+                      seccionOrigen: 'registroInmueble',
                     })
                   }}
                 />
@@ -24075,10 +24304,425 @@ const resultadosBusqueda = textoBusqueda
               </section>
             )}
 
+            {vistaActiva === 'contratosDeposito' &&
+              !mostrarFormularioContratoDeposito &&
+              !mostrarFormularioContratante && (
+              <section className="panel no-print compact-filter-panel">
+                <div className="section-title compact-title">
+                  <div className="section-icon">⌕</div>
+                  <h2>Buscar documento de administración</h2>
+                </div>
+
+                <p className="form-description compact-description">
+                  Busque por número de documento (DEP-1234-001), predio, depositario, propietario,
+                  tipo de comisión o estado.
+                </p>
+
+                <div className="search-box compact-search">
+                  <input
+                    type="text"
+                    value={busquedaContratosDeposito}
+                    onChange={(e) => {
+                      setBusquedaContratosDeposito(e.target.value)
+                      setMostrarTodosContratosDeposito(false)
+                      setContratoDepositoConsultaSeleccionado(null)
+                    }}
+                    placeholder="Ej: DEP-1234-001, BOG-FON-0001, Carlos Pérez, Administración..."
+                  />
+
+                  {busquedaContratosDeposito && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        setBusquedaContratosDeposito('')
+                        setMostrarTodosContratosDeposito(false)
+                        setContratoDepositoConsultaSeleccionado(null)
+                      }}
+                    >
+                      Limpiar
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      setBusquedaContratosDeposito('')
+                      setMostrarTodosContratosDeposito(true)
+                      setContratoDepositoConsultaSeleccionado(null)
+                    }}
+                  >
+                    Ver todos
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {vistaActiva === 'contratosDeposito' &&
+              !mostrarFormularioContratoDeposito &&
+              !mostrarFormularioContratante &&
+              !textoBusquedaContratosDeposito &&
+              !mostrarTodosContratosDeposito &&
+              !contratoDepositoConsultaSeleccionado && (
+                <section className="panel no-print">
+                  <p className="form-description">
+                    Use el buscador o presione <strong>Ver todos</strong> para consultar los
+                    contratos de depósito.
+                  </p>
+                </section>
+              )}
+
+            {vistaActiva === 'contratosDeposito' &&
+              !mostrarFormularioContratoDeposito &&
+              !mostrarFormularioContratante &&
+              (textoBusquedaContratosDeposito || mostrarTodosContratosDeposito) &&
+              !contratoDepositoConsultaSeleccionado && (
+              <section className="panel no-print">
+                <div className="section-title">
+                  <div className="section-icon">📋</div>
+                  <h2>Documentos de administración registrados</h2>
+                </div>
+
+                <div className="simple-table-wrapper">
+                  <table className="simple-table">
+                    <thead>
+                      <tr>
+                        <th>N° contrato</th>
+                        <th>Predio</th>
+                        <th>Depositario</th>
+                        <th>Calidad</th>
+                        <th>Tipo comisión</th>
+                        <th>% comisión</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contratosDepositoFiltrados.map((contrato, index) => {
+                        const depositario = propietarios.find(
+                          (item) => item.id === (contrato.idContratante || contrato.idPropietario)
+                        )
+
+                        return (
+                          <tr key={index}>
+                            <td>
+                              {obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)}
+                            </td>
+                            <td>{contrato.codigoPredio || 'Pendiente de inmueble'}</td>
+                            <td>{depositario?.nombre || 'Sin depositario'}</td>
+                            <td>{contrato.calidadContratante || 'Propietario'}</td>
+                            <td>{contrato.tipoComision}</td>
+                            <td>{contrato.porcentajeComision}%</td>
+                            <td>
+                              <span
+                                className={
+                                  contrato.estado === 'Activo'
+                                    ? 'status active'
+                                    : contrato.estado === 'Pendiente inmueble'
+                                    ? 'status pending'
+                                    : 'status inactive'
+                                }
+                              >
+                                {contrato.estado}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="table-actions">
+                                <button
+                                  type="button"
+                                  className="btn-small"
+                                  onClick={() => verContratoDepositoConsulta(contrato)}
+                                >
+                                  Ver
+                                </button>
+                                {puedeAdministrar && (
+                                  <button
+                                    type="button"
+                                    className="btn-small equal-action-btn"
+                                    onClick={() =>
+                                      editarDepositanteDesdeDocumentoAdministracion(contrato)
+                                    }
+                                  >
+                                    Editar
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+
+                      {contratosDepositoFiltrados.length === 0 && (
+                        <tr>
+                          <td colSpan="8">
+                            {textoBusquedaContratosDeposito
+                              ? 'No se encontraron contratos de depósito con ese criterio de búsqueda.'
+                              : 'No hay contratos de depósito registrados.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {vistaActiva === 'contratosDeposito' &&
+              !mostrarFormularioContratoDeposito &&
+              !mostrarFormularioContratante &&
+              contratoDepositoConsultaSeleccionado && (
+              <section className="panel no-print">
+                <div className="section-title">
+                  <div className="section-icon">📋</div>
+                  <h2>Detalle del documento de administración</h2>
+                </div>
+
+                {(() => {
+                  const contrato = contratoDepositoConsultaSeleccionado
+                  const depositario = propietarios.find(
+                    (item) => item.id === (contrato.idContratante || contrato.idPropietario)
+                  )
+                  const propietariosContrato = obtenerPropietariosContratoDeposito(
+                    contrato,
+                    predioPropietarios
+                  )
+                  const predio = predios.find((item) => item.codigo === contrato.codigoPredio)
+                  const abonosContrato = pagosLiquidacionDeposito
+                    .filter((pago) => pago.idContratoDeposito === contrato.id)
+                    .sort((a, b) => String(b.mes || '').localeCompare(String(a.mes || '')))
+                  const pendientesAbono = obtenerLiquidacionesPendientesContratoDeposito(
+                    liquidacionesDepositoHistorial,
+                    contrato.id
+                  )
+
+                  return (
+                    <>
+                      <div className="detail-grid">
+                        <div>
+                          <span>N° contrato</span>
+                          <strong>
+                            {obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)}
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Predio / inmueble</span>
+                          <strong>{contrato.codigoPredio || 'Pendiente de inmueble'}</strong>
+                        </div>
+                        <div>
+                          <span>Depositario</span>
+                          <strong>{depositario?.nombre || 'Sin depositario'}</strong>
+                        </div>
+                        <div>
+                          <span>Tipo de comisión</span>
+                          <strong>{contrato.tipoComision}</strong>
+                        </div>
+                        <div>
+                          <span>Porcentaje de comisión</span>
+                          <strong>{contrato.porcentajeComision}%</strong>
+                        </div>
+                        <div>
+                          <span>Estado</span>
+                          <strong>{contrato.estado}</strong>
+                        </div>
+                        {predio && (
+                          <div>
+                            <span>Dirección del inmueble</span>
+                            <strong>{predio.direccion}</strong>
+                          </div>
+                        )}
+                      </div>
+
+                      {contrato.codigoPredio && (
+                        <>
+                          <div className="section-title">
+                            <div className="section-icon">$</div>
+                            <h2>Abonos al depositante o propietario</h2>
+                          </div>
+
+                          <p className="form-description">
+                            Los abonos se registran aquí por unidad de negocio. Si un pago del
+                            arrendatario cubre meses anteriores, se asigna primero al mes más antiguo
+                            pendiente. Solo se liquida canon de arrendamiento (sin mora, intereses ni
+                            sanciones). Comisión INH solo sobre canon de arrendamiento.
+                          </p>
+
+                          {pendientesAbono.length > 0 && (
+                            <p className="form-description">
+                              Hay <strong>{pendientesAbono.length}</strong> liquidación(es)
+                              pendiente(s) por un total de{' '}
+                              <strong>
+                                {formatearDinero(
+                                  pendientesAbono.reduce(
+                                    (total, item) => total + Number(item.deudaInmobiliaria || 0),
+                                    0
+                                  )
+                                )}
+                              </strong>
+                              .
+                            </p>
+                          )}
+
+                          <div className="simple-table-wrapper" style={{ marginBottom: '20px' }}>
+                            <table className="simple-table">
+                              <thead>
+                                <tr>
+                                  <th>Mes causado</th>
+                                  <th>Unidad</th>
+                                  <th>Beneficiario</th>
+                                  <th>Abono canon</th>
+                                  <th>Comisión INH</th>
+                                  <th>Neto abonado</th>
+                                  <th>Fecha abono</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {abonosContrato.map((abono, abonoIndex) => {
+                                  const beneficiarioAbono = propietarios.find(
+                                    (item) => item.id === abono.idPropietario
+                                  )
+
+                                  return (
+                                    <tr key={abonoIndex}>
+                                      <td>{abono.mes}</td>
+                                      <td>
+                                        {abono.unidad ||
+                                          abono.detalleUnidades?.[0]?.unidad ||
+                                          'Sin unidad'}
+                                      </td>
+                                      <td>{beneficiarioAbono?.nombre || 'Sin beneficiario'}</td>
+                                      <td>{formatearDinero(abono.totalRecaudadoPredio || 0)}</td>
+                                      <td>
+                                        {formatearDinero(
+                                          abono.comisionInhCanon ||
+                                            (abono.detalleUnidades || []).reduce(
+                                              (total, unidad) =>
+                                                total + Number(unidad.comisionInhCanon || 0),
+                                              0
+                                            )
+                                        )}
+                                      </td>
+                                      <td>{formatearDinero(abono.valorNetoPropietario || 0)}</td>
+                                      <td>{abono.fechaPago || '—'}</td>
+                                    </tr>
+                                  )
+                                })}
+
+                                {abonosContrato.length === 0 && (
+                                  <tr>
+                                    <td colSpan="7">Aún no hay abonos registrados para este contrato.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {abonosContrato.some((abono) => abono.detalleUnidades?.length) && (
+                            <div className="simple-table-wrapper" style={{ marginBottom: '20px' }}>
+                              <table className="simple-table">
+                                <thead>
+                                  <tr>
+                                    <th>Mes</th>
+                                    <th>Unidad</th>
+                                    <th>Contrato</th>
+                                    <th>Arrendatario</th>
+                                    <th>Abono canon</th>
+                                    <th>Comisión INH</th>
+                                    <th>Neto unidad</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {abonosContrato.flatMap((abono) =>
+                                    (abono.detalleUnidades || []).map((unidad, unidadIndex) => (
+                                      <tr key={`${abono.id}-${unidadIndex}`}>
+                                        <td>{abono.mes}</td>
+                                        <td>{unidad.unidad}</td>
+                                        <td>{unidad.idContratoArriendo}</td>
+                                        <td>{unidad.arrendatario}</td>
+                                        <td>{formatearDinero(unidad.valorCanonLiquidacion)}</td>
+                                        <td>{formatearDinero(unidad.comisionInhCanon || 0)}</td>
+                                        <td>{formatearDinero(unidad.valorNeto)}</td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      <div className="form-actions panel-action-bar">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setContratoDepositoConsultaSeleccionado(null)}
+                        >
+                          Volver a la lista
+                        </button>
+                        {puedeAdministrar && (
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() =>
+                              editarDepositanteDesdeDocumentoAdministracion(contrato)
+                            }
+                          >
+                            Editar inmueble
+                          </button>
+                        )}
+                        {contrato.codigoPredio && (
+                          <button
+                            type="button"
+                            className="btn-gold"
+                            onClick={() => {
+                              const idDepositante = obtenerIdDepositanteContrato(contrato)
+                              const depositante = propietarios.find(
+                                (item) => item.id === idDepositante
+                              )
+                              setExtractoLiquidacionDepositoContexto(null)
+                              setTipoBusquedaLiquidacionDeposito('depositario')
+                              setBusquedaLiquidacionDeposito(depositante?.nombre || '')
+                              setIdDepositarioLiquidacionSeleccionado(idDepositante || '')
+                              setFiltroContratoLiquidacionDeposito(contrato.id)
+                              setCodigoPredioLiquidacionSeleccionado('')
+                              activarSubmenu('depositantes', 'liquidacionDeposito', 'depositantes')
+                              setSeccionActiva('depositantes')
+                              setVistaActiva('liquidacionDeposito')
+                              window.scrollTo({ top: 0, behavior: 'smooth' })
+                            }}
+                          >
+                            Ver liquidación
+                          </button>
+                        )}
+                        {puedeRegistrar && contrato.codigoPredio && pendientesAbono.length > 0 && (
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => irPagoDepositanteDesdeContrato(contrato)}
+                          >
+                            Registrar pago
+                          </button>
+                        )}
+                        {puedeRegistrar && contratoDepositoPendienteInmueble(contrato) && (
+                          <button
+                            type="button"
+                            className="btn-gold"
+                            onClick={() => abrirNuevoPredioDesdeContrato(contrato.id)}
+                          >
+                            Registrar inmueble
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )
+                })()}
+              </section>
+            )}
           </>
         )}
 
-        {mostrarDepositos && (
+        {mostrarDepositantes && (
           <>
             {mostrarFormularioContratante &&
               puedeAdministrar &&
@@ -24586,854 +25230,6 @@ const resultadosBusqueda = textoBusqueda
               )}
 
 
-            {vistaActiva === 'contratosDeposito' &&
-              !mostrarFormularioContratoDeposito &&
-              !mostrarFormularioContratante && (
-              <section className="panel no-print compact-filter-panel">
-                <div className="section-title compact-title">
-                  <div className="section-icon">⌕</div>
-                  <h2>Buscar documento de administración</h2>
-                </div>
-
-                <p className="form-description compact-description">
-                  Busque por número de documento (DEP-1234-001), predio, depositario, propietario,
-                  tipo de comisión o estado.
-                </p>
-
-                <div className="search-box compact-search">
-                  <input
-                    type="text"
-                    value={busquedaContratosDeposito}
-                    onChange={(e) => {
-                      setBusquedaContratosDeposito(e.target.value)
-                      setMostrarTodosContratosDeposito(false)
-                      setContratoDepositoConsultaSeleccionado(null)
-                    }}
-                    placeholder="Ej: DEP-1234-001, BOG-FON-0001, Carlos Pérez, Administración..."
-                  />
-
-                  {busquedaContratosDeposito && (
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => {
-                        setBusquedaContratosDeposito('')
-                        setMostrarTodosContratosDeposito(false)
-                        setContratoDepositoConsultaSeleccionado(null)
-                      }}
-                    >
-                      Limpiar
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => {
-                      setBusquedaContratosDeposito('')
-                      setMostrarTodosContratosDeposito(true)
-                      setContratoDepositoConsultaSeleccionado(null)
-                    }}
-                  >
-                    Ver todos
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {vistaActiva === 'contratosDeposito' &&
-              !mostrarFormularioContratoDeposito &&
-              !mostrarFormularioContratante &&
-              !textoBusquedaContratosDeposito &&
-              !mostrarTodosContratosDeposito &&
-              !contratoDepositoConsultaSeleccionado && (
-                <section className="panel no-print">
-                  <p className="form-description">
-                    Use el buscador o presione <strong>Ver todos</strong> para consultar los
-                    contratos de depósito.
-                  </p>
-                </section>
-              )}
-
-            {vistaActiva === 'contratosDeposito' &&
-              !mostrarFormularioContratoDeposito &&
-              !mostrarFormularioContratante &&
-              (textoBusquedaContratosDeposito || mostrarTodosContratosDeposito) &&
-              !contratoDepositoConsultaSeleccionado && (
-              <section className="panel no-print">
-                <div className="section-title">
-                  <div className="section-icon">📋</div>
-                  <h2>Documentos de administración registrados</h2>
-                </div>
-
-                <div className="simple-table-wrapper">
-                  <table className="simple-table">
-                    <thead>
-                      <tr>
-                        <th>N° contrato</th>
-                        <th>Predio</th>
-                        <th>Depositario</th>
-                        <th>Calidad</th>
-                        <th>Tipo comisión</th>
-                        <th>% comisión</th>
-                        <th>Estado</th>
-                        <th>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contratosDepositoFiltrados.map((contrato, index) => {
-                        const depositario = propietarios.find(
-                          (item) => item.id === (contrato.idContratante || contrato.idPropietario)
-                        )
-
-                        return (
-                          <tr key={index}>
-                            <td>
-                              {obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)}
-                            </td>
-                            <td>{contrato.codigoPredio || 'Pendiente de inmueble'}</td>
-                            <td>{depositario?.nombre || 'Sin depositario'}</td>
-                            <td>{contrato.calidadContratante || 'Propietario'}</td>
-                            <td>{contrato.tipoComision}</td>
-                            <td>{contrato.porcentajeComision}%</td>
-                            <td>
-                              <span
-                                className={
-                                  contrato.estado === 'Activo'
-                                    ? 'status active'
-                                    : contrato.estado === 'Pendiente inmueble'
-                                    ? 'status pending'
-                                    : 'status inactive'
-                                }
-                              >
-                                {contrato.estado}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="table-actions">
-                                <button
-                                  type="button"
-                                  className="btn-small"
-                                  onClick={() => verContratoDepositoConsulta(contrato)}
-                                >
-                                  Ver
-                                </button>
-                                {puedeAdministrar && (
-                                  <button
-                                    type="button"
-                                    className="btn-small equal-action-btn"
-                                    onClick={() =>
-                                      editarDepositanteDesdeDocumentoAdministracion(contrato)
-                                    }
-                                  >
-                                    Editar
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-
-                      {contratosDepositoFiltrados.length === 0 && (
-                        <tr>
-                          <td colSpan="8">
-                            {textoBusquedaContratosDeposito
-                              ? 'No se encontraron contratos de depósito con ese criterio de búsqueda.'
-                              : 'No hay contratos de depósito registrados.'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
-
-            {vistaActiva === 'contratosDeposito' &&
-              !mostrarFormularioContratoDeposito &&
-              !mostrarFormularioContratante &&
-              contratoDepositoConsultaSeleccionado &&
-              !mostrarFormularioAbonoDeposito && (
-              <section className="panel no-print">
-                <div className="section-title">
-                  <div className="section-icon">📋</div>
-                  <h2>Detalle del documento de administración</h2>
-                </div>
-
-                {(() => {
-                  const contrato = contratoDepositoConsultaSeleccionado
-                  const depositario = propietarios.find(
-                    (item) => item.id === (contrato.idContratante || contrato.idPropietario)
-                  )
-                  const propietariosContrato = obtenerPropietariosContratoDeposito(
-                    contrato,
-                    predioPropietarios
-                  )
-                  const predio = predios.find((item) => item.codigo === contrato.codigoPredio)
-                  const abonosContrato = pagosLiquidacionDeposito
-                    .filter((pago) => pago.idContratoDeposito === contrato.id)
-                    .sort((a, b) => String(b.mes || '').localeCompare(String(a.mes || '')))
-                  const pendientesAbono = obtenerLiquidacionesPendientesContratoDeposito(
-                    liquidacionesDepositoHistorial,
-                    contrato.id
-                  )
-
-                  return (
-                    <>
-                      <div className="detail-grid">
-                        <div>
-                          <span>N° contrato</span>
-                          <strong>
-                            {obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)}
-                          </strong>
-                        </div>
-                        <div>
-                          <span>Predio / inmueble</span>
-                          <strong>{contrato.codigoPredio || 'Pendiente de inmueble'}</strong>
-                        </div>
-                        <div>
-                          <span>Depositario</span>
-                          <strong>{depositario?.nombre || 'Sin depositario'}</strong>
-                        </div>
-                        <div>
-                          <span>Tipo de comisión</span>
-                          <strong>{contrato.tipoComision}</strong>
-                        </div>
-                        <div>
-                          <span>Porcentaje de comisión</span>
-                          <strong>{contrato.porcentajeComision}%</strong>
-                        </div>
-                        <div>
-                          <span>Estado</span>
-                          <strong>{contrato.estado}</strong>
-                        </div>
-                        {predio && (
-                          <div>
-                            <span>Dirección del inmueble</span>
-                            <strong>{predio.direccion}</strong>
-                          </div>
-                        )}
-                      </div>
-
-                      {contrato.codigoPredio && (
-                        <>
-                          <div className="section-title">
-                            <div className="section-icon">$</div>
-                            <h2>Abonos al depositante o propietario</h2>
-                          </div>
-
-                          <p className="form-description">
-                            Los abonos se registran aquí por unidad de negocio. Si un pago del
-                            arrendatario cubre meses anteriores, se asigna primero al mes más antiguo
-                            pendiente. Solo se liquida canon de arrendamiento (sin mora, intereses ni
-                            sanciones). Comisión INH solo sobre canon de arrendamiento.
-                          </p>
-
-                          {pendientesAbono.length > 0 && (
-                            <p className="form-description">
-                              Hay <strong>{pendientesAbono.length}</strong> liquidación(es)
-                              pendiente(s) por un total de{' '}
-                              <strong>
-                                {formatearDinero(
-                                  pendientesAbono.reduce(
-                                    (total, item) => total + Number(item.deudaInmobiliaria || 0),
-                                    0
-                                  )
-                                )}
-                              </strong>
-                              .
-                            </p>
-                          )}
-
-                          <div className="simple-table-wrapper" style={{ marginBottom: '20px' }}>
-                            <table className="simple-table">
-                              <thead>
-                                <tr>
-                                  <th>Mes causado</th>
-                                  <th>Unidad</th>
-                                  <th>Beneficiario</th>
-                                  <th>Abono canon</th>
-                                  <th>Comisión INH</th>
-                                  <th>Neto abonado</th>
-                                  <th>Fecha abono</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {abonosContrato.map((abono, abonoIndex) => {
-                                  const beneficiarioAbono = propietarios.find(
-                                    (item) => item.id === abono.idPropietario
-                                  )
-
-                                  return (
-                                    <tr key={abonoIndex}>
-                                      <td>{abono.mes}</td>
-                                      <td>
-                                        {abono.unidad ||
-                                          abono.detalleUnidades?.[0]?.unidad ||
-                                          'Sin unidad'}
-                                      </td>
-                                      <td>{beneficiarioAbono?.nombre || 'Sin beneficiario'}</td>
-                                      <td>{formatearDinero(abono.totalRecaudadoPredio || 0)}</td>
-                                      <td>
-                                        {formatearDinero(
-                                          abono.comisionInhCanon ||
-                                            (abono.detalleUnidades || []).reduce(
-                                              (total, unidad) =>
-                                                total + Number(unidad.comisionInhCanon || 0),
-                                              0
-                                            )
-                                        )}
-                                      </td>
-                                      <td>{formatearDinero(abono.valorNetoPropietario || 0)}</td>
-                                      <td>{abono.fechaPago || '—'}</td>
-                                    </tr>
-                                  )
-                                })}
-
-                                {abonosContrato.length === 0 && (
-                                  <tr>
-                                    <td colSpan="7">Aún no hay abonos registrados para este contrato.</td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {abonosContrato.some((abono) => abono.detalleUnidades?.length) && (
-                            <div className="simple-table-wrapper" style={{ marginBottom: '20px' }}>
-                              <table className="simple-table">
-                                <thead>
-                                  <tr>
-                                    <th>Mes</th>
-                                    <th>Unidad</th>
-                                    <th>Contrato</th>
-                                    <th>Arrendatario</th>
-                                    <th>Abono canon</th>
-                                    <th>Comisión INH</th>
-                                    <th>Neto unidad</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {abonosContrato.flatMap((abono) =>
-                                    (abono.detalleUnidades || []).map((unidad, unidadIndex) => (
-                                      <tr key={`${abono.id}-${unidadIndex}`}>
-                                        <td>{abono.mes}</td>
-                                        <td>{unidad.unidad}</td>
-                                        <td>{unidad.idContratoArriendo}</td>
-                                        <td>{unidad.arrendatario}</td>
-                                        <td>{formatearDinero(unidad.valorCanonLiquidacion)}</td>
-                                        <td>{formatearDinero(unidad.comisionInhCanon || 0)}</td>
-                                        <td>{formatearDinero(unidad.valorNeto)}</td>
-                                      </tr>
-                                    ))
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      <div className="form-actions panel-action-bar">
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={() => setContratoDepositoConsultaSeleccionado(null)}
-                        >
-                          Volver a la lista
-                        </button>
-                        {puedeAdministrar && (
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() =>
-                              editarDepositanteDesdeDocumentoAdministracion(contrato)
-                            }
-                          >
-                            Editar inmueble
-                          </button>
-                        )}
-                        {contrato.codigoPredio && (
-                          <button
-                            type="button"
-                            className="btn-gold"
-                            onClick={() => {
-                              setExtractoLiquidacionDepositoContexto(null)
-                              setTipoBusquedaLiquidacionDeposito('depositario')
-                              const idDepositante = obtenerIdDepositanteContrato(contrato)
-                              const depositante = propietarios.find(
-                                (item) => item.id === idDepositante
-                              )
-                              setBusquedaLiquidacionDeposito(depositante?.nombre || '')
-                              setIdDepositarioLiquidacionSeleccionado(idDepositante || '')
-                              setFiltroContratoLiquidacionDeposito(contrato.id)
-                              setVistaActiva('liquidacionDeposito')
-                            }}
-                          >
-                            Ver liquidación
-                          </button>
-                        )}
-                        {puedeRegistrar && contrato.codigoPredio && pendientesAbono.length > 0 && (
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => abrirFormularioAbonoDeposito(contrato)}
-                          >
-                            Registrar abono
-                          </button>
-                        )}
-                        {puedeRegistrar && contratoDepositoPendienteInmueble(contrato) && (
-                          <button
-                            type="button"
-                            className="btn-gold"
-                            onClick={() => abrirNuevoPredioDesdeContrato(contrato.id)}
-                          >
-                            Registrar inmueble
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )
-                })()}
-              </section>
-            )}
-
-            {vistaActiva === 'contratosDeposito' &&
-              !mostrarFormularioContratoDeposito &&
-              !mostrarFormularioContratante &&
-              contratoDepositoConsultaSeleccionado &&
-              mostrarFormularioAbonoDeposito && (
-              <section className="panel no-print">
-                <div className="section-title">
-                  <div className="section-icon">$</div>
-                  <h2>Registrar abono al depositante o propietario</h2>
-                </div>
-
-                {(() => {
-                  const contrato = contratoDepositoConsultaSeleccionado
-                  const pendientesContrato = obtenerLiquidacionesPendientesContratoDeposito(
-                    liquidacionesDepositoHistorial,
-                    contrato.id
-                  )
-                  const mesesPendientes = [
-                    ...new Set(pendientesContrato.map((item) => item.mes)),
-                  ].sort((a, b) => b.localeCompare(a))
-                  const unidadesMes = [
-                    ...new Map(
-                      pendientesContrato
-                        .filter((item) => item.mes === mesAbonoDeposito)
-                        .map((item) => [item.claveUnidad, item])
-                    ).values(),
-                  ]
-                  const beneficiariosMes = pendientesContrato.filter(
-                    (item) =>
-                      item.mes === mesAbonoDeposito &&
-                      item.claveUnidad === claveUnidadAbonoDeposito
-                  )
-                  const liquidacionSeleccionada = encontrarLiquidacionDeposito(
-                    liquidacionesDepositoHistorial,
-                    {
-                      idContratoDeposito: contrato.id,
-                      mes: mesAbonoDeposito,
-                      idPropietario: idBeneficiarioAbonoDeposito,
-                      claveUnidad: claveUnidadAbonoDeposito,
-                    }
-                  )
-                  const detalleUnidades = agruparDetalleLiquidacionPorUnidad(
-                    liquidacionSeleccionada?.pagosPendientes || []
-                  )
-
-                  return (
-                    <>
-                      <p className="form-description">
-                        Registre el abono correspondiente al mes causado por unidad de negocio. Si el
-                        arrendatario pagó en un mes posterior, el valor se asigna primero al mes más
-                        antiguo pendiente (pago total) y el saldo al siguiente (abono parcial). Solo
-                        canon de arrendamiento, sin mora, intereses ni sanciones. Comisión INH solo
-                        sobre canon de arrendamiento (sin administración ni IVA).
-                      </p>
-
-                      <div className="detail-grid" style={{ marginBottom: '20px' }}>
-                        <div>
-                          <span>N° contrato depósito</span>
-                          <strong>
-                            {obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)}
-                          </strong>
-                        </div>
-                        <div>
-                          <span>Predio</span>
-                          <strong>{contrato.codigoPredio}</strong>
-                        </div>
-                        <div>
-                          <span>Forma de pago mensual</span>
-                          <strong>
-                            {normalizarTipoPagoLiquidacionDeposito(contrato.tipoPagoLiquidacion)}
-                          </strong>
-                        </div>
-                      </div>
-
-                      {idBeneficiarioAbonoDeposito && (
-                        <DetalleCondicionesPagoInh
-                          variant="bloque"
-                          condiciones={contrato.condicionesPagoInh}
-                          tipoPagoLiquidacion={contrato.tipoPagoLiquidacion}
-                          idPropietario={idBeneficiarioAbonoDeposito}
-                          numeroDocumento={
-                            propietarios.find((item) => item.id === idBeneficiarioAbonoDeposito)
-                              ?.numeroDocumento
-                          }
-                          nombreBeneficiario={
-                            beneficiariosMes.find(
-                              (item) => item.idPropietario === idBeneficiarioAbonoDeposito
-                            )?.propietario?.nombre ||
-                            propietarios.find((item) => item.id === idBeneficiarioAbonoDeposito)
-                              ?.nombre
-                          }
-                          participacion={
-                            liquidacionSeleccionada?.participacion ||
-                            beneficiariosMes.find(
-                              (item) => item.idPropietario === idBeneficiarioAbonoDeposito
-                            )?.participacion
-                          }
-                          esContratante={
-                            beneficiariosMes.find(
-                              (item) => item.idPropietario === idBeneficiarioAbonoDeposito
-                            )?.esContratante
-                          }
-                          calidadContratante={contrato.calidadContratante}
-                          observacionesAutorizacionPago={contrato.observacionesAutorizacionPago}
-                        />
-                      )}
-
-                      <div className="property-form" style={{ marginBottom: '20px' }}>
-                        <div className="form-group">
-                          <label>Mes causado</label>
-                          <select
-                            value={mesAbonoDeposito}
-                            onChange={(e) => {
-                              const mes = e.target.value
-                              setMesAbonoDeposito(mes)
-                              const unidades = [
-                                ...new Map(
-                                  pendientesContrato
-                                    .filter((item) => item.mes === mes)
-                                    .map((item) => [item.claveUnidad, item])
-                                ).values(),
-                              ]
-                              const primeraUnidad = unidades[0]?.claveUnidad || ''
-                              setClaveUnidadAbonoDeposito(primeraUnidad)
-                              const beneficiarios = pendientesContrato.filter(
-                                (item) =>
-                                  item.mes === mes && item.claveUnidad === primeraUnidad
-                              )
-                              setIdBeneficiarioAbonoDeposito(
-                                beneficiarios[0]?.idPropietario || ''
-                              )
-                            }}
-                          >
-                            <option value="">Seleccione mes</option>
-                            {mesesPendientes.map((mes) => (
-                              <option key={mes} value={mes}>
-                                {mes}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label>Unidad de negocio</label>
-                          <select
-                            value={claveUnidadAbonoDeposito}
-                            onChange={(e) => {
-                              const claveUnidad = e.target.value
-                              setClaveUnidadAbonoDeposito(claveUnidad)
-                              const beneficiarios = pendientesContrato.filter(
-                                (item) =>
-                                  item.mes === mesAbonoDeposito &&
-                                  item.claveUnidad === claveUnidad
-                              )
-                              setIdBeneficiarioAbonoDeposito(
-                                beneficiarios[0]?.idPropietario || ''
-                              )
-                            }}
-                            disabled={!mesAbonoDeposito}
-                          >
-                            <option value="">Seleccione unidad</option>
-                            {unidadesMes.map((item) => (
-                              <option key={item.claveUnidad} value={item.claveUnidad}>
-                                {item.unidad || 'Sin unidad'} — Pendiente{' '}
-                                {formatearDinero(item.deudaInmobiliaria)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label>Depositario / propietario beneficiario</label>
-                          <select
-                            value={idBeneficiarioAbonoDeposito}
-                            onChange={(e) => setIdBeneficiarioAbonoDeposito(e.target.value)}
-                            disabled={!claveUnidadAbonoDeposito}
-                          >
-                            <option value="">Seleccione beneficiario</option>
-                            {beneficiariosMes.map((item) => (
-                              <option key={item.idPropietario} value={item.idPropietario}>
-                                {item.propietario?.nombre}
-                                {item.esContratante ? ' (depositario)' : ''} — Pendiente{' '}
-                                {formatearDinero(item.deudaInmobiliaria)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label>Fecha del abono</label>
-                          <input
-                            type="date"
-                            value={fechaAbonoDeposito}
-                            onChange={(e) => setFechaAbonoDeposito(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>Observaciones</label>
-                          <textarea
-                            value={observacionesAbonoDeposito}
-                            onChange={(e) => setObservacionesAbonoDeposito(e.target.value)}
-                            rows={3}
-                            placeholder="Opcional"
-                          />
-                        </div>
-                      </div>
-
-                      {liquidacionSeleccionada && (
-                        <>
-                          <div className="section-title">
-                            <div className="section-icon">≡</div>
-                            <h2>Asignación por pago de arriendo — mes {liquidacionSeleccionada.mes}</h2>
-                          </div>
-
-                          <div className="simple-table-wrapper" style={{ marginBottom: '20px' }}>
-                            <table className="simple-table">
-                              <thead>
-                                <tr>
-                                  <th>Unidad</th>
-                                  <th>Arrendatario</th>
-                                  <th>Mes asignado</th>
-                                  <th>Mes pago</th>
-                                  <th>Tipo</th>
-                                  <th>Recibo</th>
-                                  <th>Abono canon</th>
-                                  <th>Desc. administración</th>
-                                  <th>Comisión INH</th>
-                                  <th>Neto</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(liquidacionSeleccionada.pagosPendientes || []).map(
-                                  (pago, pagoIndex) => (
-                                    <tr key={pagoIndex}>
-                                      <td>{pago.unidad}</td>
-                                      <td>{pago.arrendatario}</td>
-                                      <td>{pago.mesAsignado || liquidacionSeleccionada.mes}</td>
-                                      <td>{pago.mesPagoOriginal || pago.mes}</td>
-                                      <td>{pago.tipoLiquidacionMes || '—'}</td>
-                                      <td>{pago.recibo || 'Sin recibo'}</td>
-                                      <td>{formatearDinero(pago.valorCanonLiquidacion || 0)}</td>
-                                      <td>
-                                        {Number(pago.valorAdministracionDescontada || 0) > 0
-                                          ? formatearDinero(
-                                              Math.round(
-                                                Number(pago.valorAdministracionDescontada || 0) *
-                                                  (Number(liquidacionSeleccionada.participacion || 100) /
-                                                    100)
-                                              )
-                                            )
-                                          : '—'}
-                                      </td>
-                                      <td>
-                                        {formatearDinero(pago.comisionInmobiliariaPredio || 0)}
-                                      </td>
-                                      <td>{formatearDinero(pago.valorNeto || 0)}</td>
-                                    </tr>
-                                  )
-                                )}
-
-                                {(liquidacionSeleccionada.pagosPendientes || []).length === 0 && (
-                                  <tr>
-                                    <td colSpan="10">
-                                      No hay pagos pendientes de liquidar para este mes.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <div className="section-title">
-                            <div className="section-icon">≡</div>
-                            <h2>Discriminación por unidad — mes {liquidacionSeleccionada.mes}</h2>
-                          </div>
-
-                          <div className="simple-table-wrapper" style={{ marginBottom: '20px' }}>
-                            <table className="simple-table">
-                              <thead>
-                                <tr>
-                                  <th>Unidad</th>
-                                  <th>Contrato arriendo</th>
-                                  <th>Arrendatario</th>
-                                  <th>Abono canon</th>
-                                  <th>Bruto beneficiario</th>
-                                  <th>Desc. administración</th>
-                                  <th>Comisión INH canon</th>
-                                  <th>Comisión beneficiario</th>
-                                  <th>Neto unidad</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {detalleUnidades.map((unidad, unidadIndex) => (
-                                  <tr key={unidadIndex}>
-                                    <td>{unidad.unidad}</td>
-                                    <td>{unidad.idContratoArriendo}</td>
-                                    <td>{unidad.arrendatario}</td>
-                                    <td>{formatearDinero(unidad.valorCanonLiquidacion)}</td>
-                                    <td>{formatearDinero(unidad.valorBruto)}</td>
-                                    <td>
-                                      {Number(unidad.valorAdministracionDescontada || 0) > 0
-                                        ? formatearDinero(
-                                            Math.round(
-                                              Number(unidad.valorAdministracionDescontada || 0) *
-                                                (Number(liquidacionSeleccionada.participacion || 100) /
-                                                  100)
-                                            )
-                                          )
-                                        : '—'}
-                                    </td>
-                                    <td>{formatearDinero(unidad.comisionInhCanon || 0)}</td>
-                                    <td>{formatearDinero(unidad.comisionInmobiliaria)}</td>
-                                    <td>{formatearDinero(unidad.valorNeto)}</td>
-                                  </tr>
-                                ))}
-
-                                {detalleUnidades.length === 0 && (
-                                  <tr>
-                                    <td colSpan="9">
-                                      No hay unidades con canon pendiente de abono para este mes.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <div className="detail-grid" style={{ marginBottom: '20px' }}>
-                            <div>
-                              <span>Participación beneficiario</span>
-                              <strong>{liquidacionSeleccionada.participacion}%</strong>
-                            </div>
-                            <div>
-                              <span>Canon del mes</span>
-                              <strong>
-                                {formatearDinero(liquidacionSeleccionada.canonArrendamientoMes || 0)}
-                              </strong>
-                            </div>
-                            <div>
-                              <span>Canon cubierto a la fecha</span>
-                              <strong>
-                                {formatearDinero(
-                                  liquidacionSeleccionada.canonCubiertoMes ||
-                                    liquidacionSeleccionada.totalRecaudadoPredio
-                                )}
-                              </strong>
-                            </div>
-                            <div>
-                              <span>% cubierto del canon</span>
-                              <strong>{liquidacionSeleccionada.porcentajeAbonoCanonMes || 0}%</strong>
-                            </div>
-                            <div>
-                              <span>Total abono canon predio</span>
-                              <strong>
-                                {formatearDinero(liquidacionSeleccionada.totalRecaudadoPredio)}
-                              </strong>
-                            </div>
-                            {Number(liquidacionSeleccionada.valorAdministracionDescontadaBeneficiario || 0) >
-                              0 && (
-                              <div>
-                                <span>Descuento administración edificio</span>
-                                <strong className="saldo-atraso">
-                                  {formatearDinero(
-                                    liquidacionSeleccionada.valorAdministracionDescontadaBeneficiario
-                                  )}
-                                </strong>
-                              </div>
-                            )}
-                            <div>
-                              <span>Comisión INH sobre canon</span>
-                              <strong>
-                                {formatearDinero(
-                                  detalleUnidades.reduce(
-                                    (total, unidad) =>
-                                      total + Number(unidad.comisionInhCanon || 0),
-                                    0
-                                  ) ||
-                                    (liquidacionSeleccionada.pagosPendientes || []).reduce(
-                                      (total, pago) =>
-                                        total + Number(pago.comisionInmobiliariaPredio || 0),
-                                      0
-                                    )
-                                )}
-                              </strong>
-                            </div>
-                            <div>
-                              <span>Comisión descontada al beneficiario</span>
-                              <strong>
-                                {formatearDinero(
-                                  (liquidacionSeleccionada.pagosPendientes || []).reduce(
-                                    (total, pago) =>
-                                      total + Number(pago.comisionInmobiliaria || 0),
-                                    0
-                                  )
-                                )}
-                              </strong>
-                            </div>
-                            <div>
-                              <span>Neto a abonar</span>
-                              <strong>
-                                {formatearDinero(liquidacionSeleccionada.deudaInmobiliaria)}
-                              </strong>
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      <div className="form-actions panel-action-bar">
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={cerrarFormularioAbonoDeposito}
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-primary"
-                          onClick={guardarAbonoDepositoContrato}
-                          disabled={
-                            !liquidacionSeleccionada ||
-                            Number(liquidacionSeleccionada.deudaInmobiliaria || 0) <= 0
-                          }
-                        >
-                          Confirmar abono
-                        </button>
-                      </div>
-                    </>
-                  )
-                })()}
-              </section>
-            )}
-
-
             {vistaActiva === 'liquidacionDeposito' && !extractoLiquidacionDepositoContexto && (
               <section className="panel no-print liquidacion-busqueda-panel">
                 <div className="section-title">
@@ -25769,6 +25565,459 @@ const resultadosBusqueda = textoBusqueda
                     </table>
                   </div>
                 )}
+              </section>
+            )}
+
+
+            {vistaActiva === 'pagoDepositantes' && puedeRegistrar && (
+              <section className="form-panel no-print">
+                <div className="section-title">
+                  <div className="section-icon">$</div>
+                  <h2>Pago a depositantes</h2>
+                </div>
+
+                <p className="form-description">
+                  Registre el pago al depositante o propietario por unidad de negocio, según la
+                  liquidación pendiente del contrato de depósito. Debe indicar el mecanismo de pago
+                  y adjuntar el documento soporte antes de guardar.
+                </p>
+
+                <div className="property-form">
+                  <div className="form-section-title full">Buscar contrato de depósito</div>
+
+                  <div className="form-group full">
+                    <label>Buscar documento de administración</label>
+                    <input
+                      type="text"
+                      value={busquedaContratoPagoDepositante}
+                      onChange={(e) => {
+                        setBusquedaContratoPagoDepositante(e.target.value)
+                        setIdContratoPagoDepositante('')
+                      }}
+                      placeholder="N° contrato, predio, depositante, documento..."
+                    />
+                  </div>
+
+                  {textoBusquedaContratoPagoDepositante && !idContratoPagoDepositante && (
+                    <div className="simple-table-wrapper full">
+                      <table className="simple-table">
+                        <thead>
+                          <tr>
+                            <th>N° contrato</th>
+                            <th>Predio</th>
+                            <th>Depositante</th>
+                            <th>Pendiente liquidación</th>
+                            <th>Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {contratosPagoDepositanteFiltrados.map((contrato) => {
+                            const depositante = propietarios.find(
+                              (item) => item.id === obtenerIdDepositanteContrato(contrato)
+                            )
+                            const pendientes = obtenerLiquidacionesPendientesContratoDeposito(
+                              liquidacionesDepositoHistorialCompleto,
+                              contrato.id
+                            )
+                            const totalPendiente = pendientes.reduce(
+                              (total, item) => total + Number(item.deudaInmobiliaria || 0),
+                              0
+                            )
+
+                            return (
+                              <tr key={contrato.id}>
+                                <td>
+                                  {obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)}
+                                </td>
+                                <td>{contrato.codigoPredio}</td>
+                                <td>{depositante?.nombre || '—'}</td>
+                                <td>{formatearDinero(totalPendiente)}</td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="btn-small btn-primary"
+                                    onClick={() => prepararSeleccionPagoDepositante(contrato)}
+                                  >
+                                    Registrar pago
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                          {contratosPagoDepositanteFiltrados.length === 0 && (
+                            <tr>
+                              <td colSpan="5">
+                                No hay contratos con liquidación pendiente para ese criterio.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {idContratoPagoDepositante && contratoPagoDepositanteSeleccionado && (() => {
+                    const contrato = contratoPagoDepositanteSeleccionado
+                    const pendientesContrato = obtenerLiquidacionesPendientesContratoDeposito(
+                      liquidacionesDepositoHistorialCompleto,
+                      contrato.id
+                    )
+                    const mesesPendientes = [
+                      ...new Set(pendientesContrato.map((item) => item.mes)),
+                    ].sort((a, b) => b.localeCompare(a))
+                    const unidadesMes = [
+                      ...new Map(
+                        pendientesContrato
+                          .filter((item) => item.mes === mesAbonoDeposito)
+                          .map((item) => [item.claveUnidad, item])
+                      ).values(),
+                    ]
+                    const beneficiariosMes = pendientesContrato.filter(
+                      (item) =>
+                        item.mes === mesAbonoDeposito &&
+                        item.claveUnidad === claveUnidadAbonoDeposito
+                    )
+                    const liquidacionSeleccionada = encontrarLiquidacionDeposito(
+                      liquidacionesDepositoHistorialCompleto,
+                      {
+                        idContratoDeposito: contrato.id,
+                        mes: mesAbonoDeposito,
+                        idPropietario: idBeneficiarioAbonoDeposito,
+                        claveUnidad: claveUnidadAbonoDeposito,
+                      }
+                    )
+
+                    const actualizarValorPendiente = (mes, claveUnidad, idBeneficiario) => {
+                      const liquidacion = encontrarLiquidacionDeposito(
+                        liquidacionesDepositoHistorialCompleto,
+                        {
+                          idContratoDeposito: contrato.id,
+                          mes,
+                          idPropietario: idBeneficiario,
+                          claveUnidad,
+                        }
+                      )
+                      setValorPagoDepositante(
+                        liquidacion
+                          ? String(Math.round(Number(liquidacion.deudaInmobiliaria || 0)))
+                          : ''
+                      )
+                    }
+
+                    return (
+                      <>
+                        <div className="form-section-title full">Datos del pago</div>
+
+                        <div className="detail-grid full">
+                          <div>
+                            <span>N° contrato depósito</span>
+                            <strong>
+                              {obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)}
+                            </strong>
+                          </div>
+                          <div>
+                            <span>Predio</span>
+                            <strong>{contrato.codigoPredio}</strong>
+                          </div>
+                          <div>
+                            <span>Forma de pago mensual</span>
+                            <strong>
+                              {normalizarTipoPagoLiquidacionDeposito(contrato.tipoPagoLiquidacion)}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Mes causado</label>
+                          <select
+                            value={mesAbonoDeposito}
+                            onChange={(e) => {
+                              const mes = e.target.value
+                              setMesAbonoDeposito(mes)
+                              const unidades = [
+                                ...new Map(
+                                  pendientesContrato
+                                    .filter((item) => item.mes === mes)
+                                    .map((item) => [item.claveUnidad, item])
+                                ).values(),
+                              ]
+                              const primeraUnidad = unidades[0]?.claveUnidad || ''
+                              setClaveUnidadAbonoDeposito(primeraUnidad)
+                              const beneficiarios = pendientesContrato.filter(
+                                (item) =>
+                                  item.mes === mes && item.claveUnidad === primeraUnidad
+                              )
+                              const primerBeneficiario = beneficiarios[0]?.idPropietario || ''
+                              setIdBeneficiarioAbonoDeposito(primerBeneficiario)
+                              actualizarValorPendiente(mes, primeraUnidad, primerBeneficiario)
+                            }}
+                          >
+                            <option value="">Seleccione mes</option>
+                            {mesesPendientes.map((mes) => (
+                              <option key={mes} value={mes}>
+                                {mes}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Unidad de negocio</label>
+                          <select
+                            value={claveUnidadAbonoDeposito}
+                            onChange={(e) => {
+                              const claveUnidad = e.target.value
+                              setClaveUnidadAbonoDeposito(claveUnidad)
+                              const beneficiarios = pendientesContrato.filter(
+                                (item) =>
+                                  item.mes === mesAbonoDeposito &&
+                                  item.claveUnidad === claveUnidad
+                              )
+                              const primerBeneficiario = beneficiarios[0]?.idPropietario || ''
+                              setIdBeneficiarioAbonoDeposito(primerBeneficiario)
+                              actualizarValorPendiente(
+                                mesAbonoDeposito,
+                                claveUnidad,
+                                primerBeneficiario
+                              )
+                            }}
+                            disabled={!mesAbonoDeposito}
+                          >
+                            <option value="">Seleccione unidad</option>
+                            {unidadesMes.map((item) => (
+                              <option key={item.claveUnidad} value={item.claveUnidad}>
+                                {item.unidad || 'Sin unidad'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Depositario / propietario beneficiario</label>
+                          <select
+                            value={idBeneficiarioAbonoDeposito}
+                            onChange={(e) => {
+                              const idBeneficiario = e.target.value
+                              setIdBeneficiarioAbonoDeposito(idBeneficiario)
+                              actualizarValorPendiente(
+                                mesAbonoDeposito,
+                                claveUnidadAbonoDeposito,
+                                idBeneficiario
+                              )
+                            }}
+                            disabled={!claveUnidadAbonoDeposito}
+                          >
+                            <option value="">Seleccione beneficiario</option>
+                            {beneficiariosMes.map((item) => (
+                              <option key={item.idPropietario} value={item.idPropietario}>
+                                {item.propietario?.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {idBeneficiarioAbonoDeposito && (
+                          <div className="full">
+                            <DetalleCondicionesPagoInh
+                              variant="bloque"
+                              condiciones={contrato.condicionesPagoInh}
+                              tipoPagoLiquidacion={contrato.tipoPagoLiquidacion}
+                              idPropietario={idBeneficiarioAbonoDeposito}
+                              numeroDocumento={
+                                propietarios.find((item) => item.id === idBeneficiarioAbonoDeposito)
+                                  ?.numeroDocumento
+                              }
+                              nombreBeneficiario={
+                                beneficiariosMes.find(
+                                  (item) => item.idPropietario === idBeneficiarioAbonoDeposito
+                                )?.propietario?.nombre ||
+                                propietarios.find((item) => item.id === idBeneficiarioAbonoDeposito)
+                                  ?.nombre
+                              }
+                              participacion={
+                                liquidacionSeleccionada?.participacion ||
+                                beneficiariosMes.find(
+                                  (item) => item.idPropietario === idBeneficiarioAbonoDeposito
+                                )?.participacion
+                              }
+                              esContratante={
+                                beneficiariosMes.find(
+                                  (item) => item.idPropietario === idBeneficiarioAbonoDeposito
+                                )?.esContratante
+                              }
+                              calidadContratante={contrato.calidadContratante}
+                              observacionesAutorizacionPago={contrato.observacionesAutorizacionPago}
+                            />
+                          </div>
+                        )}
+
+                        {liquidacionSeleccionada && (
+                          <div className="form-group">
+                            <label>Neto pendiente de la unidad</label>
+                            <input
+                              type="text"
+                              readOnly
+                              value={formatearDinero(liquidacionSeleccionada.deudaInmobiliaria)}
+                            />
+                          </div>
+                        )}
+
+                        <div className="form-group">
+                          <label>Fecha del pago</label>
+                          <input
+                            type="date"
+                            value={fechaAbonoDeposito}
+                            onChange={(e) => setFechaAbonoDeposito(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Valor del pago</label>
+                          <InputValor
+                            value={valorPagoDepositante}
+                            onChange={setValorPagoDepositante}
+                            placeholder="Ej: 850.000"
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Mecanismo de pago *</label>
+                          <select
+                            value={medioPagoDepositante}
+                            onChange={(e) => setMedioPagoDepositante(e.target.value)}
+                          >
+                            {MEDIOS_PAGO_DEPOSITANTE.map((medio) => (
+                              <option key={medio} value={medio}>
+                                {medio}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {(medioPagoDepositante === 'Consignación' ||
+                          medioPagoDepositante === 'Transferencia') && (
+                          <>
+                            <div className="form-group">
+                              <label>Banco *</label>
+                              <input
+                                type="text"
+                                value={bancoPagoDepositante}
+                                onChange={(e) => setBancoPagoDepositante(e.target.value)}
+                              />
+                            </div>
+                            {medioPagoDepositante === 'Consignación' && (
+                              <div className="form-group">
+                                <label>Cuenta de consignación *</label>
+                                <input
+                                  type="text"
+                                  value={cuentaPagoDepositante}
+                                  onChange={(e) => setCuentaPagoDepositante(e.target.value)}
+                                />
+                              </div>
+                            )}
+                            <div className="form-group">
+                              <label>Referencia *</label>
+                              <input
+                                type="text"
+                                value={referenciaPagoDepositante}
+                                onChange={(e) => setReferenciaPagoDepositante(e.target.value)}
+                                placeholder="Número o referencia del movimiento"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {medioPagoDepositante === 'Cheque' && (
+                          <>
+                            <div className="form-group">
+                              <label>Número de cheque *</label>
+                              <input
+                                type="text"
+                                value={numeroChequePagoDepositante}
+                                onChange={(e) => setNumeroChequePagoDepositante(e.target.value)}
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label>Comprobante de egreso *</label>
+                              <input
+                                type="text"
+                                value={comprobanteEgresoPagoDepositante}
+                                onChange={(e) => setComprobanteEgresoPagoDepositante(e.target.value)}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {medioPagoDepositante === 'Efectivo' && (
+                          <div className="form-group">
+                            <label>Comprobante de egreso *</label>
+                            <input
+                              type="text"
+                              value={comprobanteEgresoPagoDepositante}
+                              onChange={(e) => setComprobanteEgresoPagoDepositante(e.target.value)}
+                            />
+                          </div>
+                        )}
+
+                        <div className="form-group full">
+                          <AdjuntoArchivoInline
+                            etiqueta="Documento de pago"
+                            adjunto={documentoPagoDepositanteAdjunto}
+                            textoBoton="Subir documento"
+                            onSeleccionarArchivo={async (evento) => {
+                              const archivo = evento.target.files?.[0]
+                              if (!archivo) return
+                              try {
+                                const contenido = await leerArchivoComoDataUrl(archivo)
+                                setDocumentoPagoDepositanteAdjunto({
+                                  nombreArchivo: archivo.name,
+                                  contenido,
+                                  tamano: archivo.size,
+                                })
+                              } catch {
+                                alert('No se pudo leer el documento de pago.')
+                              }
+                              evento.target.value = ''
+                            }}
+                            onQuitar={() => setDocumentoPagoDepositanteAdjunto(null)}
+                          />
+                        </div>
+
+                        <div className="form-group full">
+                          <label>Observaciones</label>
+                          <textarea
+                            value={observacionesAbonoDeposito}
+                            onChange={(e) => setObservacionesAbonoDeposito(e.target.value)}
+                            rows={3}
+                            placeholder="Opcional"
+                          />
+                        </div>
+
+                        <div className="form-actions full">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={limpiarFormularioPagoDepositante}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={guardarPagoDepositante}
+                            disabled={
+                              !liquidacionSeleccionada ||
+                              Number(liquidacionSeleccionada.deudaInmobiliaria || 0) <= 0 ||
+                              !documentoPagoDepositanteAdjunto
+                            }
+                          >
+                            Guardar pago
+                          </button>
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
               </section>
             )}
           </>
@@ -27953,13 +28202,22 @@ const resultadosBusqueda = textoBusqueda
                           hoy.slice(0, 7)
                         : hoy.slice(0, 7)
                     setMesPagoArriendo(mesPago)
-                    const canonContrato = calcularCanonArriendo(contrato, mesPago)
+                    const movimientoContrato = calcularMovimientoArriendoMes(
+                      contrato,
+                      mesPago,
+                      null,
+                      hoy
+                    )
+                    const desgloseContrato =
+                      construirDesglosePendientePagoArriendo(movimientoContrato)
                     if (saldoContrato <= 0) {
                       setConceptoPagoArriendo(CONCEPTO_PAGO_CANON_ARRIENDO)
-                      setValorPagadoArriendo(String(canonContrato.canonCausado))
+                      setValorPagadoArriendo(String(movimientoContrato.canonCausado || 0))
                     } else {
                       setConceptoPagoArriendo(CONCEPTO_ABONO_CANON_ARRIENDO)
-                      setValorPagadoArriendo('')
+                      setValorPagadoArriendo(
+                        String(desgloseContrato.totalPendiente || saldoContrato || '')
+                      )
                     }
                     setTimeout(() => {
                       document
@@ -28011,9 +28269,12 @@ const resultadosBusqueda = textoBusqueda
             setObservacionesPagoArriendo={setObservacionesPagoArriendo}
             saldoAnterior={saldoAnteriorReciboPago}
             saldoPosterior={saldoPosteriorReciboPago}
+            deudaTotalContrato={deudaTotalContratoReciboPago}
+            deudaTotalPosterior={deudaTotalPosteriorReciboPago}
+            desglosePago={desglosePagoArriendo}
+            totalPendientePeriodo={totalPendientePeriodoPago}
             canonMensual={canonMensualPagoArriendo}
             enAtraso={enAtrasoPagoArriendo}
-            moraArriendo={Number(moraArriendo || 0)}
             mesPagoArriendo={mesPagoArriendo}
             valorBloqueado={valorPagoArriendoBloqueado}
             formatearDinero={formatearDinero}
@@ -35765,9 +36026,12 @@ function FormularioReciboPagoArriendo({
   setObservacionesPagoArriendo,
   saldoAnterior,
   saldoPosterior,
+  deudaTotalContrato = 0,
+  deudaTotalPosterior = 0,
+  desglosePago = null,
+  totalPendientePeriodo = 0,
   canonMensual,
   enAtraso,
-  moraArriendo = 0,
   mesPagoArriendo = '',
   valorBloqueado,
   formatearDinero,
@@ -35920,9 +36184,63 @@ function FormularioReciboPagoArriendo({
 
         <section className="recibo-bloque recibo-bloque-detalle">
           <TituloBloqueRecibo numero="04" titulo="Detalle económico" />
+
+          {mesPagoArriendo && (
+            <p className="form-description recibo-desglose-nota">
+              Periodo del pago: <strong>{mesPagoArriendo}</strong>. El total pendiente incluye
+              mensualidad, intereses, gastos de cobranza e IVA; no debe sumarse por separado.
+            </p>
+          )}
+
+          <ul className="recibo-lineas recibo-lineas-desglose">
+            {desglosePago?.mensualidadPendiente > 0 && (
+              <li>
+                <span>Mensualidad pendiente (canon + administración + IVA)</span>
+                <strong>{formatearDinero(desglosePago.mensualidadPendiente)}</strong>
+              </li>
+            )}
+            {desglosePago?.moraPendiente > 0 && (
+              <li>
+                <span>
+                  Intereses de mora
+                  {mesPagoArriendo ? ` (${mesPagoArriendo})` : ''}
+                </span>
+                <strong>{formatearDinero(desglosePago.moraPendiente)}</strong>
+              </li>
+            )}
+            {desglosePago?.gastosCobranza > 0 && (
+              <li>
+                <span>Gastos de cobranza</span>
+                <strong>{formatearDinero(desglosePago.gastosCobranza)}</strong>
+              </li>
+            )}
+            {desglosePago?.ivaMoraCobranza > 0 && (
+              <li>
+                <span>IVA sobre mora y cobranza</span>
+                <strong>{formatearDinero(desglosePago.ivaMoraCobranza)}</strong>
+              </li>
+            )}
+            {desglosePago?.pagadoPeriodo > 0 && (
+              <li>
+                <span>(−) Pagado en el periodo</span>
+                <strong>{formatearDinero(desglosePago.pagadoPeriodo)}</strong>
+              </li>
+            )}
+            <li className="recibo-linea-total">
+              <span>Total pendiente del periodo</span>
+              <strong>{formatearDinero(totalPendientePeriodo || saldoAnterior || 0)}</strong>
+            </li>
+            {enAtraso && Number(deudaTotalContrato || 0) > Number(totalPendientePeriodo || 0) && (
+              <li>
+                <span>Deuda total del contrato (todos los periodos)</span>
+                <strong className="saldo-atraso">{formatearDinero(deudaTotalContrato)}</strong>
+              </li>
+            )}
+          </ul>
+
           <div className="recibo-pago-destacado recibo-pago-destacado-solo">
             <div className="recibo-pago-monto">
-              <span className="recibo-campo-label">Valor pagado</span>
+              <span className="recibo-campo-label">Valor pagado (total sugerido cargado)</span>
               <InputValor
                 className="recibo-campo-input recibo-campo-monto"
                 value={valorPagadoArriendo}
@@ -35934,25 +36252,24 @@ function FormularioReciboPagoArriendo({
           </div>
 
           <ul className="recibo-lineas">
-            {moraArriendo > 0 && (
-              <li>
-                <span>
-                  Intereses de mora
-                  {mesPagoArriendo ? ` (${mesPagoArriendo})` : ''} hasta {fechaPagoArriendo}
-                </span>
-                <strong>{formatearDinero(moraArriendo)}</strong>
-              </li>
-            )}
             <li>
-              <span>{enAtraso ? 'Saldo en mora' : 'Saldo del periodo'}</span>
+              <span>Saldo pendiente del periodo antes del pago</span>
               <strong>{formatearDinero(saldoAnterior || 0)}</strong>
             </li>
             <li>
-              <span>Saldo después del pago</span>
+              <span>Saldo pendiente del periodo después del pago</span>
               <strong className={saldoPosterior > 0 ? 'saldo-atraso' : ''}>
                 {formatearDinero(saldoPosterior || 0)}
               </strong>
             </li>
+            {enAtraso && Number(deudaTotalContrato || 0) > 0 && (
+              <li>
+                <span>Deuda total del contrato después del pago</span>
+                <strong className={deudaTotalPosterior > 0 ? 'saldo-atraso' : ''}>
+                  {formatearDinero(deudaTotalPosterior || 0)}
+                </strong>
+              </li>
+            )}
           </ul>
 
           <div className="recibo-observaciones-box recibo-campo-editable">

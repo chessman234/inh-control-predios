@@ -3534,6 +3534,26 @@ td.saldo-atraso,
   font-weight: 800;
 }
 
+.recibo-lineas-desglose {
+  margin-bottom: 16px;
+}
+
+.recibo-lineas li.recibo-linea-total {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.recibo-lineas li.recibo-linea-total span,
+.recibo-lineas li.recibo-linea-total strong {
+  color: #06244d;
+  font-size: 15px;
+}
+
+.recibo-desglose-nota {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
 .recibo-observaciones-box {
   padding: 14px 16px;
   border-radius: 14px;
@@ -7668,11 +7688,24 @@ body.imprimiendo-extracto #extracto-impresion-root {
 }
 
 .bloque-forma-pago-liquidacion {
-  margin: 18px 0 22px;
+  margin: 0 0 14px;
   padding: 16px 18px;
   border-radius: 14px;
   border: 1px solid #d7e3f2;
   background: linear-gradient(180deg, #f8fbff 0%, #f2f7fd 100%);
+}
+
+.medio-pago-acordado-titulo {
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.form-section-title.full + .bloque-forma-pago-liquidacion {
+  margin-top: 0;
+}
+
+.forma-pago-descripcion-sola {
+  margin: 0;
 }
 
 .bloque-forma-pago-liquidacion.es-transferencia {
@@ -7691,7 +7724,7 @@ body.imprimiendo-extracto #extracto-impresion-root {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px 16px;
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .forma-pago-item {
