@@ -626,6 +626,19 @@ td.saldo-atraso,
   margin-bottom: 12px;
 }
 
+/* =============================================================================
+ ESTADOS DE CUENTA - AVISO MODULOS INDEPENDIENTES
+ Nota de separacion entre arriendo, administracion y servicios publicos.
+ ============================================================================= */
+
+.estado-cuenta-modulo-aviso {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 4px solid #1570ef;
+  background: #f0f9ff;
+  color: #1e3a8a;
+}
+
 .extracto-table .celda-servicio-tipo {
   background: #dbeafe;
   color: #1e3a8a;
@@ -2172,6 +2185,95 @@ td.saldo-atraso,
   min-width: 180px;
 }
 
+/* =============================================================================
+ LIQUIDACION DEPOSITO - TIPOGRAFIA EXTRACTO
+ Letra mas grande en pantalla del extracto al depositante.
+ ============================================================================= */
+
+.extracto-card-liquidacion {
+  font-size: 15px;
+}
+
+.extracto-card-liquidacion .section-title h2 {
+  font-size: 20px;
+}
+
+.extracto-card-liquidacion .extracto-liquidacion-bloque-contrato h3 {
+  font-size: 17px;
+}
+
+.extracto-card-liquidacion .detail-grid span:not(.status) {
+  font-size: 13px;
+}
+
+.extracto-card-liquidacion .detail-grid strong {
+  font-size: 15px;
+}
+
+.extracto-card-liquidacion .estado-cuenta-tabla h3 {
+  font-size: 22px;
+}
+
+.extracto-card-liquidacion .estado-cuenta-tabla .extracto-table-arriendo th,
+.extracto-card-liquidacion .estado-cuenta-tabla .extracto-table-arriendo td {
+  font-size: 14.5px;
+  padding: 12px 10px;
+}
+
+.extracto-card-liquidacion .estado-cuenta-tabla .extracto-table-arriendo th {
+  font-size: 13.5px;
+}
+
+.extracto-card-liquidacion .estado-cuenta-tabla tfoot td {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.extracto-card-liquidacion .simple-table th {
+  font-size: 13px;
+  padding: 11px 10px;
+}
+
+.extracto-card-liquidacion .simple-table td {
+  font-size: 14px;
+  padding: 11px 10px;
+}
+
+.extracto-card-liquidacion .extracto-liquidacion-corte-encabezado h3 {
+  font-size: 22px;
+}
+
+.extracto-card-liquidacion .extracto-liquidacion-corte-kpi span {
+  font-size: 11px;
+}
+
+.extracto-card-liquidacion .extracto-liquidacion-corte-kpi strong {
+  font-size: 16px;
+}
+
+.extracto-card-liquidacion .extracto-liquidacion-corte-resumen span {
+  font-size: 13px;
+}
+
+.extracto-card-liquidacion .extracto-liquidacion-corte-resumen strong {
+  font-size: 15px;
+}
+
+.extracto-card-liquidacion .form-description.compact-description {
+  font-size: 14px;
+}
+
+/* =============================================================================
+ EXTRACTO LIQUIDACION - ACCION ARRIENDO
+ Boton para abrir extracto de arriendo al final del extracto de deposito.
+ ============================================================================= */
+
+.extracto-liquidacion-accion-arriendo {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  justify-content: flex-start;
+}
+
 .extracto-liquidacion-conjunto {
   display: flex;
   flex-direction: column;
@@ -2282,6 +2384,173 @@ td.saldo-atraso,
   margin-bottom: 24px;
 }
 
+.extracto-liquidacion-seccion {
+  margin-bottom: 28px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e8eef5;
+}
+
+.extracto-liquidacion-seccion:last-of-type {
+  border-bottom: none;
+}
+
+.extracto-liquidacion-seccion-descripcion {
+  margin: 0 0 16px;
+}
+
+.extracto-liquidacion-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.extracto-liquidacion-kpi {
+  padding: 14px 16px;
+  border: 1px solid #dbe7f5;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.extracto-liquidacion-kpi span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.extracto-liquidacion-kpi strong {
+  font-size: 18px;
+  color: #06244d;
+}
+
+.extracto-liquidacion-kpi--principal {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef4fb 100%);
+  border-color: #c7d9ef;
+}
+
+.extracto-liquidacion-kpi--principal strong {
+  font-size: 24px;
+}
+
+.extracto-liquidacion-contratos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.extracto-liquidacion-bloque-contrato {
+  padding: 16px 18px;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.extracto-liquidacion-bloque-contrato h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0d3a73;
+}
+
+.extracto-liquidacion-canon-cortes {
+  margin-top: 8px;
+}
+
+.extracto-liquidacion-canon-cortes h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #06244d;
+}
+
+.extracto-liquidacion-canon-cortes-nota {
+  margin: 0 0 12px;
+}
+
+.extracto-liquidacion-canon-cortes-tabla th:nth-child(n + 2),
+.extracto-liquidacion-canon-cortes-tabla td:nth-child(n + 2) {
+  text-align: right;
+}
+
+/* =============================================================================
+ EXTRACTO LIQUIDACION - RESUMEN POR MES
+ Tabla consolidada tipo Excel con canon, IVA, comision y neto por corte.
+ ============================================================================= */
+
+.extracto-liquidacion-seccion--resumen-meses {
+  margin-bottom: 28px;
+}
+
+.extracto-liquidacion-resumen-meses-nota {
+  margin: 6px 0 0;
+}
+
+.extracto-liquidacion-resumen-meses-tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.extracto-liquidacion-resumen-meses-tabla thead th {
+  background: #06244d;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.extracto-liquidacion-resumen-meses-tabla thead th:nth-child(n + 2) {
+  text-align: right;
+}
+
+.extracto-liquidacion-resumen-meses-tabla tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8eef5;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.extracto-liquidacion-resumen-meses-tabla tbody td:nth-child(n + 2) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.extracto-liquidacion-resumen-meses-tabla tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.extracto-liquidacion-resumen-meses-fila--sin-recaudo td {
+  color: #64748b;
+}
+
+.extracto-liquidacion-resumen-meses-tabla tfoot td {
+  padding: 12px;
+  background: #f1f5f9;
+  border-top: 2px solid #dbe7f5;
+}
+
+.extracto-liquidacion-resumen-meses-total-fila td:nth-child(2) {
+  text-align: right;
+}
+
+.extracto-liquidacion-corte-grupo-titulo {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed #dbe7f5;
+}
+
+.extracto-liquidacion-corte-grupo-titulo span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
 .extracto-saldo-destacado {
   grid-column: 1 / -1;
   background: linear-gradient(135deg, #f8fafc 0%, #eef4fb 100%);
@@ -2306,19 +2575,20 @@ td.saldo-atraso,
 
 .extracto-movimientos-table th:nth-child(1),
 .extracto-movimientos-table td:nth-child(1) {
-  width: 9%;
+  width: 5%;
 }
 
 .extracto-movimientos-table th:nth-child(2),
 .extracto-movimientos-table td:nth-child(2) {
-  width: 8%;
+  width: auto;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .extracto-movimientos-table th:nth-child(3),
 .extracto-movimientos-table td:nth-child(3) {
-  width: auto;
-  white-space: normal;
-  word-break: break-word;
+  width: 13%;
+  white-space: nowrap;
 }
 
 .extracto-movimientos-table th:nth-child(4),
@@ -2380,6 +2650,599 @@ td.saldo-atraso,
   display: flex;
   justify-content: flex-end;
   margin-bottom: 20px;
+}
+
+.extracto-liquidacion-cortes-descripcion {
+  margin-bottom: 16px;
+}
+
+.extracto-liquidacion-deuda-cortes {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.extracto-liquidacion-deuda-cortes-titulo {
+  margin-bottom: 12px;
+}
+
+.extracto-liquidacion-deuda-cortes-titulo h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #06244d;
+}
+
+.extracto-liquidacion-deuda-cortes-nota {
+  margin: 0 0 12px;
+}
+
+/* =============================================================================
+ EXTRACTO LIQUIDACION - PENDIENTE CONSOLIDADO
+ Bloque unico con todo lo no pagado al depositante o beneficiario.
+ ============================================================================= */
+
+.extracto-liquidacion-seccion--pendiente-consolidado {
+  border: 2px solid #fecaca;
+  border-radius: 16px;
+  padding: 20px 22px;
+  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 100%);
+}
+
+.extracto-liquidacion-pendiente-nota {
+  margin-bottom: 16px;
+}
+
+.extracto-liquidacion-rango-cortes {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.extracto-liquidacion-rango-cortes-tabla {
+  margin: 0 0 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.estado-cuenta-tabla-encabezado-movimientos h3 {
+  margin-bottom: 4px;
+}
+
+.extracto-liquidacion-kpi--rango strong {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.extracto-liquidacion-pendiente-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.extracto-liquidacion-kpi--meses strong {
+  font-size: 14px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.extracto-liquidacion-desglose-consolidado {
+  margin-bottom: 20px;
+}
+
+.extracto-liquidacion-pendiente-cortes {
+  margin-top: 8px;
+}
+
+/* =============================================================================
+ EXTRACTO LIQUIDACION - ULTIMOS CORTES PAGADOS
+ Dos cortes recientes liquidados con detalle de pagos INH.
+ ============================================================================= */
+
+.extracto-liquidacion-seccion--cortes-pagados {
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 20px 22px;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.extracto-liquidacion-cortes-pagados-nota {
+  margin-bottom: 16px;
+}
+
+.extracto-liquidacion-cortes-pagados-lista {
+  display: grid;
+  gap: 20px;
+}
+
+.extracto-liquidacion-corte-pagado {
+  padding: 16px 18px;
+  border: 1px solid #dcfce7;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.extracto-liquidacion-corte-pagado-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.extracto-liquidacion-corte-estado--pagado {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.extracto-liquidacion-pagos-corte {
+  margin-top: 14px;
+}
+
+.liquidacion-corte-card--pendiente {
+  border-color: #fca5a5;
+  background: #fff1f2;
+}
+
+.extracto-liquidacion-deuda-cortes-tabla th:nth-child(n + 4),
+.extracto-liquidacion-deuda-cortes-tabla td:nth-child(n + 4):not(:nth-child(6)),
+.extracto-deuda-corte-valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.extracto-movimientos-table-corte th:nth-child(3),
+.extracto-movimientos-table-corte td:nth-child(3),
+.extracto-movimientos-table-corte th:nth-child(4),
+.extracto-movimientos-table-corte td:nth-child(4) {
+  width: 12%;
+}
+
+.extracto-movimientos-table tr.movimiento-pago-arrendatario td {
+  background: #eff6ff;
+}
+
+.extracto-movimientos-table tr.movimiento-arriendo td {
+  background: #eff6ff;
+}
+
+.extracto-liquidacion-deuda-cortes-total-fila td {
+  background: #fff8e8;
+  border-top: 2px solid #d7a125;
+  font-size: 14px;
+}
+
+.extracto-liquidacion-cortes-indice {
+  margin-bottom: 24px;
+}
+
+.liquidacion-corte-card--lectura {
+  cursor: default;
+}
+
+.liquidacion-corte-card--lectura:hover {
+  border-color: #dbe5f2;
+  box-shadow: none;
+}
+
+.extracto-liquidacion-cortes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.extracto-liquidacion-cortes-titulo-seccion {
+  align-items: flex-start;
+}
+
+.extracto-liquidacion-cortes-titulo-seccion h2 {
+  margin-bottom: 4px;
+}
+
+.extracto-liquidacion-corte {
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(6, 36, 77, 0.05);
+}
+
+.extracto-liquidacion-corte--pendiente {
+  border-color: #fecaca;
+  box-shadow: 0 4px 14px rgba(153, 27, 27, 0.08);
+}
+
+/* =============================================================================
+ EXTRACTO LIQUIDACION - CORTE SIN RECAUDO PAGOS PARCIALES
+ Periodo sin pago del arrendatario: liquidacion al depositante en ceros.
+ ============================================================================= */
+
+.extracto-liquidacion-corte--sin-recaudo {
+  opacity: 0.92;
+}
+
+.extracto-liquidacion-corte--sin-recaudo .extracto-liquidacion-corte-encabezado {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.extracto-liquidacion-corte-recaudo-arrendatario {
+  margin: 0;
+  padding: 10px 20px 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+/* =============================================================================
+ EXTRACTO LIQUIDACION - REFERENCIA PAGOS ARRENDATARIO
+ Tabla de recibos del arrendatario vinculados a la liquidacion al depositante.
+ ============================================================================= */
+
+.extracto-liquidacion-referencia-arrendatario,
+.extracto-liquidacion-referencia-arrendatario-formulario {
+  padding: 0 20px 16px;
+}
+
+.extracto-liquidacion-referencia-arrendatario h4,
+.extracto-liquidacion-referencia-arrendatario-formulario h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.extracto-liquidacion-referencia-arrendatario-vacia {
+  margin: 0;
+  padding: 0 20px 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.extracto-liquidacion-referencia-arrendatario-formulario {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.extracto-liquidacion-corte-encabezado {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef4fb 100%);
+  border-bottom: 1px solid #dbe7f5;
+}
+
+.extracto-liquidacion-corte--pendiente .extracto-liquidacion-corte-encabezado {
+  background: linear-gradient(135deg, #fff7f7 0%, #fef2f2 100%);
+  border-bottom-color: #fecaca;
+}
+
+.extracto-liquidacion-corte-encabezado-principal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  min-width: 0;
+}
+
+.extracto-liquidacion-corte-indice {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #06244d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.extracto-liquidacion-corte-etiqueta {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.extracto-liquidacion-corte-encabezado h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #06244d;
+  line-height: 1.2;
+}
+
+.extracto-liquidacion-corte-encabezado-saldo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 140px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #dbe7f5;
+}
+
+.extracto-liquidacion-corte-encabezado-saldo span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.extracto-liquidacion-corte-encabezado-saldo strong {
+  font-size: 20px;
+  font-weight: 900;
+  color: #06244d;
+}
+
+.extracto-liquidacion-corte-estado {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #dbe7f5;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d3a73;
+  white-space: nowrap;
+}
+
+.extracto-liquidacion-corte-estado--pagado {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.extracto-liquidacion-corte-estado--parcial {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.extracto-liquidacion-corte-estado--pendiente {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.extracto-liquidacion-corte-estado--sin-recaudo {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+.extracto-liquidacion-corte-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e8eef5;
+  background: #fbfdff;
+}
+
+.extracto-liquidacion-corte-kpi {
+  padding: 12px 14px;
+  border: 1px solid #e2ebf5;
+  border-radius: 12px;
+  background: #fff;
+  min-width: 0;
+}
+
+.extracto-liquidacion-corte-kpi span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.extracto-liquidacion-corte-kpi strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: #06244d;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.extracto-liquidacion-desglose-corte {
+  padding: 0 20px 20px;
+  margin-bottom: 0;
+}
+
+.extracto-liquidacion-desglose-corte .extracto-liquidacion-desglose-cargos-tabla {
+  margin-top: 16px;
+}
+
+.extracto-liquidacion-corte-total-fila td {
+  background: #f8fbff;
+  border-top: 2px solid #c7d9ef;
+}
+
+.extracto-liquidacion-corte-saldo-fila td {
+  background: #fff8e8;
+  border-top: 2px solid #d7a125;
+  font-size: 15px;
+}
+
+.extracto-liquidacion-corte-resumen {
+  padding: 16px 18px 0;
+  margin-bottom: 12px;
+}
+
+.extracto-liquidacion-corte-resumen-secciones {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 18px 16px;
+}
+
+.extracto-liquidacion-corte-resumen-bloque {
+  border: 1px solid #e2ebf5;
+  border-radius: 12px;
+  background: #fbfdff;
+  overflow: hidden;
+}
+
+.extracto-liquidacion-corte-resumen-bloque.extracto-liquidacion-corte-resumen-neto {
+  border-color: #c7d9ef;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+}
+
+.extracto-liquidacion-corte-resumen-titulo {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0d3a73;
+  border-bottom: 1px solid #e2ebf5;
+  background: #f4f8fc;
+}
+
+.extracto-liquidacion-corte-resumen-bloque .extracto-liquidacion-corte-resumen {
+  padding: 14px;
+  margin-bottom: 0;
+}
+
+.extracto-liquidacion-corte-resumen-total span {
+  font-weight: 700;
+  color: #06244d;
+}
+
+.extracto-liquidacion-corte-resumen-total strong {
+  font-size: 16px;
+}
+
+@media (max-width: 960px) {
+  .extracto-liquidacion-corte-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .extracto-liquidacion-corte-encabezado {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .extracto-liquidacion-corte-encabezado-saldo {
+    align-items: flex-start;
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .extracto-liquidacion-corte-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+.extracto-liquidacion-corte .extracto-movimientos-wrapper {
+  padding: 0 18px;
+  margin-bottom: 0;
+}
+
+/* =============================================================================
+ LIQUIDACION DEPOSITO - DESGLOSE CARGOS POR CORTE
+ Tabla cargo a cargo: canon, IVA, comision y servicios fijos.
+ ============================================================================= */
+
+.extracto-liquidacion-desglose-cargos {
+  padding: 0 18px 16px;
+}
+
+.extracto-liquidacion-desglose-cargos-titulo {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #06244d;
+}
+
+.extracto-liquidacion-desglose-cargos-tabla th:nth-child(n + 2),
+.extracto-liquidacion-desglose-cargos-tabla td:nth-child(n + 2) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.extracto-liquidacion-desglose-neto-fila td {
+  background: #f0f7ff;
+  border-top: 2px solid #c5d9f0;
+}
+
+.extracto-movimientos-table tr.movimiento-iva-canon td {
+  background: #f8fbff;
+}
+
+.extracto-movimientos-table tr.movimiento-servicio-publico-fijo td {
+  background: #f6fff8;
+}
+
+.extracto-movimientos-table tr.movimiento-canonical-base td,
+.extracto-movimientos-table tr.movimiento-canon-base td {
+  background: #fafcff;
+}
+
+.extracto-liquidacion-corte-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  margin-top: 12px;
+  background: #f8fafc;
+  border-top: 1px solid #dbe7f5;
+  font-size: 14px;
+}
+
+.extracto-liquidacion-corte-pie strong {
+  font-size: 18px;
+  color: #06244d;
+}
+
+.extracto-movimientos-table-corte th:nth-child(1),
+.extracto-movimientos-table-corte td:nth-child(1) {
+  width: 12%;
+}
+
+.extracto-movimientos-table-corte th:nth-child(2),
+.extracto-movimientos-table-corte td:nth-child(2) {
+  width: auto;
+}
+
+.extracto-movimientos-table-corte th:nth-child(3),
+.extracto-movimientos-table-corte td:nth-child(3),
+.extracto-movimientos-table-corte th:nth-child(4),
+.extracto-movimientos-table-corte td:nth-child(4) {
+  width: 14%;
+  text-align: right;
+}
+
+.extracto-movimientos-table-corte th:nth-child(5),
+.extracto-movimientos-table-corte td:nth-child(5) {
+  width: 14%;
+  text-align: right;
 }
 
 .extracto-saldo-final {
@@ -2709,6 +3572,25 @@ td.saldo-atraso,
     padding: 4px 3px !important;
     white-space: normal !important;
     word-break: break-word !important;
+  }
+
+  .extracto-liquidacion-resumen-meses-tabla thead th {
+    background: #06244d !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .extracto-liquidacion-seccion--resumen-meses,
+  .extracto-liquidacion-corte {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .extracto-card-liquidacion.extracto-liquidacion-print,
+  .extracto-liquidacion-seccion--cortes {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 }
 .file-label {
@@ -7519,11 +8401,33 @@ body.imprimiendo-extracto #extracto-impresion-root {
 
 .bloque-documento-admin .fila-codigo-con-adjuntos {
   display: grid;
-  grid-template-columns: 142px 132px;
+  grid-template-columns: minmax(140px, auto) minmax(180px, max-content);
   gap: 12px;
   align-items: end;
-  width: max-content;
+  width: 100%;
   max-width: 100%;
+  margin: 0;
+}
+
+.bloque-documento-admin .fila-codigo-con-vinculo:has(.cajon-vinculo-derecha) {
+  grid-template-columns: minmax(140px, auto) minmax(160px, 1fr) minmax(180px, max-content);
+  width: 100%;
+  max-width: none;
+}
+
+.bloque-documento-admin .fila-codigo-con-adjuntos .adjunto-archivo-inline {
+  width: 100%;
+  min-width: 180px;
+}
+
+.bloque-documento-admin .fila-codigo-con-adjuntos .btn-adjunto-archivo {
+  width: 100%;
+  min-width: 180px !important;
+}
+
+.bloque-documento-admin .fila-codigo-con-vinculo .cajon-vinculo-derecha {
+  width: 100%;
+  min-width: 0;
   margin: 0;
 }
 
@@ -7533,6 +8437,214 @@ body.imprimiendo-extracto #extracto-impresion-root {
   align-items: flex-end;
   gap: 12px;
   width: 100%;
+}
+
+/* =============================================================================
+ REGISTRO INMUEBLE - PANEL CONDICIONES DOCUMENTO
+ Grupos: comision, liquidacion + pago contrato (duo), vigencia + poliza (duo) y autorizacion.
+ ============================================================================= */
+
+.condiciones-documento-panel {
+  align-self: stretch;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid #d0dff0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f7fd 100%);
+  box-sizing: border-box;
+}
+
+.condiciones-documento-panel .subtitulo-condiciones-documento {
+  margin-bottom: 0;
+}
+
+.condiciones-documento-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.condiciones-documento-duo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+}
+
+.condiciones-documento-duo > .condiciones-documento-grupo {
+  height: 100%;
+}
+
+.condiciones-documento-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e2ebf6;
+  border-radius: 12px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.condiciones-documento-grupo-titulo {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0d2f64;
+}
+
+.condiciones-documento-fila {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+  width: 100%;
+}
+
+.condiciones-documento-fila--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.condiciones-documento-fila--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.condiciones-documento-fila--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.condiciones-documento-nota {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #5b6f88;
+}
+
+.condiciones-documento-grupo--pago-inh .bloque-condiciones-pago-inh {
+  margin-top: 0;
+}
+
+.condiciones-documento-grupo .cajon-campo-compacto,
+.condiciones-documento-grupo .cajon-observaciones {
+  width: 100%;
+  min-width: 0;
+}
+
+.condiciones-documento-grupo .cajon-campo-compacto input,
+.condiciones-documento-grupo .cajon-campo-compacto select,
+.condiciones-documento-grupo .cajon-observaciones textarea {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #c9d9ee;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.condiciones-documento-grupo .cajon-observaciones textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.condiciones-documento-grupo .cajon-campo-compacto label,
+.condiciones-documento-grupo .cajon-observaciones label {
+  text-align: left;
+  line-height: 1.3;
+}
+
+/* =============================================================================
+ REGISTRO INMUEBLE - INFORMACION INICIAL PREDIAL
+ Panel compacto con ultimo pago y valores del anio.
+ ============================================================================= */
+
+.bloque-informacion-inicial-predial {
+  align-self: stretch;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid #d0dff0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f7fd 100%);
+  box-sizing: border-box;
+}
+
+.bloque-informacion-inicial-predial .subtitulo-seccion-compacta {
+  margin-bottom: 0;
+}
+
+.bloque-informacion-inicial-predial-nota {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.informacion-predial-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.informacion-predial-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e2ebf6;
+  border-radius: 12px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.informacion-predial-grupo-titulo {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0d2f64;
+}
+
+.informacion-predial-fila {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+  width: 100%;
+}
+
+.informacion-predial-fila--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.informacion-predial-grupo .cajon-campo-compacto {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.informacion-predial-grupo .cajon-campo-compacto label {
+  text-align: left;
+  line-height: 1.3;
+}
+
+.informacion-predial-grupo .cajon-campo-compacto input,
+.informacion-predial-grupo .cajon-campo-compacto .input-valor-monetario {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #c9d9ee;
+  background: #ffffff;
+  box-sizing: border-box;
 }
 
 .bloque-documento-admin .campos-condiciones-derecha > .cajon-campo-compacto {
@@ -8340,6 +9452,7 @@ body.imprimiendo-extracto #extracto-impresion-root {
   }
 
   .bloque-documento-admin .fila-codigo-con-adjuntos,
+  .bloque-documento-admin .fila-codigo-con-vinculo,
   .fila-codigo-con-adjuntos,
   .fila-adjuntos-contrato-arriendo {
     grid-template-columns: 1fr;
@@ -8360,6 +9473,35 @@ body.imprimiendo-extracto #extracto-impresion-root {
 
   .bloque-documento-admin .campos-condiciones-derecha {
     flex-wrap: wrap;
+  }
+
+  .condiciones-documento-duo {
+    grid-template-columns: 1fr;
+  }
+
+  .condiciones-documento-fila--2,
+  .condiciones-documento-fila--3 {
+    grid-template-columns: 1fr;
+  }
+
+  .informacion-predial-fila--3 {
+    grid-template-columns: 1fr;
+  }
+
+  .bloque-informacion-inicial-predial {
+    padding: 14px;
+  }
+
+  .informacion-predial-grupo {
+    padding: 12px 14px;
+  }
+
+  .condiciones-documento-panel {
+    padding: 14px;
+  }
+
+  .condiciones-documento-grupo {
+    padding: 12px 14px;
   }
 
   .bloque-documento-admin .campos-condiciones-derecha > .cajon-campo-compacto {
