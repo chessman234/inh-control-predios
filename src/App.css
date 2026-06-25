@@ -7128,6 +7128,24 @@ body.imprimiendo-extracto #extracto-impresion-root {
   padding-right: 4px;
 }
 
+/* =============================================================================
+ ESTADO DE CUENTA ARRENDAMIENTO - MOVIMIENTOS MES A MES
+ Letra +2 pt en titulo y tabla de movimientos del arrendatario.
+ ============================================================================= */
+
+.estado-cuenta-tabla-arriendo h3 {
+  font-size: 20px;
+}
+
+.estado-cuenta-tabla-arriendo .extracto-table-arriendo th,
+.estado-cuenta-tabla-arriendo .extracto-table-arriendo td {
+  font-size: 13.5px;
+}
+
+.estado-cuenta-tabla-arriendo .extracto-table-arriendo tfoot td {
+  font-size: 13.5px;
+}
+
 .estado-cuenta-arrendadores th,
 .estado-cuenta-tabla th {
   background: #06244d;

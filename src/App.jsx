@@ -10069,12 +10069,17 @@ const ESTILOS_IMPRESION_UNA_CARTA = `
       margin-top: 8px !important;
     }
     .extracto-liquidacion-seccion--movimientos-mes h3 {
-      font-size: 9pt !important;
+      font-size: 11pt !important;
       margin: 4px 0 6px !important;
     }
     .extracto-liquidacion-seccion--movimientos-mes .extracto-liquidacion-rango-cortes-tabla {
-      font-size: 7pt !important;
+      font-size: 9pt !important;
       margin: 0 0 4px !important;
+    }
+    .extracto-card-liquidacion .extracto-liquidacion-seccion--movimientos-mes .extracto-table-arriendo th,
+    .extracto-card-liquidacion .extracto-liquidacion-seccion--movimientos-mes .extracto-table-arriendo td,
+    .extracto-card-liquidacion .extracto-liquidacion-seccion--movimientos-mes .extracto-table-arriendo tfoot td {
+      font-size: 11pt !important;
     }
     .extracto-movimientos-table tr.movimiento-pago td,
     .extracto-movimientos-table tr.movimiento-comision td,
@@ -11576,20 +11581,26 @@ const ESTILOS_EXTRACTO_IMPRESION_CARTA = `
     word-break: break-word;
   }
   .extracto-card-liquidacion .estado-cuenta-tabla h3 {
-    font-size: 11pt;
+    font-size: 13pt;
     margin-bottom: 8px;
   }
   .extracto-card-liquidacion .extracto-table-arriendo th,
   .extracto-card-liquidacion .extracto-table-arriendo td {
-    font-size: 9pt !important;
+    font-size: 11pt !important;
     padding: 5px 4px !important;
   }
   .extracto-card-liquidacion .extracto-table-arriendo th {
-    font-size: 8.5pt !important;
+    font-size: 10.5pt !important;
   }
   .extracto-card-liquidacion .extracto-table-arriendo tfoot td {
-    font-size: 9.5pt !important;
+    font-size: 11.5pt !important;
     font-weight: 800 !important;
+  }
+  .extracto-card-liquidacion .extracto-liquidacion-seccion--movimientos-mes h3 {
+    font-size: 13pt !important;
+  }
+  .extracto-card-liquidacion .extracto-liquidacion-seccion--movimientos-mes .extracto-liquidacion-rango-cortes-tabla {
+    font-size: 9pt !important;
   }
   .extracto-card-liquidacion .extracto-liquidacion-corte-encabezado h3 {
     font-size: 11pt;
@@ -15345,7 +15356,7 @@ function TablaEstadoCuentaArriendo({
   })
 
   return (
-    <div className="estado-cuenta-tabla">
+    <div className="estado-cuenta-tabla estado-cuenta-tabla-arriendo">
       <script
         type="application/json"
         className="extracto-arriendo-impresion-datos"
@@ -27631,22 +27642,9 @@ const resultadosBusqueda = textoBusqueda
             >
               Actualizar incremento anual
             </button>
-            <button
-              type="button"
-              className={claseSubmenuItem(esSubmenuActivo('administracionNuevo'))}
-              onClick={() => abrirFormulario('arriendos', 'administracion')}
-            >
-              Actualizar administración mensual
-            </button>
-            <button
-              type="button"
-              className={claseSubmenuItem(esSubmenuActivo('pagoAdministracionNuevo'))}
-              onClick={() => abrirFormulario('arriendos', 'pagoAdministracion')}
-            >
-              Registrar pago de administración
-            </button>
           </>
         )}
+
         <button
           type="button"
           className={claseSubmenuItem(esSubmenuActivo('consultarArriendos'))}
@@ -27662,24 +27660,17 @@ const resultadosBusqueda = textoBusqueda
           Consultar contratos de arriendo
         </button>
 
-        <button
-          type="button"
-          className={claseSubmenuItem(esSubmenuActivo('carteraArriendos'))}
-          onClick={() =>
-            irSubmenu({
-              seccion: 'arriendos',
-              vista: 'carteraArriendos',
-              clave: 'carteraArriendos',
-              grupo: 'arriendos',
-              onAntes: () => {
-                setContratoGestionCartera(null)
-                setVistaCarteraDiaria('')
-              },
-            })
-          }
-        >
-          Cartera diaria de arriendos
-        </button>
+        {puedeRegistrar && (
+          <>
+            <button
+              type="button"
+              className={claseSubmenuItem(esSubmenuActivo('administracionNuevo'))}
+              onClick={() => abrirFormulario('arriendos', 'administracion')}
+            >
+              Actualizar administración mensual
+            </button>
+          </>
+        )}
 
         <button
           type="button"
@@ -27699,6 +27690,18 @@ const resultadosBusqueda = textoBusqueda
           Estado de cuenta de administración
         </button>
 
+        {puedeRegistrar && (
+          <>
+            <button
+              type="button"
+              className={claseSubmenuItem(esSubmenuActivo('pagoAdministracionNuevo'))}
+              onClick={() => abrirFormulario('arriendos', 'pagoAdministracion')}
+            >
+              Registrar pago de administración
+            </button>
+          </>
+        )}
+
         <button
           type="button"
           className={claseSubmenuItem(esSubmenuActivo('administracionesPendientes'))}
@@ -27712,6 +27715,25 @@ const resultadosBusqueda = textoBusqueda
           }
         >
           Administraciones pendientes
+        </button>
+
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('carteraArriendos'))}
+          onClick={() =>
+            irSubmenu({
+              seccion: 'arriendos',
+              vista: 'carteraArriendos',
+              clave: 'carteraArriendos',
+              grupo: 'arriendos',
+              onAntes: () => {
+                setContratoGestionCartera(null)
+                setVistaCarteraDiaria('')
+              },
+            })
+          }
+        >
+          Cartera diaria de arriendos
         </button>
       </div>
     )}
