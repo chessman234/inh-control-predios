@@ -27483,7 +27483,8 @@ const resultadosBusqueda = textoBusqueda
     return clases.join(' ')
   }
 
-  const claseSubmenuItem = (activo) => (activo ? 'submenu-item active' : 'submenu-item')
+  const claseSubmenuItem = (activo, variante = '') =>
+    ['submenu-item', variante && `submenu-item--${variante}`, activo && 'active'].filter(Boolean).join(' ')
 
   const esSubmenuActivo = (clave) => obtenerClaveSubmenuResaltada() === clave
 
@@ -28126,11 +28127,30 @@ const resultadosBusqueda = textoBusqueda
           Consultar contratos de arriendo
         </button>
 
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('carteraArriendos'))}
+          onClick={() =>
+            irSubmenu({
+              seccion: 'arriendos',
+              vista: 'carteraArriendos',
+              clave: 'carteraArriendos',
+              grupo: 'arriendos',
+              onAntes: () => {
+                setContratoGestionCartera(null)
+                setVistaCarteraDiaria('')
+              },
+            })
+          }
+        >
+          Cartera diaria de arriendos
+        </button>
+
         {puedeRegistrar && (
           <>
             <button
               type="button"
-              className={claseSubmenuItem(esSubmenuActivo('administracionNuevo'))}
+              className={claseSubmenuItem(esSubmenuActivo('administracionNuevo'), 'administracion')}
               onClick={() => abrirFormulario('arriendos', 'administracion')}
             >
               Actualizar administración mensual
@@ -28140,7 +28160,7 @@ const resultadosBusqueda = textoBusqueda
 
         <button
           type="button"
-          className={claseSubmenuItem(esSubmenuActivo('estadoCuentaAdministracion'))}
+          className={claseSubmenuItem(esSubmenuActivo('estadoCuentaAdministracion'), 'administracion')}
           onClick={() =>
             irSubmenu({
               seccion: 'arriendos',
@@ -28160,7 +28180,7 @@ const resultadosBusqueda = textoBusqueda
           <>
             <button
               type="button"
-              className={claseSubmenuItem(esSubmenuActivo('pagoAdministracionNuevo'))}
+              className={claseSubmenuItem(esSubmenuActivo('pagoAdministracionNuevo'), 'administracion')}
               onClick={() => abrirFormulario('arriendos', 'pagoAdministracion')}
             >
               Registrar pago de administración
@@ -28170,7 +28190,7 @@ const resultadosBusqueda = textoBusqueda
 
         <button
           type="button"
-          className={claseSubmenuItem(esSubmenuActivo('administracionesPendientes'))}
+          className={claseSubmenuItem(esSubmenuActivo('administracionesPendientes'), 'administracion')}
           onClick={() =>
             irSubmenu({
               seccion: 'arriendos',
@@ -28181,25 +28201,6 @@ const resultadosBusqueda = textoBusqueda
           }
         >
           Administraciones pendientes
-        </button>
-
-        <button
-          type="button"
-          className={claseSubmenuItem(esSubmenuActivo('carteraArriendos'))}
-          onClick={() =>
-            irSubmenu({
-              seccion: 'arriendos',
-              vista: 'carteraArriendos',
-              clave: 'carteraArriendos',
-              grupo: 'arriendos',
-              onAntes: () => {
-                setContratoGestionCartera(null)
-                setVistaCarteraDiaria('')
-              },
-            })
-          }
-        >
-          Cartera diaria de arriendos
         </button>
       </div>
     )}
