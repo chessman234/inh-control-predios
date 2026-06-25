@@ -71,6 +71,11 @@ const appJsx = [
   { ancla: 'const normalizarTipoPagoLiquidacionDeposito', titulo: 'LIQUIDACION INH - NORMALIZACION DE PAGOS', descripcion: 'Medios de pago, cuentas bancarias y validaciones INH.' },
   { ancla: 'const obtenerPropietariosContratoDeposito', titulo: 'CONTRATOS DEPOSITO - PROPIETARIOS Y BENEFICIARIOS', descripcion: 'Participacion de propietarios y beneficiarios de liquidacion.' },
   { ancla: 'const obtenerAnioInicioVigenciasPredial', titulo: 'IMPUESTO PREDIAL - VIGENCIAS Y SALDOS', descripcion: 'Anios de vigencia, extractos por propietario y saldo pendiente.' },
+  { ancla: 'const obtenerPredialPendientePredioExtracto', titulo: 'PREDIAL - EXTRACTO PREDIOS POR PROPIETARIO', descripcion: 'Saldo pendiente y vigencias sin actualizar para la columna Predial pendiente.' },
+  { ancla: 'const obtenerAvaluoPredioExtractoPropietario', titulo: 'PREDIAL - AVALUO EN EXTRACTO PREDIOS POR PROPIETARIO', descripcion: 'Avaluo del ultimo ano vigente actualizado o pendiente por actualizar.' },
+  { ancla: 'const construirExtractoPrediosPorPropietario', titulo: 'PREDIAL - FILAS EXTRACTO PREDIOS PROPIETARIO', descripcion: 'Detalle de inmuebles, avaluo y predial pendiente por participacion del propietario.' },
+  { ancla: 'const formatearCeldaPredialPendienteExtractoPropietario', titulo: 'PREDIAL - FORMATO CELDA PREDIAL PENDIENTE', descripcion: 'Muestra Por actualizar o el saldo adeudado en extracto de predios.' },
+  { ancla: 'const formatearCeldaAvaluoExtractoPropietario', titulo: 'PREDIAL - FORMATO CELDA AVALUO EXTRACTO PROPIETARIO', descripcion: 'Muestra Pendiente por actualizar o el avaluo del ultimo ano vigente actualizado.' },
   { ancla: 'const obtenerIdDepositanteContrato', titulo: 'DEPOSITANTES - IDENTIFICACION Y DATOS', descripcion: 'Depositantes, documentos asociados y predios vinculados.' },
   { ancla: 'const obtenerDepositantesRegistrados', titulo: 'DEPOSITANTES - REGISTRO Y CONSULTA', descripcion: 'Listado y busqueda de depositantes registrados.' },
   { ancla: 'const normalizarPrediosJerarquia', titulo: 'PREDIOS - JERARQUIA Y NORMALIZACION', descripcion: 'Estructura organizacional y normalizacion de predios.' },
@@ -157,6 +162,7 @@ const appJsx = [
   { ancla: 'const generarIdPropietario', titulo: 'PROPIETARIOS Y DOCUMENTOS - IDs Y ADJUNTOS', descripcion: 'Generacion de IDs, limites de archivo y adjuntos de registro.' },
   { ancla: 'const leerArchivoComoDataUrl', titulo: 'DOCUMENTOS - LECTURA Y TIPOS DE ARCHIVO', descripcion: 'Lectura de archivos y catalogo de tipos documentales.' },
   { ancla: 'const ESTILOS_IMPRESION_UNA_CARTA', titulo: 'IMPRESION - ESTILOS UNA CARTA', descripcion: 'CSS embebido para impresion en una carta.' },
+  { ancla: 'const ESTILOS_IMPRESION_EXTRACTO_PREDIOS_PROPIETARIO', titulo: 'IMPRESION - EXTRACTO PREDIOS POR PROPIETARIO', descripcion: 'Plantilla dedicada en carta, independiente del visor de extractos general.' },
   { ancla: 'const ESTILOS_RECIBO_MEDIA_CARTA', titulo: 'IMPRESION - RECIBO MEDIA CARTA', descripcion: 'CSS embebido para recibos en media carta.' },
   { ancla: 'const ESTILOS_EXTRACTO_IMPRESION_BANCARIO', titulo: 'IMPRESION - EXTRACTO BANCARIO', descripcion: 'Estilos de extractos con formato bancario.' },
   { ancla: 'const ESTILOS_IMPRESION_VENTANA_BANCARIA', titulo: 'IMPRESION - VENTANA BANCARIA', descripcion: 'Estilos para impresion en ventana emergente.' },
@@ -241,7 +247,8 @@ const appJsx = [
   { ancla: 'const crearUsuarioSistema =', titulo: 'ACCIONES - CREAR USUARIO DEL SISTEMA', descripcion: 'Alta de usuarios con rol y permisos.' },
   { ancla: 'const imprimirVentanaUnaCarta', titulo: 'IMPRESION - VENTANA UNA CARTA', descripcion: 'Abre y dispara impresion en ventana emergente.' },
   { ancla: 'const imprimirReciboPagoArriendo =', titulo: 'IMPRESION - RECIBO PAGO ARRIENDO', descripcion: 'Genera HTML e imprime recibo de arriendo.' },
-  { ancla: 'const imprimirExtractoCard =', titulo: 'IMPRESION - EXTRACTO DESDE CARD', descripcion: 'Impresion de extractos desde tarjeta del panel.' },
+  { ancla: 'const construirHtmlImpresionExtractoPrediosPropietario', titulo: 'IMPRESION - EXTRACTO PREDIOS PROPIETARIO (HTML)', descripcion: 'Genera la plantilla de impresion desde los datos del extracto.' },
+  { ancla: 'const abrirVisorImpresionExtractoPrediosPropietario', titulo: 'IMPRESION - VISOR EXTRACTO PREDIOS PROPIETARIO', descripcion: 'Modal e impresion dedicada en carta para predios por propietario.' },
 ]
 
 const appCss = [
@@ -265,6 +272,7 @@ const appCss = [
   { ancla: '/* MENÚ LATERAL DESPLEGABLE */', titulo: 'MENU LATERAL DESPLEGABLE MOVIL', descripcion: 'Menu hamburguesa y barra superior movil.', reemplazar: true },
   { ancla: '/* VISOR E IMPRESIÓN DE RECIBOS', titulo: 'VISOR E IMPRESION DE RECIBOS', descripcion: 'Modal de recibos en media carta.', reemplazar: true },
   { ancla: '/* VISOR E IMPRESIÓN DE EXTRACTOS', titulo: 'VISOR E IMPRESION DE EXTRACTOS', descripcion: 'Modal de extractos en carta.', reemplazar: true },
+  { ancla: '/* VISOR E IMPRESION - EXTRACTO PREDIOS POR PROPIETARIO', titulo: 'VISOR E IMPRESION - EXTRACTO PREDIOS POR PROPIETARIO', descripcion: 'Modal e impresion dedicada en carta (plantilla propia).', reemplazar: true },
   { ancla: '/* TABLA UNIDADES DE NEGOCIO */', titulo: 'TABLA UNIDADES DE NEGOCIO', descripcion: 'Listado y detalle de unidades.', reemplazar: true },
   { ancla: '.predial-abono-resumen {', titulo: 'IMPUESTO PREDIAL - RESUMEN DE ABONO', descripcion: 'Panel resumen al registrar abono predial.' },
   { ancla: '.bloque-condiciones-pago-inh {', titulo: 'CONDICIONES DE PAGO INH - BLOQUE', descripcion: 'Contenedor de condiciones de pago en formularios.' },

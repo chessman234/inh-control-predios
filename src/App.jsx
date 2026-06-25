@@ -449,16 +449,101 @@ const contarVigenciasSinActualizarPredial = (extracto) =>
     (movimiento) => movimiento.estadoMovimiento === 'Falta actualizar valor'
   ).length
 
-const obtenerSaldoPredialPendientePredio = (
+// =============================================================================
+// PREDIAL - EXTRACTO PREDIOS POR PROPIETARIO
+// Saldo pendiente y vigencias sin actualizar para la columna Predial pendiente.
+// =============================================================================
+
+const obtenerPredialPendientePredioExtracto = (
   codigoPredio,
   extractosPrediales = [],
   contratosDeposito = []
 ) => {
-  if (!predioRequiereInformacionPredial(codigoPredio, contratosDeposito)) return 0
+  if (!predioRequiereInformacionPredial(codigoPredio, contratosDeposito)) {
+    return { aplicaPredial: false, requiereActualizacion: false, saldoPendiente: 0 }
+  }
 
   const extracto = extractosPrediales.find((item) => item.predio?.codigo === codigoPredio)
-  return Math.max(0, Number(extracto?.resumen?.saldoPendiente || 0))
+  if (!extracto) {
+    return { aplicaPredial: true, requiereActualizacion: true, saldoPendiente: 0 }
+  }
+
+  const requiereActualizacion =
+    extractoTieneVigenciasSinActualizar(extracto) ||
+    extracto.resumen?.estadoGeneral === 'Pendiente de actualización'
+  const saldoPendiente = Math.max(0, Number(extracto.resumen?.saldoPendiente || 0))
+
+  return { aplicaPredial: true, requiereActualizacion, saldoPendiente }
 }
+
+// =============================================================================
+// PREDIAL - AVALUO EN EXTRACTO PREDIOS POR PROPIETARIO
+// Avaluo del ultimo ano vigente actualizado o pendiente por actualizar.
+// =============================================================================
+
+const obtenerAvaluoPredioExtractoPropietario = (
+  predio,
+  extractosPrediales = [],
+  valoresPrediales = [],
+  contratosDeposito = []
+) => {
+  const codigoPredio = predio.codigo
+  const predialInfo = obtenerPredialPendientePredioExtracto(
+    codigoPredio,
+    extractosPrediales,
+    contratosDeposito
+  )
+
+  if (!predialInfo.aplicaPredial) {
+    const avaluo = Number(predio.avaluoCatastral || 0)
+    if (!avaluo) {
+      return { requiereActualizacion: true, valorAvaluoTotal: 0, anioAvaluo: null }
+    }
+    return { requiereActualizacion: false, valorAvaluoTotal: avaluo, anioAvaluo: null }
+  }
+
+  if (predialInfo.requiereActualizacion) {
+    return { requiereActualizacion: true, valorAvaluoTotal: 0, anioAvaluo: null }
+  }
+
+  const extracto = extractosPrediales.find((item) => item.predio?.codigo === codigoPredio)
+  const ultimoAnioActualizado = (extracto?.movimientos || [])
+    .filter((movimiento) => movimiento.estadoMovimiento !== 'Falta actualizar valor')
+    .sort((a, b) => Number(b.anio) - Number(a.anio))[0]
+
+  if (!ultimoAnioActualizado) {
+    return { requiereActualizacion: true, valorAvaluoTotal: 0, anioAvaluo: null }
+  }
+
+  const valorAnual = valoresPrediales.find(
+    (item) =>
+      item.codigoPredio === codigoPredio &&
+      Number(item.anio) === Number(ultimoAnioActualizado.anio)
+  )
+
+  const valorAvaluoTotal = Number(
+    valorAnual?.valorAvaluoCatastral ?? predio.avaluoCatastral ?? 0
+  )
+
+  if (!valorAvaluoTotal) {
+    return {
+      requiereActualizacion: true,
+      valorAvaluoTotal: 0,
+      anioAvaluo: ultimoAnioActualizado.anio,
+    }
+  }
+
+  return {
+    requiereActualizacion: false,
+    valorAvaluoTotal,
+    anioAvaluo: ultimoAnioActualizado.anio,
+  }
+}
+
+// =============================================================================
+// PREDIAL - FILAS EXTRACTO PREDIOS PROPIETARIO
+// Detalle de inmuebles, avaluo y predial pendiente por participacion del propietario.
+// =============================================================================
 
 const construirExtractoPrediosPorPropietario = ({
   idPropietario,
@@ -466,6 +551,7 @@ const construirExtractoPrediosPorPropietario = ({
   predios = [],
   unidadesNegocio = [],
   extractosPrediales = [],
+  valoresPrediales = [],
   contratosDeposito = [],
 }) => {
   const relaciones = predioPropietarios.filter((rel) => rel.idPropietario === idPropietario)
@@ -480,14 +566,20 @@ const construirExtractoPrediosPorPropietario = ({
         unidadesNegocio.filter((unidad) => unidad.codigoPredio === predio.codigo).length ||
         Number(predio.cantidadUnidades || 0) ||
         0
-      const predialTotalPendiente = obtenerSaldoPredialPendientePredio(
+      const predialExtracto = obtenerPredialPendientePredioExtracto(
         predio.codigo,
         extractosPrediales,
         contratosDeposito
       )
-      const predialPendiente = Math.round(predialTotalPendiente * (porcentaje / 100))
-      const avaluoTotal = Number(predio.avaluoCatastral || 0)
-      const valorAvaluo = Math.round(avaluoTotal * (porcentaje / 100))
+      const saldoPredialPredio = predialExtracto.saldoPendiente
+      const predialPendiente = Math.round(saldoPredialPredio * (porcentaje / 100))
+      const avaluoExtracto = obtenerAvaluoPredioExtractoPropietario(
+        predio,
+        extractosPrediales,
+        valoresPrediales,
+        contratosDeposito
+      )
+      const valorAvaluo = Math.round(avaluoExtracto.valorAvaluoTotal * (porcentaje / 100))
       const direccion = [predio.direccion, predio.barrio, predio.ciudad].filter(Boolean).join(' · ')
 
       return {
@@ -496,8 +588,12 @@ const construirExtractoPrediosPorPropietario = ({
         direccion,
         cantidadUnidades,
         porcentaje,
+        aplicaPredial: predialExtracto.aplicaPredial,
+        requiereActualizacionPredial:
+          predialExtracto.aplicaPredial && predialExtracto.requiereActualizacion,
+        requiereActualizacionAvaluo: avaluoExtracto.requiereActualizacion,
+        anioAvaluo: avaluoExtracto.anioAvaluo,
         predialPendiente,
-        predialTotalPendiente,
         valorAvaluo,
       }
     })
@@ -507,13 +603,11 @@ const construirExtractoPrediosPorPropietario = ({
     (acc, fila) => ({
       cantidadUnidades: acc.cantidadUnidades + fila.cantidadUnidades,
       predialPendiente: acc.predialPendiente + fila.predialPendiente,
-      predialTotalPendiente: acc.predialTotalPendiente + fila.predialTotalPendiente,
       valorAvaluo: acc.valorAvaluo + fila.valorAvaluo,
     }),
     {
       cantidadUnidades: 0,
       predialPendiente: 0,
-      predialTotalPendiente: 0,
       valorAvaluo: 0,
     }
   )
@@ -4545,6 +4639,51 @@ const formatearValorMoneda = (valor) =>
     currency: 'COP',
     maximumFractionDigits: 0,
   }).format(Number(valor || 0))
+
+// =============================================================================
+// PREDIAL - FORMATO CELDA PREDIAL PENDIENTE
+// Muestra Por actualizar o el saldo adeudado en extracto de predios.
+// =============================================================================
+
+const formatearCeldaPredialPendienteExtractoPropietario = ({ requiereActualizacion, monto }) =>
+  requiereActualizacion ? 'Por actualizar' : formatearValorMoneda(monto)
+
+const formatearTotalPredialPendienteExtractoPropietario = (filas, campoMonto) => {
+  const filasPredial = filas.filter((fila) => fila.aplicaPredial)
+  if (!filasPredial.length) return formatearValorMoneda(0)
+  if (filasPredial.every((fila) => fila.requiereActualizacionPredial)) {
+    return 'Por actualizar'
+  }
+
+  const total = filasPredial.reduce(
+    (acc, fila) =>
+      acc + (fila.requiereActualizacionPredial ? 0 : Number(fila[campoMonto] || 0)),
+    0
+  )
+  return formatearValorMoneda(total)
+}
+
+// =============================================================================
+// PREDIAL - FORMATO CELDA AVALUO EXTRACTO PROPIETARIO
+// Muestra Pendiente por actualizar o el avaluo del ultimo ano vigente actualizado.
+// =============================================================================
+
+const formatearCeldaAvaluoExtractoPropietario = ({ requiereActualizacion, monto }) =>
+  requiereActualizacion ? 'Pendiente por actualizar' : formatearValorMoneda(monto)
+
+const formatearTotalAvaluoExtractoPropietario = (filas) => {
+  if (!filas.length) return formatearValorMoneda(0)
+  if (filas.every((fila) => fila.requiereActualizacionAvaluo)) {
+    return 'Pendiente por actualizar'
+  }
+
+  const total = filas.reduce(
+    (acc, fila) =>
+      acc + (fila.requiereActualizacionAvaluo ? 0 : Number(fila.valorAvaluo || 0)),
+    0
+  )
+  return formatearValorMoneda(total)
+}
 
 const obtenerDepositariosLiquidacion = (
   contratosDeposito,
@@ -9808,6 +9947,7 @@ const CONCEPTOS_RECIBO_ARRIENDO = [
 
 const RECIBO_IMPRESION_ROOT_ID = 'recibo-impresion-root'
 const EXTRACTO_IMPRESION_ROOT_ID = 'extracto-impresion-root'
+const EXTRACTO_PREDIOS_IMPRESION_ROOT_ID = 'extracto-predios-impresion-root'
 
 const escapeHtml = (texto) =>
   String(texto ?? '')
@@ -9840,12 +9980,26 @@ const ajustarImpresionUnaCarta = (elemento) => {
   if (!elemento) return
   reiniciarEscalaImpresionUnaCarta(elemento)
 
-  const { alto } = obtenerAreaUtilCartaPx()
+  const { alto, ancho } = obtenerAreaUtilCartaPx()
   const altoContenido = elemento.scrollHeight
-  if (altoContenido <= alto) return
+  const tablaAncha = elemento.querySelector('table, .extracto-card, .extracto-predios-propietario-print')
+  const anchoContenido = Math.max(
+    elemento.scrollWidth,
+    elemento.offsetWidth,
+    tablaAncha?.scrollWidth || 0,
+    tablaAncha?.offsetWidth || 0
+  )
 
-  let escala = (alto / altoContenido) * 0.98
-  escala = Math.max(0.42, Math.min(1, escala))
+  const necesitaAlto = altoContenido > alto
+  const necesitaAncho = anchoContenido > ancho
+  if (!necesitaAlto && !necesitaAncho) return
+
+  const escalaAlto = necesitaAlto ? (alto / altoContenido) * 0.98 : 1
+  const escalaAncho = necesitaAncho ? (ancho / anchoContenido) * 0.98 : 1
+  let escala = Math.min(escalaAlto, escalaAncho, 1)
+  escala = Math.max(0.35, escala)
+
+  if (escala >= 0.999) return
 
   elemento.classList.add('impresion-una-carta-escala')
   elemento.style.transform = `scale(${escala})`
@@ -9878,7 +10032,7 @@ const ajustarImpresionUnaCartaPorPaginas = (contenedor) => {
     reiniciarEscalaImpresionUnaCarta(contenido)
     pagina.style.height = `${alto}px`
     pagina.style.maxHeight = `${alto}px`
-    pagina.style.width = '100%'
+    pagina.style.width = `${ancho}px`
     pagina.style.maxWidth = `${ancho}px`
     pagina.style.overflow = 'hidden'
     pagina.style.position = 'relative'
@@ -10089,6 +10243,25 @@ const ESTILOS_IMPRESION_UNA_CARTA = `
     .impresion-una-carta-escala {
       transform-origin: top left !important;
     }
+    .extracto-predios-propietario-pagina-impresion {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      overflow: hidden !important;
+    }
+    .extracto-predios-impresion-pagina {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      overflow: hidden !important;
+    }
+    .extracto-predios-propietario-pagina-impresion .extracto-predios-propietario-print,
+    .extracto-predios-propietario-pagina-impresion .extracto-predios-propietario-tabla tr {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
     .extracto-bloque { margin-bottom: 5px !important; }
     .extracto-hero, .extracto-header {
       margin-bottom: 8px !important;
@@ -10098,6 +10271,155 @@ const ESTILOS_IMPRESION_UNA_CARTA = `
     .predial-anio-recuadro { margin-bottom: 5px !important; }
     table { margin-bottom: 4px !important; }
     th, td { padding: 2px 3px !important; }
+  }
+`
+
+// =============================================================================
+// IMPRESION - EXTRACTO PREDIOS POR PROPIETARIO
+// Plantilla dedicada en carta, independiente del visor de extractos general.
+// =============================================================================
+
+const ESTILOS_IMPRESION_EXTRACTO_PREDIOS_PROPIETARIO = `
+  * { box-sizing: border-box; }
+  @page { size: letter portrait; margin: 10mm 8mm; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .extracto-predios-impresion-contenido {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+    font-size: 8pt;
+    line-height: 1.25;
+    color: #000;
+    background: #fff;
+  }
+  .extracto-predios-impresion-carta {
+    width: 100%;
+    max-width: 100%;
+  }
+  .extracto-predios-impresion-encabezado {
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .extracto-predios-impresion-titulo {
+    margin: 0 0 6px;
+    font-size: 11pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #000;
+  }
+  .extracto-predios-impresion-meta {
+    margin: 0 0 3px;
+    font-size: 8pt;
+    line-height: 1.35;
+    color: #000;
+  }
+  .extracto-predios-impresion-meta strong {
+    font-weight: 700;
+  }
+  .extracto-predios-impresion-subtitulo {
+    margin: 0 0 6px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #000;
+  }
+  .extracto-predios-impresion-tabla {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 7pt;
+    line-height: 1.2;
+  }
+  .extracto-predios-impresion-tabla th {
+    border: 1px solid #000;
+    padding: 4px 2px;
+    font-size: 6.5pt;
+    font-weight: 700;
+    text-align: left;
+    vertical-align: bottom;
+    background: #ececec;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    hyphens: auto;
+  }
+  .extracto-predios-impresion-tabla td {
+    border: 1px solid #bbb;
+    padding: 3px 2px;
+    vertical-align: top;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    color: #000;
+  }
+  .extracto-predios-impresion-tabla .col-num { width: 5%; text-align: center; }
+  .extracto-predios-impresion-tabla .col-inmueble { width: 29%; }
+  .extracto-predios-impresion-tabla .col-unidades { width: 7%; text-align: center; }
+  .extracto-predios-impresion-tabla .col-porcentaje { width: 7%; text-align: center; }
+  .extracto-predios-impresion-tabla .col-predial { width: 26%; text-align: right; }
+  .extracto-predios-impresion-tabla .col-avaluo { width: 26%; text-align: right; }
+  .extracto-predios-impresion-tabla th.col-num,
+  .extracto-predios-impresion-tabla th.col-unidades,
+  .extracto-predios-impresion-tabla th.col-porcentaje {
+    text-align: center;
+  }
+  .extracto-predios-impresion-tabla th.col-predial,
+  .extracto-predios-impresion-tabla th.col-avaluo {
+    text-align: right;
+  }
+  .extracto-predios-impresion-inmueble-codigo {
+    display: block;
+    font-weight: 700;
+    font-size: 7pt;
+    margin-bottom: 1px;
+  }
+  .extracto-predios-impresion-inmueble-dir {
+    display: block;
+    font-size: 6.5pt;
+    color: #333;
+  }
+  .extracto-predios-impresion-tabla tfoot td {
+    border: 1px solid #000;
+    border-top: 2px solid #000;
+    padding: 4px 2px;
+    font-weight: 700;
+    background: #f0f0f0;
+  }
+  .extracto-predios-impresion-tabla tfoot .col-predial,
+  .extracto-predios-impresion-tabla tfoot .col-avaluo {
+    text-align: right;
+  }
+  .extracto-predios-impresion-vacio {
+    text-align: center;
+    padding: 10px;
+    font-style: italic;
+  }
+  @media print {
+    .extracto-predios-impresion-contenido,
+    .extracto-predios-impresion-carta,
+    .extracto-predios-impresion-tabla {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    .extracto-predios-impresion-tabla th,
+    .extracto-predios-impresion-tabla td {
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow-wrap: anywhere !important;
+    }
   }
 `
 
@@ -10642,8 +10964,95 @@ const ESTILOS_EXTRACTO_IMPRESION_BANCARIO = `
   .extracto-predios-propietario-print .extracto-predios-propietario-totales td {
     background: #fff !important;
     border-top: 1px solid #000 !important;
-    font-size: 8pt !important;
+    font-size: 7pt !important;
     font-weight: 700 !important;
+    padding: 2px 3px !important;
+  }
+  .extracto-predios-propietario-pagina-impresion .extracto-card-moderno::before {
+    height: 3px !important;
+    margin-bottom: 6px !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-encabezado {
+    margin-bottom: 6px !important;
+    page-break-inside: avoid !important;
+  }
+  .extracto-predios-propietario-print .form-description {
+    font-size: 8pt !important;
+    line-height: 1.25 !important;
+    color: #000 !important;
+  }
+  .extracto-predios-propietario-print .extracto-table-panel {
+    border: 1px solid #ccc !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+  .extracto-predios-propietario-print .extracto-table-panel-head {
+    padding: 4px 8px !important;
+    background: #fff !important;
+    border-bottom: 1px solid #ccc !important;
+  }
+  .extracto-predios-propietario-print .extracto-table-panel-head span {
+    font-size: 7pt !important;
+    margin-bottom: 0 !important;
+    color: #000 !important;
+    letter-spacing: 0.05em !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla {
+    font-size: 6.5pt !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th {
+    background: #fff !important;
+    color: #000 !important;
+    border-bottom: 1px solid #000 !important;
+    padding: 3px 2px !important;
+    font-size: 6pt !important;
+    line-height: 1.15 !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td {
+    padding: 2px 2px !important;
+    font-size: 6.5pt !important;
+    line-height: 1.2 !important;
+    border-bottom: 1px solid #e5e5e5 !important;
+    color: #000 !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-direccion strong {
+    font-size: 6.5pt !important;
+    color: #000 !important;
+    margin-bottom: 1px !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-direccion small {
+    font-size: 6pt !important;
+    color: #444 !important;
+    line-height: 1.15 !important;
+  }
+  .extracto-predios-propietario-print .col-monto-extracto {
+    font-size: 6pt !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th,
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+  .extracto-predios-propietario-print .col-cantidad-unidades,
+  .extracto-predios-propietario-print .col-porcentaje-propietario {
+    white-space: normal !important;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+  }
+  .extracto-predios-propietario-print .extracto-table-scroll,
+  .extracto-predios-propietario-print .simple-table-wrapper,
+  .extracto-predios-propietario-print .extracto-table-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
   .extracto-kpi-accion, .no-print, .extracto-actions-moderno { display: none !important; }
 `
@@ -11629,28 +12038,42 @@ const ESTILOS_EXTRACTO_IMPRESION_CARTA = `
     font-size: 6pt;
     padding: 3px 7px;
   }
+  .extracto-predios-propietario-pagina-impresion {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
   .extracto-predios-propietario-print {
     width: 100%;
     page-break-inside: avoid;
   }
+  .extracto-predios-propietario-print .extracto-card-moderno::before {
+    margin-bottom: 8px;
+  }
   .extracto-predios-propietario-print .extracto-predios-propietario-encabezado {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     page-break-inside: avoid;
   }
   .extracto-predios-propietario-print .form-description {
     margin: 0;
-    font-size: 9pt;
+    font-size: 8.5pt;
     color: #1e3a5f;
-    line-height: 1.35;
+    line-height: 1.3;
+  }
+  .extracto-predios-propietario-print .extracto-table-panel {
+    margin: 0;
+  }
+  .extracto-predios-propietario-print .extracto-table-panel-head {
+    padding: 5px 10px;
   }
   .extracto-predios-propietario-print .extracto-table-panel-head span {
     display: block;
-    font-size: 8.5pt;
+    font-size: 7.5pt;
     font-weight: 800;
     color: #06244d;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-bottom: 8px;
+    margin-bottom: 0;
   }
   .extracto-predios-propietario-print .extracto-table-scroll,
   .extracto-predios-propietario-print .simple-table-wrapper {
@@ -11661,39 +12084,71 @@ const ESTILOS_EXTRACTO_IMPRESION_CARTA = `
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    font-size: 7pt;
+    font-size: 6.5pt;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla thead {
+    display: table-header-group;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla tfoot {
+    display: table-footer-group;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th:nth-child(1),
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td:nth-child(1) {
+    width: 4%;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th:nth-child(2),
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td:nth-child(2) {
+    width: 28%;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th:nth-child(3),
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td:nth-child(3) {
+    width: 9%;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th:nth-child(4),
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td:nth-child(4) {
+    width: 7%;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th:nth-child(5),
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td:nth-child(5) {
+    width: 24%;
+  }
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla th:nth-child(6),
+  .extracto-predios-propietario-print .extracto-predios-propietario-tabla td:nth-child(6) {
+    width: 28%;
   }
   .extracto-predios-propietario-print .extracto-predios-propietario-tabla th {
     background: linear-gradient(180deg, #0a3568 0%, #06244d 100%);
     color: #f8fafc;
-    padding: 6px 4px;
-    font-size: 6.5pt;
+    padding: 4px 3px;
+    font-size: 6pt;
     font-weight: 800;
     text-align: left;
     border-bottom: 2px solid #d7a125;
     white-space: normal;
     word-break: break-word;
+    line-height: 1.15;
   }
   .extracto-predios-propietario-print .extracto-predios-propietario-tabla td {
     border-bottom: 1px solid #e8eef5;
-    padding: 5px 4px;
-    font-size: 7pt;
+    padding: 3px 3px;
+    font-size: 6.5pt;
     color: #1f2937;
     vertical-align: top;
     white-space: normal;
     word-break: break-word;
+    line-height: 1.2;
   }
   .extracto-predios-propietario-print .extracto-predios-propietario-direccion strong {
     display: block;
-    font-size: 7pt;
+    font-size: 6.5pt;
     color: #06244d;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
   }
   .extracto-predios-propietario-print .extracto-predios-propietario-direccion small {
     display: block;
-    font-size: 6.5pt;
+    font-size: 6pt;
     color: #64748b;
-    line-height: 1.25;
+    line-height: 1.15;
   }
   .extracto-predios-propietario-print .col-cantidad-unidades,
   .extracto-predios-propietario-print .col-porcentaje-propietario {
@@ -11702,11 +12157,21 @@ const ESTILOS_EXTRACTO_IMPRESION_CARTA = `
   .extracto-predios-propietario-print .col-monto-extracto {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    font-size: 6pt;
+    line-height: 1.15;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .extracto-predios-propietario-print .col-cantidad-unidades,
+  .extracto-predios-propietario-print .col-porcentaje-propietario {
+    white-space: normal;
   }
   .extracto-predios-propietario-print .extracto-predios-propietario-totales td {
     background: #eef4fb;
     border-top: 2px solid #c7d7eb;
     font-weight: 800;
+    padding: 3px 3px;
   }
   @media print {
     .extracto-header,
@@ -24409,6 +24874,7 @@ alert('Pago de servicio público guardado correctamente.')
         predios,
         unidadesNegocio,
         extractosPrediales,
+        valoresPrediales,
         contratosDeposito,
       })
     : null
@@ -31401,7 +31867,12 @@ const resultadosBusqueda = textoBusqueda
                   <button
                     type="button"
                     className="btn-gold"
-                    onClick={(evento) => imprimirExtractoPrediosPorPropietario(evento.currentTarget)}
+                    onClick={() =>
+                      imprimirExtractoPrediosPorPropietario({
+                        propietario: propietarioExtractoPredios,
+                        extracto: extractoPrediosPorPropietarioActivo,
+                      })
+                    }
                   >
                     Imprimir extracto
                   </button>
@@ -31433,7 +31904,6 @@ const resultadosBusqueda = textoBusqueda
                           <th className="col-cantidad-unidades">Cantidad de unidades</th>
                           <th className="col-porcentaje-propietario">% del inmueble</th>
                           <th className="col-monto-extracto">Predial pendiente</th>
-                          <th className="col-monto-extracto">Predial total pendiente</th>
                           <th className="col-monto-extracto">Valor avalúo</th>
                         </tr>
                       </thead>
@@ -31448,20 +31918,23 @@ const resultadosBusqueda = textoBusqueda
                             <td className="col-cantidad-unidades">{fila.cantidadUnidades}</td>
                             <td className="col-porcentaje-propietario">{fila.porcentaje}%</td>
                             <td className="col-monto-extracto">
-                              {formatearDinero(fila.predialPendiente)}
+                              {formatearCeldaPredialPendienteExtractoPropietario({
+                                requiereActualizacion: fila.requiereActualizacionPredial,
+                                monto: fila.predialPendiente,
+                              })}
                             </td>
                             <td className="col-monto-extracto">
-                              {formatearDinero(fila.predialTotalPendiente)}
-                            </td>
-                            <td className="col-monto-extracto">
-                              {formatearDinero(fila.valorAvaluo)}
+                              {formatearCeldaAvaluoExtractoPropietario({
+                                requiereActualizacion: fila.requiereActualizacionAvaluo,
+                                monto: fila.valorAvaluo,
+                              })}
                             </td>
                           </tr>
                         ))}
 
                         {extractoPrediosPorPropietarioActivo.filas.length === 0 && (
                           <tr>
-                            <td colSpan="7">
+                            <td colSpan="6">
                               Este propietario no tiene inmuebles vinculados en el sistema.
                             </td>
                           </tr>
@@ -31481,22 +31954,16 @@ const resultadosBusqueda = textoBusqueda
                             <td className="col-porcentaje-propietario">—</td>
                             <td className="col-monto-extracto">
                               <strong>
-                                {formatearDinero(
-                                  extractoPrediosPorPropietarioActivo.totales.predialPendiente
+                                {formatearTotalPredialPendienteExtractoPropietario(
+                                  extractoPrediosPorPropietarioActivo.filas,
+                                  'predialPendiente'
                                 )}
                               </strong>
                             </td>
                             <td className="col-monto-extracto">
                               <strong>
-                                {formatearDinero(
-                                  extractoPrediosPorPropietarioActivo.totales.predialTotalPendiente
-                                )}
-                              </strong>
-                            </td>
-                            <td className="col-monto-extracto">
-                              <strong>
-                                {formatearDinero(
-                                  extractoPrediosPorPropietarioActivo.totales.valorAvaluo
+                                {formatearTotalAvaluoExtractoPropietario(
+                                  extractoPrediosPorPropietarioActivo.filas
                                 )}
                               </strong>
                             </td>
@@ -42008,29 +42475,169 @@ const cerrarExtractoImpresion = () => {
   if (root) root.innerHTML = ''
 }
 
-const imprimirExtractoPrediosPorPropietario = (boton) => {
-  const panel = boton?.closest?.('.extracto-predios-propietario-panel')
-  const bloque = panel?.querySelector?.('.extracto-predios-propietario-print')
+// =============================================================================
+// IMPRESION - EXTRACTO PREDIOS PROPIETARIO (HTML)
+// Genera la plantilla de impresion desde los datos del extracto.
+// =============================================================================
 
-  if (!bloque) {
+const formatearFechaImpresionExtractoPredios = () =>
+  new Date().toLocaleDateString('es-CO', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
+// =============================================================================
+// IMPRESION - EXTRACTO PREDIOS PROPIETARIO (HTML)
+// Genera la plantilla de impresion desde los datos del extracto.
+// =============================================================================
+
+const construirHtmlImpresionExtractoPrediosPropietario = (propietario, extracto) => {
+  if (!propietario || !extracto) return ''
+
+  const filasHtml = extracto.filas.length
+    ? extracto.filas
+        .map(
+          (fila) => `
+        <tr>
+          <td class="col-num">${escapeHtml(String(fila.item))}</td>
+          <td class="col-inmueble">
+            <span class="extracto-predios-impresion-inmueble-codigo">${escapeHtml(fila.codigoPredio)}</span>
+            <span class="extracto-predios-impresion-inmueble-dir">${escapeHtml(fila.direccion)}</span>
+          </td>
+          <td class="col-unidades">${escapeHtml(String(fila.cantidadUnidades))}</td>
+          <td class="col-porcentaje">${escapeHtml(String(fila.porcentaje))}%</td>
+          <td class="col-predial">${escapeHtml(
+            formatearCeldaPredialPendienteExtractoPropietario({
+              requiereActualizacion: fila.requiereActualizacionPredial,
+              monto: fila.predialPendiente,
+            })
+          )}</td>
+          <td class="col-avaluo">${escapeHtml(
+            formatearCeldaAvaluoExtractoPropietario({
+              requiereActualizacion: fila.requiereActualizacionAvaluo,
+              monto: fila.valorAvaluo,
+            })
+          )}</td>
+        </tr>`
+        )
+        .join('')
+    : `<tr><td colspan="6" class="extracto-predios-impresion-vacio">Este propietario no tiene inmuebles vinculados en el sistema.</td></tr>`
+
+  const pieHtml =
+    extracto.filas.length > 0
+      ? `<tfoot>
+          <tr>
+            <td colspan="2"><strong>Totales</strong></td>
+            <td class="col-unidades"><strong>${escapeHtml(String(extracto.totales.cantidadUnidades))}</strong></td>
+            <td class="col-porcentaje">—</td>
+            <td class="col-predial"><strong>${escapeHtml(
+              formatearTotalPredialPendienteExtractoPropietario(extracto.filas, 'predialPendiente')
+            )}</strong></td>
+            <td class="col-avaluo"><strong>${escapeHtml(
+              formatearTotalAvaluoExtractoPropietario(extracto.filas)
+            )}</strong></td>
+          </tr>
+        </tfoot>`
+      : ''
+
+  return `
+    <div class="impresion-una-carta-pagina extracto-predios-impresion-pagina">
+      <div class="impresion-una-carta-contenido">
+        <div class="extracto-predios-impresion-carta">
+          <header class="extracto-predios-impresion-encabezado">
+            <h1 class="extracto-predios-impresion-titulo">Extracto de predios por propietario</h1>
+            <p class="extracto-predios-impresion-meta">
+              <strong>Propietario:</strong> ${escapeHtml(propietario.nombre)} —
+              ${escapeHtml(propietario.tipoDocumento || 'Documento')}
+              ${escapeHtml(propietario.numeroDocumento || '')}
+            </p>
+            <p class="extracto-predios-impresion-meta">
+              <strong>Fecha de impresión:</strong> ${escapeHtml(formatearFechaImpresionExtractoPredios())}
+            </p>
+          </header>
+          <p class="extracto-predios-impresion-subtitulo">Detalle de inmuebles</p>
+          <table class="extracto-predios-impresion-tabla">
+            <thead>
+              <tr>
+                <th class="col-num">Ítem</th>
+                <th class="col-inmueble">Inmueble</th>
+                <th class="col-unidades">Unid.</th>
+                <th class="col-porcentaje">%</th>
+                <th class="col-predial">Predial pendiente</th>
+                <th class="col-avaluo">Valor avalúo</th>
+              </tr>
+            </thead>
+            <tbody>${filasHtml}</tbody>
+            ${pieHtml}
+          </table>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+const cerrarImpresionExtractoPrediosPropietario = () => {
+  document.body.classList.remove('imprimiendo-extracto-predios-propietario')
+  const root = document.getElementById(EXTRACTO_PREDIOS_IMPRESION_ROOT_ID)
+  if (root) root.innerHTML = ''
+}
+
+// =============================================================================
+// IMPRESION - VISOR EXTRACTO PREDIOS PROPIETARIO
+// Modal e impresion dedicada en carta para predios por propietario.
+// =============================================================================
+
+const abrirVisorImpresionExtractoPrediosPropietario = (propietario, extracto) => {
+  if (!propietario || !extracto) {
+    alert('No hay datos del extracto para imprimir.')
+    return
+  }
+
+  const cuerpoHtml = construirHtmlImpresionExtractoPrediosPropietario(propietario, extracto)
+  const titulo = `Predios por propietario – ${propietario.nombre}`
+
+  let root = document.getElementById(EXTRACTO_PREDIOS_IMPRESION_ROOT_ID)
+  if (!root) {
+    root = document.createElement('div')
+    root.id = EXTRACTO_PREDIOS_IMPRESION_ROOT_ID
+    document.body.appendChild(root)
+  }
+
+  root.innerHTML = `
+    <div class="extracto-predios-impresion-modal">
+      <div class="extracto-predios-impresion-toolbar">
+        <strong>${escapeHtml(titulo)}</strong>
+        <div class="extracto-predios-impresion-botones">
+          <button type="button" class="btn-imprimir-extracto-predios">Imprimir</button>
+          <button type="button" class="btn-cerrar-extracto-predios">Cerrar</button>
+        </div>
+      </div>
+      <style>${ESTILOS_IMPRESION_EXTRACTO_PREDIOS_PROPIETARIO}${ESTILOS_IMPRESION_UNA_CARTA}</style>
+      <div class="extracto-predios-impresion-contenido">${cuerpoHtml}</div>
+    </div>
+  `
+
+  document.body.classList.add('imprimiendo-extracto-predios-propietario')
+
+  root.querySelector('.btn-imprimir-extracto-predios')?.addEventListener('click', () => {
+    ejecutarImpresionUnaCartaPorPaginas(() => root.querySelector('.extracto-predios-impresion-contenido'))
+  })
+  root.querySelector('.btn-cerrar-extracto-predios')?.addEventListener('click', cerrarImpresionExtractoPrediosPropietario)
+
+  const limpiarDespuesDeImprimir = () => {
+    window.removeEventListener('afterprint', limpiarDespuesDeImprimir)
+  }
+  window.addEventListener('afterprint', limpiarDespuesDeImprimir)
+}
+
+const imprimirExtractoPrediosPorPropietario = ({ propietario, extracto } = {}) => {
+  if (!propietario || !extracto) {
     alert('No se encontró el extracto para imprimir.')
     return
   }
 
-  const contenido = bloque.cloneNode(true)
-  contenido
-    .querySelectorAll('.no-print, .extracto-table-panel-head small')
-    .forEach((elemento) => elemento.remove())
-
-  const nombrePropietario =
-    panel
-      ?.querySelector('.extracto-predios-propietario-encabezado strong')
-      ?.textContent?.trim() || 'Propietario'
-
-  abrirVisorExtractoImpresion(
-    `Predios por propietario – ${nombrePropietario}`,
-    contenido.outerHTML
-  )
+  abrirVisorImpresionExtractoPrediosPropietario(propietario, extracto)
 }
 
 const abrirVisorExtractoImpresion = (titulo, cardHtml) => {

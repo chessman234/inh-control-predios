@@ -6122,6 +6122,139 @@ body.imprimiendo-extracto #extracto-impresion-root {
   background: #ffffff;
 }
 
+/* =============================================================================
+   VISOR E IMPRESION - EXTRACTO PREDIOS POR PROPIETARIO
+   Modal e impresion dedicada en carta (plantilla propia).
+   ============================================================================= */
+
+#extracto-predios-impresion-root {
+  position: fixed;
+  inset: 0;
+  z-index: 200001;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow: auto;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root {
+  display: flex;
+}
+
+.extracto-predios-impresion-modal {
+  width: min(100%, 8.5in);
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 28px 70px rgba(6, 36, 77, 0.35);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.extracto-predios-impresion-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #03152f 0%, #06244d 55%, #0a3568 100%);
+  color: #ffffff;
+}
+
+.extracto-predios-impresion-toolbar strong {
+  font-size: 14px;
+}
+
+.extracto-predios-impresion-botones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-imprimir-extracto-predios,
+.btn-cerrar-extracto-predios {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-imprimir-extracto-predios {
+  background: linear-gradient(135deg, #f2c14e 0%, #d7a125 100%);
+  color: #06244d;
+  box-shadow: 0 4px 14px rgba(242, 193, 78, 0.35);
+}
+
+.btn-cerrar-extracto-predios {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.extracto-predios-impresion-contenido {
+  padding: 12px;
+  background: #ffffff;
+}
+
+@media print {
+  body.imprimiendo-extracto-predios-propietario * {
+    visibility: hidden !important;
+  }
+
+  body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root,
+  body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root * {
+    visibility: visible !important;
+  }
+
+  body.imprimiendo-extracto-predios-propietario #root,
+  body.imprimiendo-extracto-predios-propietario .app,
+  body.imprimiendo-extracto-predios-propietario .sidebar,
+  body.imprimiendo-extracto-predios-propietario .floating-menu,
+  body.imprimiendo-extracto-predios-propietario .main,
+  body.imprimiendo-extracto-predios-propietario .hero-card,
+  body.imprimiendo-extracto-predios-propietario .panel,
+  body.imprimiendo-extracto-predios-propietario .extracts-container {
+    display: none !important;
+  }
+
+  body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    inset: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  body.imprimiendo-extracto-predios-propietario .extracto-predios-impresion-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body.imprimiendo-extracto-predios-propietario .extracto-predios-impresion-toolbar {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  body.imprimiendo-extracto-predios-propietario .extracto-predios-impresion-contenido {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body.imprimiendo-extracto-predios-propietario {
+    overflow: hidden !important;
+  }
+}
+
 @media print {
   body.imprimiendo-extracto * {
     visibility: hidden !important;
@@ -9535,6 +9668,25 @@ body.imprimiendo-extracto #extracto-impresion-root {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+body.imprimiendo-extracto .extracto-predios-propietario-tabla th,
+body.imprimiendo-extracto .extracto-predios-propietario-tabla td,
+body.imprimiendo-extracto .extracto-predios-propietario-tabla .col-monto-extracto,
+body.imprimiendo-extracto .extracto-predios-propietario-tabla .col-cantidad-unidades,
+body.imprimiendo-extracto .extracto-predios-propietario-tabla .col-porcentaje-propietario {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+body.imprimiendo-extracto .extracto-predios-propietario-print,
+body.imprimiendo-extracto .extracto-predios-propietario-print .extracto-table-panel,
+body.imprimiendo-extracto .extracto-predios-propietario-print .extracto-table-scroll,
+body.imprimiendo-extracto .extracto-predios-propietario-print .extracto-predios-propietario-tabla {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .extracto-predios-propietario-totales td {
