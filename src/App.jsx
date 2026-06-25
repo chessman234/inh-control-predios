@@ -1807,14 +1807,27 @@ const consolidarLiquidacionesDepositoPorMes = (liquidaciones = []) => {
 const encontrarLiquidacionDeposito = (
   liquidaciones = [],
   { idContratoDeposito, mes, idPropietario, claveUnidad = '' }
-) =>
-  (liquidaciones || []).find(
+) => {
+  const candidatas = (liquidaciones || []).filter(
     (item) =>
       item.idContratoDeposito === idContratoDeposito &&
-      item.mes === mes &&
-      item.idPropietario === idPropietario &&
-      (item.claveUnidad || '') === (claveUnidad || '')
+      String(item.mes) === String(mes) &&
+      String(item.idPropietario) === String(idPropietario)
   )
+
+  const exacta = candidatas.find((item) => (item.claveUnidad || '') === (claveUnidad || ''))
+  if (exacta) return exacta
+
+  return (
+    candidatas.find((item) =>
+      coincideLiquidacionDepositoUnidadArriendo({
+        liquidacion: item,
+        claveUnidad,
+        idContratoArriendo: item.idContratoArriendo || '',
+      })
+    ) || null
+  )
+}
 
 const obtenerMesesLiquidacionPredio = ({
   codigoPredio,
@@ -1998,8 +2011,8 @@ const obtenerUnidadesLiquidacionMesDeposito = ({
       (pago) =>
         pago.codigoPredio === codigoPredio &&
         pago.idContratoDeposito === contrato.id &&
-        pago.idPropietario === beneficiario.idPropietario &&
-        pago.mes === mes
+        String(pago.idPropietario) === String(beneficiario.idPropietario) &&
+        String(pago.mes) === String(mes)
     )
     .forEach((pago) => {
       if (pago.claveUnidad || pago.idUnidad) {
@@ -2627,9 +2640,14 @@ const registrarAsignacionCanonLiquidacionDepositoMes = ({
       : 0
 
   const mesPagadoEnTotalidad = porcentajeAbonoCanonAcumulado >= 100
+  const canonComisionBaseMes = Number(estado.canonComisionBase || 0)
   const baseComisionAsignada = mesPagadoEnTotalidad
-    ? Math.round(estado.canonComisionBase || 0)
-    : 0
+    ? Math.round(canonComisionBaseMes)
+    : montoLiquidableMes > 0
+      ? Math.round(canonComisionBaseMes * (montoLiquidableAsignado / montoLiquidableMes))
+      : estado.canonArrendamiento > 0
+        ? Math.round(canonComisionBaseMes * (valorCanonLiquidacion / estado.canonArrendamiento))
+        : 0
   const claveAsignacion = obtenerIdPagoArriendo(pago)
   const claveMesPago = `${claveAsignacion}::${mes}`
 
@@ -3380,10 +3398,6 @@ const calcularLiquidacionBeneficiarioPagoArriendo = ({
         : valorLiquidable)
   )
 
-  if (!esPagoFijoMensualCalculo && !mesPagadoEnTotalidad) {
-    baseComisionAsignada = 0
-  }
-
   const comisionInmobiliariaPredio = calcularComisionInmobiliariaMes(
     contratoDeposito,
     codigoPredio,
@@ -3526,8 +3540,10 @@ const calcularComisionInmobiliariaMes = (
   }
 
   if (contratoDeposito.tipoComision === 'Solo arrendar') {
-    if (contratoDeposito.mesComisionPrimerArriendo) return 0
-    if (
+    const mesComisionCausada = contratoDeposito.mesComisionPrimerArriendo || ''
+    if (mesComisionCausada) {
+      if (String(mes) !== String(mesComisionCausada)) return 0
+    } else if (
       !esPrimerMesRecaudoPostContrato(
         codigoPredio,
         mes,
@@ -3670,17 +3686,340 @@ const construirDetallePagoFijoLiquidacionDepositoMes = ({
     claveUnidadLiquidacion
   )
 
-  const ivaComisionInh = calcularIvaComisionInh(calculo.comisionInmobiliaria)
-  const valorNetoConIvaComision = Math.max(0, calculo.valorNeto - ivaComisionInh)
-
   return {
     ...datosAsignacionCanon,
     ...calculo,
-    ivaComisionInh,
-    valorNeto: valorNetoConIvaComision,
+    ivaComisionInh: calcularIvaComisionInh(calculo.comisionInmobiliaria),
+    valorNeto: calculo.valorNeto,
     liquidado,
-    deudaPendienteInh: liquidado ? 0 : valorNetoConIvaComision,
+    deudaPendienteInh: liquidado ? 0 : calculo.valorNeto,
     esPagoFijoMensual: true,
+  }
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - ABONOS INH POR MES Y BENEFICIARIO
+// Pagos registrados a depositario que reducen el saldo del corte mensual.
+// =============================================================================
+
+const obtenerValorNetoPagoLiquidacionDeposito = (pago = {}) =>
+  Math.max(
+    0,
+    Number(pago.valorNetoPropietario ?? pago.valorNeto ?? pago.valor ?? 0)
+  )
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - COINCIDENCIA PAGO INH SIN MES
+// Empareja pagos INH por predio, beneficiario y unidad (sin filtrar mes causado).
+// =============================================================================
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - COINCIDENCIA PAGO INH
+// Empareja pagos INH con liquidacion por predio, mes, contrato y unidad flexible.
+// =============================================================================
+
+const coincidePagoInhLiquidacionDepositoBeneficiarioBase = (
+  pagoInh = {},
+  {
+    codigoPredio,
+    idPropietario,
+    claveUnidad = '',
+    idContratoDeposito = '',
+    idContratoArriendo = '',
+    contratoArriendo = null,
+  } = {}
+) => {
+  if (!pagoInh || !codigoPredio || !idPropietario) return false
+  if (String(pagoInh.codigoPredio || '') !== String(codigoPredio)) return false
+  if (String(pagoInh.idPropietario || '') !== String(idPropietario)) return false
+
+  if (
+    idContratoDeposito &&
+    pagoInh.idContratoDeposito &&
+    String(pagoInh.idContratoDeposito) !== String(idContratoDeposito)
+  ) {
+    return false
+  }
+
+  return coincideLiquidacionDepositoUnidadArriendo({
+    liquidacion: {
+      claveUnidad: pagoInh.claveUnidad || '',
+      idUnidad: pagoInh.idUnidad || '',
+      unidad: pagoInh.unidad || '',
+      idContratoArriendo: pagoInh.idContratoArriendo || '',
+    },
+    idContratoArriendo,
+    claveUnidad,
+    contratoArriendo,
+  })
+}
+
+const coincidePagoInhLiquidacionDepositoBeneficiario = (
+  pagoInh = {},
+  {
+    codigoPredio,
+    mes,
+    idPropietario,
+    claveUnidad = '',
+    idContratoDeposito = '',
+    idContratoArriendo = '',
+    contratoArriendo = null,
+  } = {}
+) => {
+  if (!mes) return false
+
+  return (
+    coincidePagoInhLiquidacionDepositoBeneficiarioBase(pagoInh, {
+      codigoPredio,
+      idPropietario,
+      claveUnidad,
+      idContratoDeposito,
+      idContratoArriendo,
+      contratoArriendo,
+    }) && String(pagoInh.mes || '') === String(mes)
+  )
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - PAGOS INH DEL MES
+// Lista ordenada de pagos al depositario registrados en el corte.
+// =============================================================================
+
+const obtenerPagosInhMesLiquidacionDepositoBeneficiario = (
+  pagosLiquidacionDeposito = [],
+  criterios = {}
+) =>
+  (pagosLiquidacionDeposito || [])
+    .filter((pago) => coincidePagoInhLiquidacionDepositoBeneficiario(pago, criterios))
+    .sort((a, b) => {
+      const fechaComparacion = String(a.fechaPago || '').localeCompare(String(b.fechaPago || ''))
+      if (fechaComparacion !== 0) return fechaComparacion
+      return String(a.id || '').localeCompare(String(b.id || ''))
+    })
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - ABONOS INH DEL MES
+// Suma de pagos INH que reducen el saldo del corte mensual.
+// =============================================================================
+
+const obtenerAbonosInhMesLiquidacionDepositoBeneficiario = (
+  pagosLiquidacionDeposito = [],
+  criterios = {}
+) =>
+  obtenerPagosInhMesLiquidacionDepositoBeneficiario(pagosLiquidacionDeposito, criterios).reduce(
+    (total, pago) => total + obtenerValorNetoPagoLiquidacionDeposito(pago),
+    0
+  )
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - ABONOS INH EN DETALLE
+// Distribuye abonos INH en cascada sobre lineas del detalle de pagos.
+// =============================================================================
+
+const aplicarAbonosInhADetallePagosLiquidacionDeposito = (
+  detallePagos = [],
+  abonosInhMes = 0
+) => {
+  let restanteAbono = Math.max(0, Number(abonosInhMes || 0))
+
+  return (detallePagos || []).map((pago) => {
+    const valorNeto = Math.max(0, Number(pago.valorNeto || 0))
+    const abonoLinea = Math.min(restanteAbono, valorNeto)
+    restanteAbono -= abonoLinea
+    const deudaPendienteInh = Math.max(0, valorNeto - abonoLinea)
+
+    return {
+      ...pago,
+      abonoInhLinea: abonoLinea,
+      deudaPendienteInh,
+      liquidado: deudaPendienteInh <= 0 && valorNeto > 0,
+    }
+  })
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - CLAVE Y CASCADA DE ABONOS INH
+// Reparte pagos al depositario del corte mas antiguo al mas reciente (igual que extracto).
+// =============================================================================
+
+const claveGrupoAbonosInhLiquidacionDeposito = ({
+  idContratoDeposito = '',
+  idPropietario = '',
+  codigoPredio = '',
+  claveUnidad = '',
+}) => `${idContratoDeposito}::${idPropietario}::${codigoPredio}::${claveUnidad}`
+
+const claveMesAbonosInhLiquidacionDeposito = (liquidacion = {}) =>
+  `${liquidacion.mes}::${claveGrupoAbonosInhLiquidacionDeposito(liquidacion)}`
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - CASCADA ABONOS INH LIQUIDACION
+// Reparte pagos al depositario del corte mas antiguo al mas reciente en liquidaciones.
+// =============================================================================
+
+const distribuirAbonosInhCascadaLiquidacionDeposito = ({
+  pagosLiquidacionDeposito = [],
+  liquidacionesSinAbono = [],
+  contratosArriendo = [],
+}) => {
+  const abonosPorClaveMes = new Map()
+  const grupos = new Map()
+
+  ;(liquidacionesSinAbono || []).forEach((liquidacion) => {
+    const grupo = claveGrupoAbonosInhLiquidacionDeposito(liquidacion)
+    if (!grupos.has(grupo)) grupos.set(grupo, [])
+    grupos.get(grupo).push(liquidacion)
+  })
+
+  grupos.forEach((liquidacionesGrupo) => {
+    const referencia = liquidacionesGrupo[0]
+    if (!referencia) return
+
+    const contratoArriendo = referencia.idContratoArriendo
+      ? contratosArriendo.find(
+          (item) => obtenerIdContrato(item) === referencia.idContratoArriendo
+        )
+      : null
+    const criteriosBase = {
+      codigoPredio: referencia.codigoPredio,
+      idPropietario: referencia.idPropietario,
+      claveUnidad: referencia.claveUnidad || '',
+      idContratoDeposito: referencia.idContratoDeposito,
+      idContratoArriendo: referencia.idContratoArriendo || '',
+      contratoArriendo,
+    }
+
+    const mesesOrdenados = [...new Set(liquidacionesGrupo.map((item) => item.mes))]
+      .filter(Boolean)
+      .sort()
+    const saldoPendientePorMes = new Map()
+
+    mesesOrdenados.forEach((mes) => {
+      const saldoMes = liquidacionesGrupo
+        .filter((item) => String(item.mes) === String(mes))
+        .reduce((total, item) => total + Number(item.valorNetoTotal || 0), 0)
+      saldoPendientePorMes.set(mes, Math.max(0, saldoMes))
+    })
+
+    const pagosGrupo = (pagosLiquidacionDeposito || [])
+      .filter((pago) => coincidePagoInhLiquidacionDepositoBeneficiarioBase(pago, criteriosBase))
+      .sort((a, b) => {
+        const fechaComparacion = String(a.fechaPago || '').localeCompare(String(b.fechaPago || ''))
+        if (fechaComparacion !== 0) return fechaComparacion
+        return String(a.id || '').localeCompare(String(b.id || ''))
+      })
+
+    pagosGrupo.forEach((pago) => {
+      let restante = obtenerValorNetoPagoLiquidacionDeposito(pago)
+      if (restante <= 0) return
+
+      mesesOrdenados.forEach((mes) => {
+        if (restante <= 0) return
+
+        const pendiente = Number(saldoPendientePorMes.get(mes) || 0)
+        if (pendiente <= 0) return
+
+        const aplicado = Math.min(restante, pendiente)
+        if (aplicado <= 0) return
+
+        restante -= aplicado
+        saldoPendientePorMes.set(mes, pendiente - aplicado)
+
+        const liquidacionesMes = liquidacionesGrupo.filter(
+          (item) => String(item.mes) === String(mes)
+        )
+        let restanteMes = aplicado
+
+        liquidacionesMes.forEach((liquidacionMes, indice) => {
+          const esUltima = indice === liquidacionesMes.length - 1
+          const netoMes = Number(liquidacionMes.valorNetoTotal || 0)
+          const abonoLinea = esUltima
+            ? restanteMes
+            : Math.min(restanteMes, netoMes)
+          restanteMes -= abonoLinea
+
+          const claveMes = claveMesAbonosInhLiquidacionDeposito(liquidacionMes)
+          abonosPorClaveMes.set(
+            claveMes,
+            (abonosPorClaveMes.get(claveMes) || 0) + abonoLinea
+          )
+        })
+      })
+    })
+  })
+
+  return abonosPorClaveMes
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - APLICAR ABONOS INH A LIQUIDACION
+// Actualiza deuda, estado y detalle tras asignar abonos INH en cascada.
+// =============================================================================
+
+const aplicarAbonosInhALiquidacionDepositoBeneficiarioMes = (
+  liquidacion,
+  abonosInhMes = 0,
+  pagosLiquidacionDeposito = [],
+  criteriosPagosInh = {}
+) => {
+  const valorNetoTotal = Number(liquidacion.valorNetoTotal || 0)
+  const totalRecaudadoPredio = Number(liquidacion.totalRecaudadoPredio || 0)
+  const esPagoFijo = liquidacion.esPagoFijoMensual
+  let detallePagos = aplicarAbonosInhADetallePagosLiquidacionDeposito(
+    liquidacion.detallePagos,
+    abonosInhMes
+  )
+
+  if (abonosInhMes > 0 && valorNetoTotal > 0 && abonosInhMes >= valorNetoTotal - 1) {
+    detallePagos = detallePagos.map((pago) => ({
+      ...pago,
+      deudaPendienteInh: 0,
+      liquidado: Number(pago.valorNeto || 0) > 0,
+    }))
+  }
+
+  const deudaInmobiliaria = detallePagos.reduce(
+    (total, pago) => total + Number(pago.deudaPendienteInh || 0),
+    0
+  )
+  const valorNetoLiquidado = valorNetoTotal - deudaInmobiliaria
+  const pagosPendientes = detallePagos.filter(
+    (pago) => Number(pago.deudaPendienteInh || 0) > 0
+  )
+  const pagosLiquidados = detallePagos.filter(
+    (pago) => Number(pago.deudaPendienteInh || 0) <= 0 && Number(pago.valorNeto || 0) > 0
+  )
+
+  let estadoPago = esPagoFijo ? 'Pendiente' : 'Sin recaudo'
+  if (detallePagos.length > 0 || totalRecaudadoPredio > 0) {
+    if (deudaInmobiliaria <= 0 && valorNetoTotal > 0) estadoPago = 'Pagado'
+    else if (deudaInmobiliaria <= 0 && valorNetoTotal <= 0) estadoPago = 'Sin canon liquidable'
+    else if (abonosInhMes > 0 && deudaInmobiliaria > 0) estadoPago = 'Pendiente parcial'
+    else if (valorNetoLiquidado > 0) estadoPago = 'Pendiente parcial'
+    else estadoPago = 'Pendiente'
+  }
+
+  const pagosInhMes = obtenerPagosInhMesLiquidacionDepositoBeneficiario(
+    pagosLiquidacionDeposito,
+    criteriosPagosInh
+  )
+  const pagoRegistrado = pagosInhMes[pagosInhMes.length - 1] || null
+
+  if (abonosInhMes > 0 && deudaInmobiliaria <= 0 && valorNetoTotal > 0) {
+    estadoPago = 'Pagado'
+  }
+
+  return {
+    ...liquidacion,
+    detallePagos,
+    valorNetoLiquidado,
+    deudaInmobiliaria,
+    abonoLiquidacionRealizado: abonosInhMes,
+    fechaAbonoLiquidacion: pagoRegistrado?.fechaPago || '',
+    pagosPendientes,
+    pagosLiquidados,
+    estadoPago,
+    pagoRegistrado,
   }
 }
 
@@ -3698,12 +4037,18 @@ const construirLiquidacionDepositoBeneficiarioMes = ({
   unidadLiquidacion = null,
   incrementosArriendo = [],
   ajustesAdministracion = [],
+  omitirAbonosInh = false,
 }) => {
   const propietario = propietarios.find((item) => item.id === beneficiario.idPropietario)
   if (!propietario) return null
 
   const participacion = Number(beneficiario.porcentaje || 0)
   const claveUnidadLiquidacion = unidadLiquidacion?.claveUnidad || ''
+  const contratoArriendoUnidad = unidadLiquidacion?.idContratoArriendo
+    ? contratosArriendo.find(
+        (item) => obtenerIdContrato(item) === unidadLiquidacion.idContratoArriendo
+      )
+    : null
   const esPagoFijo = esPagoFijoLiquidacionCanonDeposito(contrato)
   let lineasAsignacion = (asignacionPredio?.asignacionGlobalPorMes?.get(mes) || []).filter(
     (linea) => coincideLineaUnidadLiquidacion(linea, unidadLiquidacion)
@@ -3750,26 +4095,14 @@ const construirLiquidacionDepositoBeneficiarioMes = ({
       pagosArriendo,
       datosAsignacionCanon: linea,
     })
-    const liquidado = pagoArriendoLiquidadoParaBeneficiario(
-      {
-        ...pago,
-        idPagoArriendo: linea.claveAsignacion || linea.idPagoArriendo,
-        mes: linea.mesAsignado,
-        mesAsignado: linea.mesAsignado,
-      },
-      beneficiario.idPropietario,
-      contrato.codigoPredio,
-      pagosLiquidacionDeposito,
-      claveUnidadLiquidacion
-    )
 
     return {
       ...pago,
       ...linea,
       ...calculo,
       idPagoArriendo: linea.claveAsignacion || linea.idPagoArriendo,
-      liquidado,
-      deudaPendienteInh: liquidado ? 0 : calculo.valorNeto,
+      liquidado: false,
+      deudaPendienteInh: calculo.valorNeto,
     }
   })
   }
@@ -3859,36 +4192,75 @@ const construirLiquidacionDepositoBeneficiarioMes = ({
     (total, pago) => total + Number(pago.valorNeto || 0),
     0
   )
+
+  const criteriosPagosInh = {
+    codigoPredio: contrato.codigoPredio,
+    mes,
+    idPropietario: beneficiario.idPropietario,
+    claveUnidad: claveUnidadLiquidacion,
+    idContratoDeposito: contrato.id,
+    idContratoArriendo: unidadLiquidacion?.idContratoArriendo || '',
+    contratoArriendo: contratoArriendoUnidad,
+  }
+
+  if (omitirAbonosInh) {
+    detallePagos = detallePagos.map((pago) => ({
+      ...pago,
+      abonoInhLinea: 0,
+      deudaPendienteInh: Math.max(0, Number(pago.valorNeto || 0)),
+      liquidado: false,
+    }))
+  } else {
+    const abonosInhMes = obtenerAbonosInhMesLiquidacionDepositoBeneficiario(
+      pagosLiquidacionDeposito,
+      criteriosPagosInh
+    )
+    detallePagos = aplicarAbonosInhADetallePagosLiquidacionDeposito(detallePagos, abonosInhMes)
+
+    if (abonosInhMes > 0 && valorNetoTotal > 0 && abonosInhMes >= valorNetoTotal - 1) {
+      detallePagos = detallePagos.map((pago) => ({
+        ...pago,
+        deudaPendienteInh: 0,
+        liquidado: Number(pago.valorNeto || 0) > 0,
+      }))
+    }
+  }
+
+  const abonosInhMes = omitirAbonosInh
+    ? 0
+    : obtenerAbonosInhMesLiquidacionDepositoBeneficiario(pagosLiquidacionDeposito, criteriosPagosInh)
+
   const deudaInmobiliaria = detallePagos.reduce(
     (total, pago) => total + Number(pago.deudaPendienteInh || 0),
     0
   )
   const valorNetoLiquidado = valorNetoTotal - deudaInmobiliaria
-  const pagosPendientes = detallePagos.filter((pago) => !pago.liquidado)
-  const pagosLiquidados = detallePagos.filter((pago) => pago.liquidado)
+  const pagosPendientes = detallePagos.filter(
+    (pago) => Number(pago.deudaPendienteInh || 0) > 0
+  )
+  const pagosLiquidados = detallePagos.filter(
+    (pago) => Number(pago.deudaPendienteInh || 0) <= 0 && Number(pago.valorNeto || 0) > 0
+  )
 
   let estadoPago = esPagoFijo ? 'Pendiente' : 'Sin recaudo'
   if (detallePagos.length > 0 || totalRecaudadoPredio > 0) {
     if (deudaInmobiliaria <= 0 && valorNetoTotal > 0) estadoPago = 'Pagado'
     else if (deudaInmobiliaria <= 0 && valorNetoTotal <= 0) estadoPago = 'Sin canon liquidable'
+    else if (abonosInhMes > 0 && deudaInmobiliaria > 0) estadoPago = 'Pendiente parcial'
     else if (valorNetoLiquidado > 0) estadoPago = 'Pendiente parcial'
     else estadoPago = 'Pendiente'
   }
 
-  const pagoRegistrado = pagosLiquidacionDeposito.find(
-    (pago) =>
-      pago.codigoPredio === contrato.codigoPredio &&
-      pago.idPropietario === beneficiario.idPropietario &&
-      pago.mes === mes &&
-      ((pago.claveUnidad || pago.idUnidad || '') === claveUnidadLiquidacion ||
-        (!pago.claveUnidad && !pago.idUnidad && !claveUnidadLiquidacion))
-  )
+  const pagosInhMes = omitirAbonosInh
+    ? []
+    : obtenerPagosInhMesLiquidacionDepositoBeneficiario(pagosLiquidacionDeposito, criteriosPagosInh)
+  const pagoRegistrado = pagosInhMes[pagosInhMes.length - 1] || null
 
-  if (pagoRegistrado && deudaInmobiliaria <= 0 && valorNetoTotal > 0) {
+  if (pagosInhMes.length > 0 && deudaInmobiliaria <= 0 && valorNetoTotal > 0) {
     estadoPago = 'Pagado'
   }
 
-  if (esPagoFijo && detallePagos.length === 0 && !pagoRegistrado) {
+  if (esPagoFijo && detallePagos.length === 0 && pagosInhMes.length === 0) {
     return null
   }
 
@@ -3929,7 +4301,7 @@ const construirLiquidacionDepositoBeneficiarioMes = ({
     valorNetoTotal,
     valorNetoLiquidado,
     deudaInmobiliaria,
-    abonoLiquidacionRealizado: Number(pagoRegistrado?.valorNetoPropietario || 0),
+    abonoLiquidacionRealizado: abonosInhMes,
     fechaAbonoLiquidacion: pagoRegistrado?.fechaPago || '',
     detallePagos,
     pagosPendientes,
@@ -4002,6 +4374,8 @@ const generarLiquidacionesDepositoHistorial = ({
           .filter((mes) => !mesFiltro || mes === mesFiltro)
           .sort()
 
+        const preliminaresBeneficiario = []
+
         meses.forEach((mes) => {
           const unidadesMes = obtenerUnidadesLiquidacionMesDeposito({
             mes,
@@ -4014,7 +4388,7 @@ const generarLiquidacionesDepositoHistorial = ({
           })
 
           unidadesMes.forEach((unidadLiquidacion) => {
-            const liquidacion = construirLiquidacionDepositoBeneficiarioMes({
+            const liquidacionPreliminar = construirLiquidacionDepositoBeneficiarioMes({
               contrato,
               beneficiario,
               mes,
@@ -4028,10 +4402,44 @@ const generarLiquidacionesDepositoHistorial = ({
               unidadLiquidacion,
               incrementosArriendo,
               ajustesAdministracion,
+              omitirAbonosInh: true,
             })
 
-            if (liquidacion) liquidaciones.push(liquidacion)
+            if (liquidacionPreliminar) preliminaresBeneficiario.push(liquidacionPreliminar)
           })
+        })
+
+        const abonosPorClaveMes = distribuirAbonosInhCascadaLiquidacionDeposito({
+          pagosLiquidacionDeposito,
+          liquidacionesSinAbono: preliminaresBeneficiario,
+          contratosArriendo,
+        })
+
+        preliminaresBeneficiario.forEach((preliminar) => {
+          const claveMes = claveMesAbonosInhLiquidacionDeposito(preliminar)
+          const abonosInhMes = abonosPorClaveMes.get(claveMes) || 0
+          const contratoArriendoUnidad = preliminar.idContratoArriendo
+            ? contratosArriendo.find(
+                (item) => obtenerIdContrato(item) === preliminar.idContratoArriendo
+              )
+            : null
+
+          liquidaciones.push(
+            aplicarAbonosInhALiquidacionDepositoBeneficiarioMes(
+              preliminar,
+              abonosInhMes,
+              pagosLiquidacionDeposito,
+              {
+                codigoPredio: preliminar.codigoPredio,
+                mes: preliminar.mes,
+                idPropietario: preliminar.idPropietario,
+                claveUnidad: preliminar.claveUnidad,
+                idContratoDeposito: preliminar.idContratoDeposito,
+                idContratoArriendo: preliminar.idContratoArriendo || '',
+                contratoArriendo: contratoArriendoUnidad,
+              }
+            )
+          )
         })
       })
     })
@@ -4237,7 +4645,8 @@ const calcularDeudaLiquidacionArriendoBeneficiarios = ({
             (!idContratoDeposito || liquidacion.idContratoDeposito === idContratoDeposito)
         )
         .reduce(
-          (subtotal, liquidacion) => subtotal + Number(liquidacion.deudaInmobiliaria || 0),
+          (subtotal, liquidacion) =>
+            subtotal + obtenerDeudaPendienteLiquidacionDeposito(liquidacion),
           0
         )
 
@@ -4351,7 +4760,7 @@ const obtenerContratosDepositoVigentesDepositanteLiquidacion = ({
         contrato.id
       )
       const deudaPendiente = pendientes.reduce(
-        (total, item) => total + Number(item.deudaInmobiliaria || 0),
+        (total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item),
         0
       )
       const unidadesLiquidables = obtenerContratosArriendoDepositarioLiquidacion({
@@ -4798,6 +5207,11 @@ const construirDesgloseCargosCorteLiquidacionDeposito = ({
     0
   )
   const totalIvaComision = totalComision > 0 ? calcularIvaComisionInh(totalComision) : 0
+  const porcentajeAbonoCanon = Number(liquidacion?.porcentajeAbonoCanonMes || 0)
+  const sufijoProvisional = obtenerSufijoComisionProvisionalLiquidacionDeposito({
+    esPagoFijoMensual,
+    porcentajeAbonoCanon,
+  })
 
   const etiquetaCanon = esPagoFijoMensual ? 'Canon de arriendo' : 'Canon base liquidable'
   const etiquetaIvaCanon = esPagoFijoMensual
@@ -4854,19 +5268,21 @@ const construirDesgloseCargosCorteLiquidacionDeposito = ({
     items.push({
       concepto: esPagoFijoMensual
         ? `Porcentaje acordado – Comisión INH (${porcentajeComision}%)`
-        : `Comisión INH (${porcentajeComision}% sobre canon base)`,
+        : `Comisión INH (${porcentajeComision}% sobre canon base)${sufijoProvisional}`,
       tipo: 'comision',
       cargo: 0,
       abono: totalComision,
+      esProvisional: Boolean(sufijoProvisional),
     })
   }
 
   if (totalIvaComision > 0) {
     items.push({
-      concepto: etiquetaIvaComision,
+      concepto: `${etiquetaIvaComision}${sufijoProvisional}`,
       tipo: 'iva-comision',
       cargo: 0,
       abono: totalIvaComision,
+      esProvisional: Boolean(sufijoProvisional),
     })
   }
 
@@ -4963,7 +5379,7 @@ const aplicarAbonosInhCascadaExtractoLiquidacionDeposito = ({
   const abonosMovimientos = []
 
   pagosOrdenados.forEach((pago) => {
-    let restante = Math.max(0, Number(pago.valorNetoPropietario || 0))
+    let restante = obtenerValorNetoPagoLiquidacionDeposito(pago)
     if (restante <= 0) return
 
     mesesOrdenados.forEach((mes) => {
@@ -5098,8 +5514,17 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
         if (serviciosFijos.length > 0) serviciosAgregadosPorMes.add(liquidacion.mes)
       }
 
-      const agregarDescuentosComision = (fechaMovimiento, valorComision, recibo = '') => {
+      const agregarDescuentosComision = (
+        fechaMovimiento,
+        valorComision,
+        recibo = '',
+        porcentajeAbonoPago = liquidacion.porcentajeAbonoCanonMes
+      ) => {
         if (valorComision <= 0) return
+        const sufijoProvisional = obtenerSufijoComisionProvisionalLiquidacionDeposito({
+          esPagoFijoMensual: esPagoFijo,
+          porcentajeAbonoCanon: porcentajeAbonoPago,
+        })
         agregarMovimiento({
           fecha: fechaMovimiento,
           mesCausado: liquidacion.mes,
@@ -5107,10 +5532,11 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
             ? `Porcentaje acordado – Comisión INH (${porcentajeComision}%)`
             : `Comisión INH (${porcentajeComision}% sobre canon base) periodo ${liquidacion.mes}${
                 recibo ? ` – Recibo ${recibo}` : ''
-              }`,
+              }${sufijoProvisional}`,
           tipo: 'comision',
           cargo: 0,
           abono: valorComision,
+          esProvisional: Boolean(sufijoProvisional),
         })
 
         const ivaComision = calcularIvaComisionInh(valorComision)
@@ -5122,10 +5548,11 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
               ? `IVA del porcentaje acordado (${porcentajeComision}%)`
               : `IVA comisión INH (${porcentajeComision}%) periodo ${liquidacion.mes}${
                   recibo ? ` – Recibo ${recibo}` : ''
-                }`,
+                }${sufijoProvisional}`,
             tipo: 'iva-comision',
             cargo: 0,
             abono: ivaComision,
+            esProvisional: Boolean(sufijoProvisional),
           })
         }
       }
@@ -5244,7 +5671,14 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
               })
             }
 
-            agregarDescuentosComision(fechaMovimiento, valorComision, recibo)
+            agregarDescuentosComision(
+              fechaMovimiento,
+              valorComision,
+              recibo,
+              pago.porcentajeAbonoCanon ??
+                pago.porcentajeAbonoCanonPago ??
+                liquidacion.porcentajeAbonoCanonMes
+            )
           })
       } else {
         const fechaRecaudo =
@@ -5520,16 +5954,28 @@ const construirCortesExtractoLiquidacionDeposito = ({
       return { ...movimiento, saldoCorte }
     })
 
-    const deudaPendiente = Number(liquidacion?.deudaInmobiliaria || 0)
+    const deudaPendiente = liquidacion
+      ? obtenerDeudaPendienteLiquidacionDeposito(liquidacion)
+      : Math.max(
+          0,
+          movimientosConSaldoCorte.length
+            ? Number(
+                movimientosConSaldoCorte[movimientosConSaldoCorte.length - 1].saldoCorte || 0
+              )
+            : 0
+        )
     const saldoPendienteCorte = movimientosConSaldoCorte.length
-      ? movimientosConSaldoCorte[movimientosConSaldoCorte.length - 1].saldoCorte
-      : deudaPendiente > 0
-        ? deudaPendiente
-        : 0
+      ? Math.max(
+          0,
+          Number(movimientosConSaldoCorte[movimientosConSaldoCorte.length - 1].saldoCorte || 0)
+        )
+      : deudaPendiente
 
-    const abonoRealizado = movimientosCorte
-      .filter((movimiento) => movimiento.tipo === 'pago-inh')
-      .reduce((total, movimiento) => total + Number(movimiento.abono || 0), 0)
+    const abonoRealizado = Number(liquidacion?.abonoLiquidacionRealizado || 0) > 0
+      ? Number(liquidacion.abonoLiquidacionRealizado || 0)
+      : movimientosCorte
+          .filter((movimiento) => movimiento.tipo === 'pago-inh')
+          .reduce((total, movimiento) => total + Number(movimiento.abono || 0), 0)
 
     const pagosArrendatario = construirPagosArrendatarioDetalleLiquidacionDeposito(liquidacion)
     const totalPagadoArrendatario = [
@@ -5558,25 +6004,29 @@ const construirCortesExtractoLiquidacionDeposito = ({
       porcentajeComision: liquidacion?.porcentajeComision || 0,
       serviciosFijos,
       abonoRealizado,
-      saldoPendiente:
-        saldoPendienteCorte > 0
-          ? saldoPendienteCorte
-          : deudaPendiente > 0
-            ? deudaPendiente
-            : 0,
+      saldoPendiente: saldoPendienteCorte,
       esPagoFijoMensual,
     })
 
     const totalAPagarCorte = Number(desgloseCargos.totalAPagarCorte || 0)
     const totalRecaudadoCorte = Number(liquidacion?.totalRecaudadoPredio || 0)
-    let estadoPago = liquidacion?.estadoPago || (movimientosCorte.length ? 'Con movimiento' : 'Sin recaudo')
-    if (!esPagoFijoMensual && totalRecaudadoCorte <= 0 && totalAPagarCorte <= 0 && abonoRealizado <= 0) {
-      estadoPago = 'Sin recaudo'
-    } else if (totalAPagarCorte > 0 || abonoRealizado > 0) {
-      if (saldoPendienteCorte <= 0 && abonoRealizado > 0) estadoPago = 'Pagado'
-      else if (abonoRealizado > 0 && saldoPendienteCorte > 0) estadoPago = 'Pendiente parcial'
-      else if (saldoPendienteCorte > 0 && abonoRealizado <= 0) {
-        estadoPago = liquidacion?.estadoPago === 'Sin recaudo' ? 'Sin recaudo' : 'Pendiente'
+    let estadoPago =
+      liquidacion?.estadoPago ||
+      (movimientosCorte.length ? 'Con movimiento' : 'Sin recaudo')
+
+    if (saldoPendienteCorte <= 0 && abonoRealizado > 0) {
+      estadoPago = 'Pagado'
+    } else if (abonoRealizado > 0 && saldoPendienteCorte > 0) {
+      estadoPago = 'Pendiente parcial'
+    } else if (!liquidacion?.estadoPago) {
+      if (!esPagoFijoMensual && totalRecaudadoCorte <= 0 && totalAPagarCorte <= 0 && abonoRealizado <= 0) {
+        estadoPago = 'Sin recaudo'
+      } else if (totalAPagarCorte > 0 || abonoRealizado > 0) {
+        if (saldoPendienteCorte <= 0 && abonoRealizado > 0) estadoPago = 'Pagado'
+        else if (abonoRealizado > 0 && saldoPendienteCorte > 0) estadoPago = 'Pendiente parcial'
+        else if (saldoPendienteCorte > 0 && abonoRealizado <= 0) {
+          estadoPago = 'Sin recaudo'
+        }
       }
     }
 
@@ -5692,10 +6142,20 @@ const construirPagosArrendatarioDetalleLiquidacionDeposito = (liquidacion) =>
         deudaPendienteInh: Number(
           pago.deudaPendienteInh ?? (pago.liquidado ? 0 : pago.valorNeto) ?? 0
         ),
-        liquidadoInh: !!pago.liquidado,
+        liquidadoInh:
+          Number(pago.deudaPendienteInh ?? (pago.liquidado ? 0 : pago.valorNeto) ?? 0) <= 0 &&
+          Number(pago.valorNeto || 0) > 0,
         mesPagoOriginal: pago.mesPagoOriginal || pago.mes || '',
       }
     })
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - SALDO PENDIENTE UNIFICADO
+// Fuente unica de deuda al depositario (abonos INH y comision provisional).
+// =============================================================================
+
+const obtenerDeudaPendienteLiquidacionDeposito = (liquidacion) =>
+  Math.max(0, Number(liquidacion?.deudaInmobiliaria ?? 0))
 
 // =============================================================================
 // DERIVADOS - DEUDA DISCRIMINADA POR CORTE
@@ -5703,11 +6163,36 @@ const construirPagosArrendatarioDetalleLiquidacionDeposito = (liquidacion) =>
 // =============================================================================
 
 const obtenerDeudaPendienteCorteLiquidacionDeposito = (corte) => {
-  if (corte?.movimientos?.length) {
-    const ultimoMovimiento = corte.movimientos[corte.movimientos.length - 1]
-    if (ultimoMovimiento && ultimoMovimiento.saldoCorte !== undefined) {
-      return Math.max(0, Number(ultimoMovimiento.saldoCorte || 0))
+  const movimientos = corte?.movimientos || []
+  const saldoDesdeMovimientos = (() => {
+    if (!movimientos.length) return null
+
+    let saldo = 0
+    movimientos.forEach((movimiento) => {
+      const cargo = Number(movimiento.cargo || 0)
+      const abono = Number(movimiento.abono || 0)
+      saldo += Number(movimiento.valor ?? cargo - abono)
+    })
+
+    return Math.max(0, saldo)
+  })()
+
+  const tienePagoInh = movimientos.some((movimiento) => movimiento.tipo === 'pago-inh')
+
+  if (tienePagoInh && saldoDesdeMovimientos !== null) {
+    return saldoDesdeMovimientos
+  }
+
+  if (corte?.liquidacion) {
+    const deudaLiquidacion = obtenerDeudaPendienteLiquidacionDeposito(corte.liquidacion)
+    if (saldoDesdeMovimientos !== null) {
+      return Math.min(deudaLiquidacion, saldoDesdeMovimientos)
     }
+    return deudaLiquidacion
+  }
+
+  if (saldoDesdeMovimientos !== null) {
+    return saldoDesdeMovimientos
   }
 
   const saldoMovimientos = Number(corte?.saldoPendienteCorte || 0)
@@ -5889,12 +6374,7 @@ const formatearFechaExtractoLiquidacionDeposito = (fecha = '') => {
 const construirResumenExtractoLiquidacionDeposito = (extracto = {}) => {
   const pendiente = extracto.pendienteConsolidado
   const desglose = pendiente?.desglose || {}
-  const totalPendiente = Number(
-    pendiente?.totalPendiente ??
-      extracto.deudaPorCortes?.totalDeuda ??
-      extracto.saldoFinal ??
-      0
-  )
+  const totalPendiente = obtenerTotalPendienteExtractoLiquidacionDeposito(extracto)
 
   return {
     totalCanonBase: Number(desglose.totalCanonBase || 0),
@@ -6415,12 +6895,15 @@ const construirUltimosCortesPagadosExtractoLiquidacionDeposito = ({
         }))
 
       const pagosRegistrados = (pagosLiquidacionDeposito || [])
-        .filter(
-          (pago) =>
-            pago.mes === corte.mes &&
-            pago.idPropietario === idPropietario &&
-            (pago.claveUnidad || '') === claveUnidad &&
-            pago.idContratoDeposito === idContratoDeposito
+        .filter((pago) =>
+          coincidePagoInhLiquidacionDepositoBeneficiario(pago, {
+            codigoPredio: corte.liquidacion?.codigoPredio || '',
+            mes: corte.mes,
+            idPropietario,
+            claveUnidad,
+            idContratoDeposito,
+            idContratoArriendo: corte.liquidacion?.idContratoArriendo || '',
+          })
         )
         .sort((a, b) => String(a.fechaPago || '').localeCompare(String(b.fechaPago || '')))
         .map((pago) => ({
@@ -6684,9 +7167,17 @@ const construirExtractoLiquidacionDepositoUnidad = ({
       gestionesCartera,
     })
 
-  const saldoFinal = movimientos.length
-    ? movimientos[movimientos.length - 1].saldo
-    : liquidacionesUnidad.reduce((total, item) => total + Number(item.deudaInmobiliaria || 0), 0)
+  const saldoFinalCortes = cortes.length
+    ? obtenerTotalPendienteDesdeCortesExtractoLiquidacionDeposito(cortes)
+    : liquidacionesUnidad.reduce(
+        (total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item),
+        0
+      )
+  const saldoFinalMovimientos = obtenerSaldoFinalMovimientosExtractoLiquidacionDeposito(movimientos)
+  const saldoFinal =
+    saldoFinalMovimientos !== null
+      ? Math.min(saldoFinalCortes, saldoFinalMovimientos)
+      : saldoFinalCortes
 
   const extracto = {
     idPropietario,
@@ -6735,7 +7226,7 @@ const construirExtractoLiquidacionDepositoUnidad = ({
     mesesSaldoArrendatarioPendiente,
     saldoFinal,
     totalDeuda: liquidacionesUnidad.reduce(
-      (total, item) => total + Number(item.deudaInmobiliaria || 0),
+      (total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item),
       0
     ),
     totalAbonado: liquidacionesUnidad.reduce(
@@ -6758,10 +7249,250 @@ const obtenerLiquidacionesPendientesContratoDeposito = (liquidaciones, idContrat
   (liquidaciones || []).filter(
     (item) =>
       item.idContratoDeposito === idContratoDeposito &&
-      Number(item.deudaInmobiliaria || 0) > 0 &&
-      (item.estadoPago === 'Pendiente' || item.estadoPago === 'Pendiente parcial') &&
+      obtenerDeudaPendienteLiquidacionDeposito(item) > 0 &&
       liquidacionDepositoTieneRecaudoArrendatario(item)
   )
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - DEUDA PENDIENTE POR UNIDAD Y BENEFICIARIO
+// Totales del corte actual, cortes anteriores y deuda acumulada para pago INH.
+// =============================================================================
+
+const obtenerLiquidacionesPendientesUnidadBeneficiarioDeposito = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '' }
+) =>
+  obtenerLiquidacionesPendientesContratoDeposito(liquidaciones, idContratoDeposito).filter(
+    (item) =>
+      (item.claveUnidad || '') === (claveUnidad || '') &&
+      item.idPropietario === idPropietario
+  )
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - DEUDA CORTES ANTERIORES PAGO
+// Suma de liquidaciones pendientes con mes anterior al corte seleccionado.
+// =============================================================================
+
+const obtenerDeudaCortesAnterioresPagoDepositante = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '', mesReferencia = '' }
+) =>
+  obtenerLiquidacionesPendientesUnidadBeneficiarioDeposito(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+  })
+    .filter((item) => mesReferencia && String(item.mes) < String(mesReferencia))
+    .reduce((total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item), 0)
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - MESES CAUSADOS FORMULARIO PAGO
+// Meses con liquidacion por unidad y beneficiario (pagados y pendientes).
+// =============================================================================
+
+const obtenerMesesCausadosLiquidacionPagoDepositante = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '' }
+) => {
+  const mesesVistos = new Set()
+
+  return (liquidaciones || [])
+    .filter(
+      (item) =>
+        item.idContratoDeposito === idContratoDeposito &&
+        (item.claveUnidad || '') === (claveUnidad || '') &&
+        item.idPropietario === idPropietario &&
+        liquidacionDepositoTieneRecaudoArrendatario(item) &&
+        item.mes
+    )
+    .sort((a, b) => String(b.mes).localeCompare(String(a.mes)))
+    .filter((item) => {
+      if (mesesVistos.has(item.mes)) return false
+      mesesVistos.add(item.mes)
+      return true
+    })
+    .map((item) => ({
+      mes: item.mes,
+      pagado: obtenerDeudaPendienteLiquidacionDeposito(item) <= 0,
+      liquidacion: item,
+    }))
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - RESOLVER MES CAUSADO PAGO
+// Mantiene el mes elegido o selecciona el primer corte pendiente al cambiar unidad o beneficiario.
+// =============================================================================
+
+const resolverMesCausadoPagoDepositante = ({
+  liquidaciones = [],
+  idContratoDeposito,
+  claveUnidad = '',
+  idPropietario = '',
+  mesPreferido = '',
+}) => {
+  const meses = obtenerMesesCausadosLiquidacionPagoDepositante(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+  })
+
+  if (!meses.length) return ''
+
+  if (mesPreferido && meses.some((item) => String(item.mes) === String(mesPreferido))) {
+    return mesPreferido
+  }
+
+  const primerPendiente = meses.find((item) => !item.pagado)
+  return primerPendiente?.mes || meses[0]?.mes || ''
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - DEUDA DEL CORTE SELECCIONADO
+// Saldo pendiente INH unicamente del mes causado elegido en el pago.
+// =============================================================================
+
+const obtenerDeudaPendienteCorteMesPagoDepositante = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '', mesReferencia = '' }
+) => {
+  if (!mesReferencia) return 0
+
+  const liquidacion = encontrarLiquidacionDeposito(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+    mes: mesReferencia,
+  })
+
+  return obtenerDeudaPendienteLiquidacionDeposito(liquidacion)
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - DEUDA HASTA CORTE PAGO
+// Cortes anteriores mas el corte seleccionado (sin meses posteriores).
+// =============================================================================
+
+const obtenerDeudaHastaCortePagoDepositante = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '', mesReferencia = '' }
+) => {
+  if (!mesReferencia) return 0
+
+  return obtenerLiquidacionesPendientesUnidadBeneficiarioDeposito(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+  })
+    .filter((item) => String(item.mes) <= String(mesReferencia))
+    .reduce((total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item), 0)
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - VALOR PENDIENTE FORMULARIO PAGO
+// Texto numerico del saldo hasta corte para precargar el valor del pago INH.
+// =============================================================================
+
+const calcularValorPendienteFormularioPagoDepositante = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '', mesReferencia = '' } = {}
+) => {
+  if (!idContratoDeposito || !claveUnidad || !idPropietario || !mesReferencia) return ''
+
+  const deuda = obtenerDeudaHastaCortePagoDepositante(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+    mesReferencia,
+  })
+
+  return deuda > 0 ? String(Math.round(deuda)) : ''
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - MES CAUSADO TRAS ABONO
+// Mantiene el mes con saldo o pasa al siguiente pendiente despues de registrar un pago.
+// =============================================================================
+
+const resolverMesCausadoTrasAbonoPagoDepositante = ({
+  liquidaciones = [],
+  idContratoDeposito,
+  claveUnidad = '',
+  idPropietario = '',
+  mesReferencia = '',
+}) => {
+  const meses = obtenerMesesCausadosLiquidacionPagoDepositante(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+  })
+
+  if (!meses.length) return ''
+
+  if (mesReferencia) {
+    const deudaMesActual = obtenerDeudaPendienteCorteMesPagoDepositante(liquidaciones, {
+      idContratoDeposito,
+      claveUnidad,
+      idPropietario,
+      mesReferencia,
+    })
+    if (deudaMesActual > 0) return mesReferencia
+  }
+
+  const primerPendiente = meses.find((item) => !item.pagado)
+  return primerPendiente?.mes || ''
+}
+
+const obtenerDeudaTotalPendientePagoDepositanteUnidad = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '' }
+) =>
+  obtenerLiquidacionesPendientesUnidadBeneficiarioDeposito(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+  }).reduce((total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item), 0)
+
+// =============================================================================
+// LIQUIDACION DEPOSITARIO - RESOLVER LIQUIDACION PAGO
+// Localiza la liquidacion pendiente del mes o del corte mas antiguo para registrar el pago.
+// =============================================================================
+
+const resolverLiquidacionPagoDepositante = (
+  liquidaciones = [],
+  { idContratoDeposito, claveUnidad = '', idPropietario = '', mesPreferido = '' }
+) => {
+  if (mesPreferido) {
+    const liquidacionMes = encontrarLiquidacionDeposito(liquidaciones, {
+      idContratoDeposito,
+      claveUnidad,
+      idPropietario,
+      mes: mesPreferido,
+    })
+    if (liquidacionMes && obtenerDeudaPendienteLiquidacionDeposito(liquidacionMes) > 0) {
+      return liquidacionMes
+    }
+  }
+
+  const pendientesUnidad = obtenerLiquidacionesPendientesUnidadBeneficiarioDeposito(liquidaciones, {
+    idContratoDeposito,
+    claveUnidad,
+    idPropietario,
+  })
+    .filter((item) => !mesPreferido || String(item.mes) <= String(mesPreferido))
+    .sort((a, b) => String(a.mes).localeCompare(String(b.mes)))
+
+  for (const item of pendientesUnidad) {
+    const liquidacion = encontrarLiquidacionDeposito(liquidaciones, {
+      idContratoDeposito,
+      claveUnidad,
+      idPropietario,
+      mes: item.mes,
+    })
+    if (liquidacion) return liquidacion
+  }
+
+  return null
+}
 
 // =============================================================================
 // LIQUIDACION DEPOSITARIO - PENDIENTES POR CORTE MENSUAL
@@ -6772,24 +7503,50 @@ const construirLiquidacionesPendientesPagoDepositantes = (
   liquidaciones = [],
   contratosDeposito = [],
   propietarios = []
-) =>
-  (liquidaciones || [])
+) => {
+  const mapaUnicas = new Map()
+
+  ;(liquidaciones || [])
     .filter(
       (item) =>
-        Number(item.deudaInmobiliaria || 0) > 0 &&
-        (item.estadoPago === 'Pendiente' || item.estadoPago === 'Pendiente parcial') &&
+        obtenerDeudaPendienteLiquidacionDeposito(item) > 0 &&
         liquidacionDepositoTieneRecaudoArrendatario(item)
     )
+    .forEach((item) => {
+      const claveUnica = [
+        item.idContratoDeposito,
+        item.mes,
+        item.idPropietario,
+        item.idContratoArriendo || item.claveUnidad || item.unidad || '',
+      ].join('::')
+      const actual = mapaUnicas.get(claveUnica)
+      if (
+        !actual ||
+        obtenerDeudaPendienteLiquidacionDeposito(item) >=
+          obtenerDeudaPendienteLiquidacionDeposito(actual)
+      ) {
+        mapaUnicas.set(claveUnica, item)
+      }
+    })
+
+  return [...mapaUnicas.values()]
     .map((item) => {
       const contratoDeposito = (contratosDeposito || []).find(
         (contrato) => contrato.id === item.idContratoDeposito
       )
       const idDepositante = obtenerIdDepositanteContrato(contratoDeposito)
       const depositante = (propietarios || []).find((persona) => persona.id === idDepositante)
+      const saldoPendiente = obtenerDeudaPendienteLiquidacionDeposito(item)
 
       return {
         ...item,
-        saldoPendiente: Number(item.deudaInmobiliaria || 0),
+        saldoPendiente,
+        estadoPago:
+          saldoPendiente <= 0
+            ? 'Pagado'
+            : Number(item.abonoLiquidacionRealizado || 0) > 0
+              ? 'Pendiente parcial'
+              : item.estadoPago,
         depositante,
         claveLista: `${item.idContratoDeposito}-${item.mes}-${item.claveUnidad}-${item.idPropietario}`,
       }
@@ -6801,6 +7558,7 @@ const construirLiquidacionesPendientesPagoDepositantes = (
       if (porContrato !== 0) return porContrato
       return String(a.unidad || '').localeCompare(String(b.unidad || ''))
     })
+}
 
 const construirResumenLiquidacionesPendientesPorCorte = (liquidacionesPendientes = []) => {
   const mapa = new Map()
@@ -6812,7 +7570,7 @@ const construirResumenLiquidacionesPendientesPorCorte = (liquidacionesPendientes
     }
     const grupo = mapa.get(mes)
     grupo.cantidad += 1
-    grupo.saldoTotal += Number(item.saldoPendiente || item.deudaInmobiliaria || 0)
+    grupo.saldoTotal += Number(item.saldoPendiente || 0)
   })
 
   return [...mapa.values()].sort((a, b) => b.mes.localeCompare(a.mes))
@@ -8268,6 +9026,7 @@ function DetalleCondicionesPagoInh({
   calidadContratante,
   observacionesAutorizacionPago,
   variant = 'compact',
+  sinEncabezadoMedioPago = false,
 }) {
   const datos = normalizarCondicionesPagoInh(condiciones)
   const esTransferencia = requiereCuentaBancariaPagoInh(datos.medioPago)
@@ -8309,7 +9068,7 @@ function DetalleCondicionesPagoInh({
   )
 
   if (!datos.medioPago) {
-    if (variant === 'bloque') {
+    if (variant === 'bloque' && !sinEncabezadoMedioPago) {
       return (
         <>
           <div className="form-section-title full medio-pago-acordado-titulo">
@@ -8322,6 +9081,9 @@ function DetalleCondicionesPagoInh({
           </section>
         </>
       )
+    }
+    if (variant === 'bloque' && sinEncabezadoMedioPago) {
+      return null
     }
     return null
   }
@@ -8345,9 +9107,11 @@ function DetalleCondicionesPagoInh({
 
     return (
       <>
-        <div className="form-section-title full medio-pago-acordado-titulo">
-          Medio de pago acordado
-        </div>
+        {!sinEncabezadoMedioPago && (
+          <div className="form-section-title full medio-pago-acordado-titulo">
+            Medio de pago acordado
+          </div>
+        )}
         <section
           className={`bloque-forma-pago-liquidacion${
             esTransferencia ? ' es-transferencia' : ' es-cheque-efectivo'
@@ -8362,16 +9126,18 @@ function DetalleCondicionesPagoInh({
             <span>Distribución mensual</span>
             <strong>{normalizarTipoPagoLiquidacionDeposito(tipoPagoLiquidacion)}</strong>
           </div>
-          <div className="forma-pago-item forma-pago-medio">
-            <span>Tipo de pago</span>
-            <strong
-              className={`etiqueta-medio-pago ${
-                esTransferencia ? 'medio-transferencia' : 'medio-cheque-efectivo'
-              }`}
-            >
-              {datos.medioPago}
-            </strong>
-          </div>
+          {!sinEncabezadoMedioPago && (
+            <div className="forma-pago-item forma-pago-medio">
+              <span>Tipo de pago</span>
+              <strong
+                className={`etiqueta-medio-pago ${
+                  esTransferencia ? 'medio-transferencia' : 'medio-cheque-efectivo'
+                }`}
+              >
+                {datos.medioPago}
+              </strong>
+            </div>
+          )}
         </div>
 
         {esTransferencia && cuentaPago && (
@@ -8997,7 +9763,7 @@ function PanelDetalleContratoDepositoPredio({
       {puedeEditar && onEditar && (
         <div className="form-actions form-actions-embedded">
           <button type="button" className="btn-gold" onClick={onEditar}>
-            Editar documento de administración
+            Editar documento
           </button>
         </div>
       )}
@@ -14794,13 +15560,13 @@ function TablaEstadoCuentaLiquidacionDeposito({ extracto, movimientos, formatear
     mesesVentana
   )
   const rangoCortes = formatearRangoCortesLiquidacion(mesesVentana)
-  const saldoTotal = Number(
-    extracto?.pendienteConsolidado?.totalPendiente ??
-      extracto?.saldoFinal ??
-      (filasConSaldo.length
-        ? filasConSaldo[filasConSaldo.length - 1].saldoAcumulado
-        : 0)
-  )
+  const saldoDesdeFilas = filasConSaldoCompleto.length
+    ? Math.max(0, Number(filasConSaldoCompleto[filasConSaldoCompleto.length - 1].saldoAcumulado || 0))
+    : null
+  const saldoTotal =
+    saldoDesdeFilas !== null
+      ? saldoDesdeFilas
+      : obtenerTotalPendienteExtractoLiquidacionDeposito(extracto)
   const marcarSaldoAtraso = saldoTotal > 0
   const esPagosParciales = !!extracto?.esPagosParciales
 
@@ -14942,6 +15708,31 @@ const formatearPorcentajeCanonLiquidacionDeposito = (porcentaje = 0) => {
 }
 
 // =============================================================================
+// LIQUIDACION DEPOSITO - COMISION PROVISIONAL POR ABONO
+// Etiquetas cuando el canon del mes no esta cubierto al 100%.
+// =============================================================================
+
+const esComisionProvisionalLiquidacionDeposito = ({
+  esPagoFijoMensual = false,
+  porcentajeAbonoCanon = 0,
+} = {}) =>
+  !esPagoFijoMensual &&
+  Number(porcentajeAbonoCanon || 0) > 0 &&
+  Number(porcentajeAbonoCanon || 0) < 100
+
+// =============================================================================
+// LIQUIDACION DEPOSITO - SUFIJO COMISION PROVISIONAL
+// Texto — provisional (% abono canon) para conceptos de comision en extracto.
+// =============================================================================
+
+const obtenerSufijoComisionProvisionalLiquidacionDeposito = (opciones = {}) =>
+  esComisionProvisionalLiquidacionDeposito(opciones)
+    ? ` — provisional (${formatearPorcentajeCanonLiquidacionDeposito(
+        opciones.porcentajeAbonoCanon
+      )} abono canon)`
+    : ''
+
+// =============================================================================
 // LIQUIDACION DEPOSITO - ETIQUETA ESTADO RESUMEN MES
 // Texto de estado por fila del resumen (como hoja Excel del extracto).
 // =============================================================================
@@ -14971,8 +15762,16 @@ const obtenerEtiquetaEstadoResumenMesLiquidacionDeposito = ({
       : '100% — sin comisión'
   }
 
-  if (porcentaje > 0 && porcentaje < 100) return 'Parcial — sin comisión'
-  if (corte.estadoPago === 'Pendiente parcial') return 'Parcial — sin comisión'
+  if (porcentaje > 0 && porcentaje < 100) {
+    return Number(cuadre.totalComision || 0) > 0
+      ? `Parcial — comisión provisional (${formatearPorcentajeCanonLiquidacionDeposito(porcentaje)})`
+      : 'Parcial — sin comisión'
+  }
+  if (corte.estadoPago === 'Pendiente parcial') {
+    return Number(cuadre.totalComision || 0) > 0
+      ? `Parcial — comisión provisional (${formatearPorcentajeCanonLiquidacionDeposito(porcentaje)})`
+      : 'Parcial — sin comisión'
+  }
   if (corte.estadoPago === 'Pendiente') return 'Pendiente'
 
   return corte.estadoPago || '—'
@@ -15002,16 +15801,80 @@ const obtenerClaseEstadoResumenMesLiquidacionDeposito = (estadoEtiqueta = '') =>
 // Suma de saldos pendientes por corte (fuente unica para el resumen).
 // =============================================================================
 
+const obtenerSaldoFinalMovimientosExtractoLiquidacionDeposito = (movimientos = []) => {
+  const filas = acumularSaldoFilasEstadoCuenta(
+    construirFilasEstadoCuentaLiquidacionDeposito(movimientos)
+  )
+
+  if (!filas.length) return null
+
+  return Math.max(0, Number(filas[filas.length - 1].saldoAcumulado || 0))
+}
+
+// =============================================================================
+// LIQUIDACION DEPOSITO - TOTAL PENDIENTE DESDE CORTES
+// Suma de saldoPendienteCorte de cada corte mensual.
+// =============================================================================
+
+const obtenerTotalPendienteDesdeCortesExtractoLiquidacionDeposito = (cortes = []) =>
+  Math.max(
+    0,
+    (cortes || []).reduce(
+      (total, corte) =>
+        total +
+        Math.max(
+          0,
+          Number(
+            corte.saldoPendienteCorte ?? obtenerDeudaPendienteCorteLiquidacionDeposito(corte)
+          )
+        ),
+      0
+    )
+  )
+
+// =============================================================================
+// LIQUIDACION DEPOSITO - TOTAL PENDIENTE EXTRACTO
+// Suma de saldos pendientes por corte (fuente unica para el resumen).
+// =============================================================================
+
 const obtenerTotalPendienteExtractoLiquidacionDeposito = (extracto = {}) => {
-  const desdeConsolidado = extracto.pendienteConsolidado?.totalPendiente
-  if (desdeConsolidado !== undefined && desdeConsolidado !== null) {
-    return Math.max(0, Number(desdeConsolidado))
+  const saldoDesdeMovimientos = obtenerSaldoFinalMovimientosExtractoLiquidacionDeposito(
+    extracto.movimientos || []
+  )
+
+  if ((extracto.cortes || []).length > 0) {
+    const desdeCortes = obtenerTotalPendienteDesdeCortesExtractoLiquidacionDeposito(extracto.cortes)
+    if (saldoDesdeMovimientos !== null) {
+      return Math.min(desdeCortes, saldoDesdeMovimientos)
+    }
+    return desdeCortes
   }
 
-  return (extracto.cortes || []).reduce(
-    (total, corte) => total + obtenerDeudaPendienteCorteLiquidacionDeposito(corte),
-    0
-  )
+  if (saldoDesdeMovimientos !== null) {
+    return saldoDesdeMovimientos
+  }
+
+  if (extracto.liquidacionesUnidad?.length) {
+    return extracto.liquidacionesUnidad.reduce(
+      (total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item),
+      0
+    )
+  }
+
+  const desdeConsolidado = extracto.pendienteConsolidado?.totalPendiente
+  if (desdeConsolidado !== undefined && desdeConsolidado !== null) {
+    return Math.max(0, Number(desdeConsolidado || 0))
+  }
+
+  if (extracto.saldoFinal !== undefined && extracto.saldoFinal !== null) {
+    return Math.max(0, Number(extracto.saldoFinal || 0))
+  }
+
+  if (extracto.totalDeuda !== undefined && extracto.totalDeuda !== null) {
+    return Math.max(0, Number(extracto.totalDeuda || 0))
+  }
+
+  return Math.max(0, Number(extracto.deudaPorCortes?.totalDeuda || 0))
 }
 
 // =============================================================================
@@ -15059,7 +15922,7 @@ const construirFilasResumenPorMesExtractoLiquidacionDeposito = ({
       ivaCanon: cuadre.totalIva,
       comisionInh: cuadre.totalComision,
       ivaComision: cuadre.totalIvaComision,
-      netoDepositario: cuadre.totalAPagar,
+      netoDepositario: cuadre.saldoPendiente,
       saldoPendiente: cuadre.saldoPendiente,
       estado: obtenerEtiquetaEstadoResumenMesLiquidacionDeposito({
         corte,
@@ -15102,16 +15965,31 @@ const construirFilasMovimientosCorteExtractoLiquidacionDeposito = ({
   const movimientosVisibles = obtenerMovimientosVisiblesCorteExtractoLiquidacionDeposito(
     corte.movimientos
   )
+  const porcentajeAbonoCanon = Number(
+    corte.porcentajeCanon ?? corte.liquidacion?.porcentajeAbonoCanonMes ?? 0
+  )
+  const sufijoProvisional = obtenerSufijoComisionProvisionalLiquidacionDeposito({
+    esPagoFijoMensual,
+    porcentajeAbonoCanon,
+  })
 
   if (movimientosVisibles.length) {
-    return movimientosVisibles.map((movimiento, index) => ({
-      numero: index + 1,
-      detalle: movimiento.detalle,
-      cargo: Number(movimiento.cargo || 0),
-      abono: Number(movimiento.abono || 0),
-      saldoAcumulado: Number(movimiento.saldoCorte ?? 0),
-      tipo: movimiento.tipo,
-    }))
+    let saldoAcumulado = 0
+
+    return movimientosVisibles.map((movimiento, index) => {
+      const cargo = Number(movimiento.cargo || 0)
+      const abono = Number(movimiento.abono || 0)
+      saldoAcumulado += Number(movimiento.valor ?? cargo - abono)
+
+      return {
+        numero: index + 1,
+        detalle: movimiento.detalle,
+        cargo,
+        abono,
+        saldoAcumulado: Math.max(0, saldoAcumulado),
+        tipo: movimiento.tipo,
+      }
+    })
   }
 
   const filas = []
@@ -15156,7 +16034,7 @@ const construirFilasMovimientosCorteExtractoLiquidacionDeposito = ({
     agregarFila(
       esPagoFijoMensual
         ? `Porcentaje acordado – Comisión INH (${porcentajeComision}%)`
-        : `Comisión INH (${porcentajeComision}% sobre canon base)`,
+        : `Comisión INH (${porcentajeComision}% sobre canon base)${sufijoProvisional}`,
       0,
       Number(cuadre.totalComision || 0),
       'comision'
@@ -15164,7 +16042,7 @@ const construirFilasMovimientosCorteExtractoLiquidacionDeposito = ({
     agregarFila(
       esPagoFijoMensual
         ? `IVA del porcentaje acordado (${porcentajeComision}%)`
-        : `IVA comisión INH (${porcentajeComision}%)`,
+        : `IVA comisión INH (${porcentajeComision}%)${sufijoProvisional}`,
       0,
       Number(cuadre.totalIvaComision || 0),
       'iva-comision'
@@ -15212,19 +16090,116 @@ function TablaReferenciaPagosArrendatarioLiquidacionDeposito({
   formatearDinero,
   titulo = 'Pagos del arrendatario de referencia',
   mostrarPendienteInh = false,
+  deudaCortesAnteriores = 0,
+  deudaPendienteCorte = null,
+  mesCausadoPagadoInh = false,
 }) {
-  const pagosArrendatario = construirPagosArrendatarioDetalleLiquidacionDeposito(liquidacion)
-  const pagosVisibles = mostrarPendienteInh
-    ? pagosArrendatario.filter((pago) => !pago.liquidadoInh && Number(pago.deudaPendienteInh || 0) > 0)
+  const pagosArrendatario = liquidacion
+    ? construirPagosArrendatarioDetalleLiquidacionDeposito(liquidacion)
+    : []
+  const pagosVisibles = mostrarPendienteInh && !mesCausadoPagadoInh
+    ? pagosArrendatario.filter((pago) => Number(pago.deudaPendienteInh || 0) > 0)
     : pagosArrendatario
+  const totalPendienteCorte = mesCausadoPagadoInh
+    ? 0
+    : deudaPendienteCorte !== null && deudaPendienteCorte !== undefined
+      ? Math.max(0, Number(deudaPendienteCorte || 0))
+      : pagosVisibles.reduce((total, pago) => total + Number(pago.deudaPendienteInh || 0), 0)
+  const cortesAnteriores = Math.max(0, Number(deudaCortesAnteriores || 0))
+  const totalNetoPendienteInh = mesCausadoPagadoInh
+    ? cortesAnteriores
+    : totalPendienteCorte + cortesAnteriores
+  const mostrarResumenPendienteInh =
+    mostrarPendienteInh &&
+    (mesCausadoPagadoInh || totalPendienteCorte > 0 || cortesAnteriores > 0)
+  const claseSaldoPendiente = (valor) =>
+    Number(valor || 0) > 0 ? 'extracto-liquidacion-referencia-arrendatario-saldo-pendiente' : ''
 
-  if (!pagosVisibles.length) {
+  if (!pagosVisibles.length && !mostrarResumenPendienteInh) {
     return (
       <p className="form-description extracto-liquidacion-referencia-arrendatario-vacia">
         {liquidacion?.esPagoFijoMensual
           ? 'Liquidación por pago fijo mensual (no depende de un recibo del arrendatario en este corte).'
           : 'Sin pagos del arrendatario vinculados a esta liquidación.'}
       </p>
+    )
+  }
+
+  if (mostrarPendienteInh) {
+    const unaSolaFilaDetalle = pagosVisibles.length === 1
+
+    return (
+      <div className="extracto-liquidacion-referencia-arrendatario">
+        <h4>{titulo}</h4>
+        <div className="simple-table-wrapper">
+          <table className="simple-table extracto-liquidacion-referencia-arrendatario-tabla extracto-liquidacion-referencia-arrendatario-tabla--pago-inh">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Recibo</th>
+                <th>Valor recibo</th>
+                <th>Valor corte</th>
+                <th>Saldos anteriores al corte</th>
+                <th>Neto a pagar INH</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagosVisibles.map((pago, index) => {
+                const valorCorte = mesCausadoPagadoInh ? 0 : Number(pago.deudaPendienteInh || 0)
+
+                return (
+                  <tr key={`${pago.idPagoArriendo || pago.recibo}-${index}`}>
+                    <td>{formatearFechaExtractoLiquidacionDeposito(pago.fechaPago)}</td>
+                    <td>{pago.recibo || '—'}</td>
+                    <td>{formatearDinero(pago.valorPagadoTotalRecibo)}</td>
+                    <td>{formatearDinero(valorCorte)}</td>
+                    <td>
+                      {unaSolaFilaDetalle ? formatearDinero(cortesAnteriores) : '—'}
+                    </td>
+                    <td
+                      className={
+                        unaSolaFilaDetalle ? claseSaldoPendiente(totalNetoPendienteInh) : ''
+                      }
+                    >
+                      {unaSolaFilaDetalle
+                        ? formatearDinero(totalNetoPendienteInh)
+                        : formatearDinero(valorCorte)}
+                    </td>
+                  </tr>
+                )
+              })}
+              {pagosVisibles.length === 0 && mostrarResumenPendienteInh && (
+                <tr>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>{formatearDinero(totalPendienteCorte)}</td>
+                  <td>{formatearDinero(cortesAnteriores)}</td>
+                  <td className={claseSaldoPendiente(totalNetoPendienteInh)}>
+                    {formatearDinero(totalNetoPendienteInh)}
+                  </td>
+                </tr>
+              )}
+              {pagosVisibles.length > 1 && (
+                <tr className="extracto-liquidacion-referencia-arrendatario-total">
+                  <td colSpan="3">
+                    <strong>Totales</strong>
+                  </td>
+                  <td>
+                    <strong>{formatearDinero(totalPendienteCorte)}</strong>
+                  </td>
+                  <td>
+                    <strong>{formatearDinero(cortesAnteriores)}</strong>
+                  </td>
+                  <td className={claseSaldoPendiente(totalNetoPendienteInh)}>
+                    <strong>{formatearDinero(totalNetoPendienteInh)}</strong>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     )
   }
 
@@ -15239,7 +16214,6 @@ function TablaReferenciaPagosArrendatarioLiquidacionDeposito({
               <th>Fecha</th>
               <th>Valor recibo</th>
               <th>Asignado al corte</th>
-              {mostrarPendienteInh && <th>Neto pendiente INH</th>}
             </tr>
           </thead>
           <tbody>
@@ -15249,9 +16223,6 @@ function TablaReferenciaPagosArrendatarioLiquidacionDeposito({
                 <td>{formatearFechaExtractoLiquidacionDeposito(pago.fechaPago)}</td>
                 <td>{formatearDinero(pago.valorPagadoTotalRecibo)}</td>
                 <td>{formatearDinero(pago.valorBrutoBeneficiario)}</td>
-                {mostrarPendienteInh && (
-                  <td>{formatearDinero(pago.deudaPendienteInh)}</td>
-                )}
               </tr>
             ))}
           </tbody>
@@ -15297,7 +16268,10 @@ function TablaResumenPorMesExtractoLiquidacionDeposito({
           {porcentajeComision > 0 && (
             <p className="form-description extracto-liquidacion-resumen-meses-nota">
               Comisión INH {porcentajeComision}% sobre canon base
-              {esPagosParciales ? ' — solo si el mes queda al 100%' : ''}.
+              {esPagosParciales
+                ? ' — valor provisional según el % de abono del canon en cada mes.'
+                : ''}
+              .
             </p>
           )}
         </div>
@@ -18376,6 +19350,22 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 // Formulario, validaciones y registro de pagos al depositante.
 // =============================================================================
 
+  const limpiarCamposRegistroPagoDepositante = () => {
+    setFechaAbonoDeposito(new Date().toISOString().slice(0, 10))
+    setObservacionesAbonoDeposito('')
+    setBancoPagoDepositante('')
+    setCuentaPagoDepositante('')
+    setReferenciaPagoDepositante('')
+    setNumeroChequePagoDepositante('')
+    setComprobanteEgresoPagoDepositante('')
+    setDocumentoPagoDepositanteAdjunto(null)
+  }
+
+// =============================================================================
+// ACCIONES - PAGO A DEPOSITANTES
+// Formulario, validaciones y registro de pagos al depositante.
+// =============================================================================
+
   const limpiarFormularioPagoDepositante = () => {
     setIdContratoPagoDepositante('')
     setBusquedaContratoPagoDepositante('')
@@ -18394,45 +19384,113 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     setDocumentoPagoDepositanteAdjunto(null)
   }
 
+  const refrescarSaldosFormularioPagoDepositante = ({
+    contratoId = idContratoPagoDepositante,
+    mes = mesAbonoDeposito,
+    claveUnidad = claveUnidadAbonoDeposito,
+    idBeneficiario = idBeneficiarioAbonoDeposito,
+    liquidaciones = liquidacionesDepositoHistorialCompleto,
+    limpiarCamposRegistro = false,
+  } = {}) => {
+    if (!contratoId || !claveUnidad || !idBeneficiario) return 0
+
+    const pendientesUnidad = obtenerLiquidacionesPendientesUnidadBeneficiarioDeposito(
+      liquidaciones,
+      {
+        idContratoDeposito: contratoId,
+        claveUnidad,
+        idPropietario: idBeneficiario,
+      }
+    )
+
+    if (!pendientesUnidad.length) {
+      limpiarFormularioPagoDepositante()
+      return 0
+    }
+
+    const mesActivo = resolverMesCausadoTrasAbonoPagoDepositante({
+      liquidaciones,
+      idContratoDeposito: contratoId,
+      claveUnidad,
+      idPropietario: idBeneficiario,
+      mesReferencia: mes,
+    })
+
+    if (mesActivo) {
+      setMesAbonoDeposito(mesActivo)
+    }
+
+    const deudaRestante = mesActivo
+      ? Number(
+          obtenerDeudaHastaCortePagoDepositante(liquidaciones, {
+            idContratoDeposito: contratoId,
+            claveUnidad,
+            idPropietario: idBeneficiario,
+            mesReferencia: mesActivo,
+          }) || 0
+        )
+      : 0
+
+    setValorPagoDepositante(
+      calcularValorPendienteFormularioPagoDepositante(liquidaciones, {
+        idContratoDeposito: contratoId,
+        claveUnidad,
+        idPropietario: idBeneficiario,
+        mesReferencia: mesActivo,
+      })
+    )
+
+    if (limpiarCamposRegistro) {
+      limpiarCamposRegistroPagoDepositante()
+    }
+
+    return deudaRestante
+  }
+
   const prepararSeleccionPagoDepositante = (contrato) => {
     const pendientes = obtenerLiquidacionesPendientesContratoDeposito(
       liquidacionesDepositoHistorialCompleto,
       contrato.id
     )
+    const pendientesOrdenados = [...pendientes].sort((a, b) =>
+      String(b.mes).localeCompare(String(a.mes))
+    )
 
-    const primerMes = pendientes[0]?.mes || ''
-    const unidadesPrimerMes = pendientes.filter((item) => item.mes === primerMes)
-    const primerUnidad = unidadesPrimerMes[0]?.claveUnidad || ''
-    const beneficiariosPrimerUnidad = unidadesPrimerMes.filter(
+    const mesReferenciaInicial = pendientesOrdenados[0]?.mes || ''
+    const unidadesMesInicial = pendientesOrdenados.filter(
+      (item) => item.mes === mesReferenciaInicial
+    )
+    const primerUnidad = unidadesMesInicial[0]?.claveUnidad || ''
+    const beneficiariosPrimerUnidad = unidadesMesInicial.filter(
       (item) => item.claveUnidad === primerUnidad
     )
     const primerBeneficiario = beneficiariosPrimerUnidad[0]?.idPropietario || ''
-    const liquidacionInicial = pendientes.find(
-      (item) =>
-        item.mes === primerMes &&
-        item.claveUnidad === primerUnidad &&
-        item.idPropietario === primerBeneficiario
-    )
+    const mesInicial =
+      resolverMesCausadoPagoDepositante({
+        liquidaciones: liquidacionesDepositoHistorialCompleto,
+        idContratoDeposito: contrato.id,
+        claveUnidad: primerUnidad,
+        idPropietario: primerBeneficiario,
+        mesPreferido: mesReferenciaInicial,
+      }) || mesReferenciaInicial
 
     setIdContratoPagoDepositante(contrato.id)
     setBusquedaContratoPagoDepositante(
       `${obtenerNumeroContratoDepositoVisible(contrato, contratosDeposito)} — ${contrato.codigoPredio || 'Sin predio'}`
     )
-    setMesAbonoDeposito(primerMes)
+    setMesAbonoDeposito(mesInicial)
     setClaveUnidadAbonoDeposito(primerUnidad)
     setIdBeneficiarioAbonoDeposito(primerBeneficiario)
     setFechaAbonoDeposito(new Date().toISOString().slice(0, 10))
     setValorPagoDepositante(
-      liquidacionInicial ? String(Math.round(Number(liquidacionInicial.deudaInmobiliaria || 0))) : ''
+      calcularValorPendienteFormularioPagoDepositante(liquidacionesDepositoHistorialCompleto, {
+        idContratoDeposito: contrato.id,
+        claveUnidad: primerUnidad,
+        idPropietario: primerBeneficiario,
+        mesReferencia: mesInicial,
+      })
     )
-    setObservacionesAbonoDeposito('')
-    setMedioPagoDepositante('Transferencia')
-    setBancoPagoDepositante('')
-    setCuentaPagoDepositante('')
-    setReferenciaPagoDepositante('')
-    setNumeroChequePagoDepositante('')
-    setComprobanteEgresoPagoDepositante('')
-    setDocumentoPagoDepositanteAdjunto(null)
+    limpiarCamposRegistroPagoDepositante()
   }
 
   const irPagoDepositanteDesdeContrato = (contrato) => {
@@ -18539,11 +19597,12 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       return
     }
 
-    const liquidacion = encontrarLiquidacionDeposito(liquidacionesDepositoHistorialCompleto, {
+    const liquidacion = resolverLiquidacionPagoDepositante(liquidacionesDepositoHistorialCompleto, {
       idContratoDeposito: contrato.id,
       mes: mesAbonoDeposito,
       idPropietario: idBeneficiarioAbonoDeposito,
       claveUnidad: claveUnidadAbonoDeposito,
+      mesPreferido: mesAbonoDeposito,
     })
 
     if (!liquidacion) {
@@ -18572,7 +19631,15 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       return
     }
 
-    const montoPendiente = Number(liquidacion.deudaInmobiliaria || 0)
+    const montoPendiente = obtenerDeudaHastaCortePagoDepositante(
+      liquidacionesDepositoHistorialCompleto,
+      {
+        idContratoDeposito: contrato.id,
+        claveUnidad: claveUnidadAbonoDeposito,
+        idPropietario: idBeneficiarioAbonoDeposito,
+        mesReferencia: mesAbonoDeposito,
+      }
+    )
     const montoPagar = Number(String(valorPagoDepositante || '').replace(/\D/g, '')) || 0
 
     if (montoPendiente <= 0) {
@@ -18666,17 +19733,23 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
     setPagosLiquidacionDeposito([nuevoPago, ...pagosLiquidacionDeposito])
 
+    const contratosDepositoActualizados =
+      liquidacion.tipoComision === 'Solo arrendar' &&
+      liquidacion.comisionInmobiliariaPredio > 0
+        ? (Array.isArray(contratosDeposito) ? contratosDeposito : []).map((item) =>
+            item.id === liquidacion.idContratoDeposito
+              ? { ...item, mesComisionPrimerArriendo: liquidacion.mes }
+              : item
+          )
+        : Array.isArray(contratosDeposito)
+        ? contratosDeposito
+        : []
+
     if (
       liquidacion.tipoComision === 'Solo arrendar' &&
       liquidacion.comisionInmobiliariaPredio > 0
     ) {
-      setContratosDeposito((prev) =>
-        prev.map((item) =>
-          item.id === liquidacion.idContratoDeposito
-            ? { ...item, mesComisionPrimerArriendo: liquidacion.mes }
-            : item
-        )
-      )
+      setContratosDeposito(() => contratosDepositoActualizados)
     }
 
     registrarHistorial({
@@ -18689,8 +19762,35 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       valorNuevo: formatearDinero(montoPagar),
     })
 
-    limpiarFormularioPagoDepositante()
-    alert('Pago al depositante o propietario registrado correctamente.')
+    const liquidacionesActualizadas = generarLiquidacionesDepositoHistorial({
+      contratosDeposito: contratosDepositoActualizados,
+      predioPropietarios,
+      propietarios,
+      predios,
+      contratosArriendo,
+      pagosArriendo,
+      pagosLiquidacionDeposito: [nuevoPago, ...pagosLiquidacionDeposito],
+      gestionesCartera,
+      incrementosArriendo,
+      ajustesAdministracion,
+    })
+
+    const deudaRestante = refrescarSaldosFormularioPagoDepositante({
+      contratoId: contrato.id,
+      mes: mesAbonoDeposito,
+      claveUnidad: claveUnidadAbonoDeposito,
+      idBeneficiario: idBeneficiarioAbonoDeposito,
+      liquidaciones: liquidacionesActualizadas,
+      limpiarCamposRegistro: true,
+    })
+
+    if (deudaRestante > 0) {
+      alert(
+        `Pago registrado correctamente. Saldo pendiente al corte: ${formatearDinero(deudaRestante)}.`
+      )
+    } else {
+      alert('Pago al depositante o propietario registrado correctamente. No quedan saldos pendientes para esta selección.')
+    }
   }
 
   const cerrarFormularioContratoDeposito = (opciones = {}) => {
@@ -23739,7 +24839,7 @@ const guardarPagoArriendo = () => {
   alert(
     `Pago guardado correctamente. Deuda pendiente del contrato: ${formatearDinero(
       Math.max(0, saldoActualPagoArriendo - nuevoPago.valorPagado)
-    )}. Puede registrar otro pago o cerrar el recibo.`
+    )}. Las liquidaciones al depositario se actualizaron con este abono. Puede registrar otro pago o cerrar el recibo.`
   )
 }
 
@@ -24923,20 +26023,82 @@ const unidadesDisponiblesResultado = unidadesDisponiblesConsultadas
       )
     : []
 
-  const liquidacionesDepositoHistorialCompleto = generarLiquidacionesDepositoHistorial({
-    contratosDeposito: Array.isArray(contratosDeposito) ? contratosDeposito : [],
-    predioPropietarios,
-    propietarios,
-    predios,
-    contratosArriendo,
-    pagosArriendo,
+  const liquidacionesDepositoHistorialCompleto = useMemo(
+    () =>
+      generarLiquidacionesDepositoHistorial({
+        contratosDeposito: Array.isArray(contratosDeposito) ? contratosDeposito : [],
+        predioPropietarios,
+        propietarios,
+        predios,
+        contratosArriendo,
+        pagosArriendo,
+        pagosLiquidacionDeposito,
+        gestionesCartera,
+        incrementosArriendo,
+        ajustesAdministracion,
+        idPropietarioFiltro: null,
+        idContratoDepositoFiltro: null,
+      }),
+    [
+      contratosDeposito,
+      predioPropietarios,
+      propietarios,
+      predios,
+      contratosArriendo,
+      pagosArriendo,
+      pagosLiquidacionDeposito,
+      gestionesCartera,
+      incrementosArriendo,
+      ajustesAdministracion,
+    ]
+  )
+
+  useEffect(() => {
+    if (vistaActiva !== 'pagoDepositantes') return
+    if (
+      !idContratoPagoDepositante ||
+      !claveUnidadAbonoDeposito ||
+      !idBeneficiarioAbonoDeposito ||
+      !mesAbonoDeposito
+    ) {
+      return
+    }
+
+    setValorPagoDepositante(
+      calcularValorPendienteFormularioPagoDepositante(liquidacionesDepositoHistorialCompleto, {
+        idContratoDeposito: idContratoPagoDepositante,
+        claveUnidad: claveUnidadAbonoDeposito,
+        idPropietario: idBeneficiarioAbonoDeposito,
+        mesReferencia: mesAbonoDeposito,
+      })
+    )
+  }, [
+    vistaActiva,
     pagosLiquidacionDeposito,
+    pagosArriendo,
+    contratosDeposito,
     gestionesCartera,
     incrementosArriendo,
     ajustesAdministracion,
-    idPropietarioFiltro: null,
-    idContratoDepositoFiltro: null,
-  })
+    liquidacionesDepositoHistorialCompleto,
+    idContratoPagoDepositante,
+    claveUnidadAbonoDeposito,
+    idBeneficiarioAbonoDeposito,
+    mesAbonoDeposito,
+  ])
+
+  const revisionLiquidacionesDeposito = useMemo(
+    () =>
+      [
+        pagosLiquidacionDeposito.length,
+        pagosArriendo.length,
+        liquidacionesDepositoHistorialCompleto.reduce(
+          (total, item) => total + obtenerDeudaPendienteLiquidacionDeposito(item),
+          0
+        ),
+      ].join('-'),
+    [pagosLiquidacionDeposito, pagosArriendo, liquidacionesDepositoHistorialCompleto]
+  )
 
   const liquidacionesDepositoHistorial = filtroContratoLiquidacionDeposito
     ? liquidacionesDepositoHistorialCompleto.filter(
@@ -25098,7 +26260,10 @@ const unidadesDisponiblesResultado = unidadesDisponiblesConsultadas
       : null
 
   const totalNetoLiquidacionDeposito = liquidacionesDepositoHistorial.reduce(
-    (total, item) => total + Number(item.deudaInmobiliaria || item.valorNetoPropietario || 0),
+    (total, item) =>
+      total +
+      (obtenerDeudaPendienteLiquidacionDeposito(item) ||
+        Number(item.valorNetoPropietario || 0)),
     0
   )
 
@@ -26361,67 +27526,6 @@ const resultadosBusqueda = textoBusqueda
     )}
   </div>
 
-  <div className={`menu-group${menuGrupoActivo('depositantes') ? ' section-active-group' : ''}`}>
-    <button
-      type="button"
-      className={claseMenuItem('depositantes')}
-      onClick={() => alternarMenu('depositantes')}
-    >
-      <MenuIcon type="depositantes" />
-      <span className="menu-label">Depositantes</span>
-      <strong>{menuAbierto === 'depositantes' ? '−' : '+'}</strong>
-    </button>
-
-    {submenuVisible('depositantes') && (
-      <div className="submenu">
-        <button
-          type="button"
-          className={claseSubmenuItem(esSubmenuActivo('consultarDepositarios'))}
-          onClick={() =>
-            irSubmenu({
-              seccion: 'depositantes',
-              vista: 'depositarios',
-              clave: 'consultarDepositarios',
-              grupo: 'depositantes',
-            })
-          }
-        >
-          Consultar depositantes
-        </button>
-        <button
-          type="button"
-          className={claseSubmenuItem(esSubmenuActivo('liquidacionDeposito'))}
-          onClick={() =>
-            irSubmenu({
-              seccion: 'depositantes',
-              vista: 'liquidacionDeposito',
-              clave: 'liquidacionDeposito',
-              grupo: 'depositantes',
-            })
-          }
-        >
-          Liquidación al depositante
-        </button>
-        {puedeRegistrar && (
-          <button
-            type="button"
-            className={claseSubmenuItem(esSubmenuActivo('pagoDepositantes'))}
-            onClick={() =>
-              irSubmenu({
-                seccion: 'depositantes',
-                vista: 'pagoDepositantes',
-                clave: 'pagoDepositantes',
-                grupo: 'depositantes',
-              })
-            }
-          >
-            Pago a depositantes
-          </button>
-        )}
-      </div>
-    )}
-  </div>
-
   <div className={`menu-group${menuGrupoActivo('unidades') ? ' section-active-group' : ''}`}>
     <button
       type="button"
@@ -26589,6 +27693,67 @@ const resultadosBusqueda = textoBusqueda
         >
           Administraciones pendientes
         </button>
+      </div>
+    )}
+  </div>
+
+  <div className={`menu-group${menuGrupoActivo('depositantes') ? ' section-active-group' : ''}`}>
+    <button
+      type="button"
+      className={claseMenuItem('depositantes')}
+      onClick={() => alternarMenu('depositantes')}
+    >
+      <MenuIcon type="depositantes" />
+      <span className="menu-label">Depositantes</span>
+      <strong>{menuAbierto === 'depositantes' ? '−' : '+'}</strong>
+    </button>
+
+    {submenuVisible('depositantes') && (
+      <div className="submenu">
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('consultarDepositarios'))}
+          onClick={() =>
+            irSubmenu({
+              seccion: 'depositantes',
+              vista: 'depositarios',
+              clave: 'consultarDepositarios',
+              grupo: 'depositantes',
+            })
+          }
+        >
+          Consultar depositantes
+        </button>
+        <button
+          type="button"
+          className={claseSubmenuItem(esSubmenuActivo('liquidacionDeposito'))}
+          onClick={() =>
+            irSubmenu({
+              seccion: 'depositantes',
+              vista: 'liquidacionDeposito',
+              clave: 'liquidacionDeposito',
+              grupo: 'depositantes',
+            })
+          }
+        >
+          Liquidación al depositante
+        </button>
+        {puedeRegistrar && (
+          <button
+            type="button"
+            className={claseSubmenuItem(esSubmenuActivo('pagoDepositantes'))}
+            onClick={() =>
+              irSubmenu({
+                seccion: 'depositantes',
+                vista: 'pagoDepositantes',
+                clave: 'pagoDepositantes',
+                grupo: 'depositantes',
+              })
+            }
+          >
+            Pago a depositantes
+          </button>
+        )}
       </div>
     )}
   </div>
@@ -27496,6 +28661,16 @@ const resultadosBusqueda = textoBusqueda
   >
     <span className="estado-cuenta-tipo-icon hero-action-icon">🏠</span>Registrar inmueble
   </button>
+
+  {puedeRegistrar && (
+    <button
+      type="button"
+      className={claseHeroAction('unidadNueva')}
+      onClick={() => abrirFormulario('arriendos', 'unidad')}
+    >
+      <span className="estado-cuenta-tipo-icon hero-action-icon">▤</span>Registrar unidad
+    </button>
+  )}
 
   <button
     type="button"
@@ -30543,7 +31718,8 @@ const resultadosBusqueda = textoBusqueda
                               <strong>
                                 {formatearDinero(
                                   pendientesAbono.reduce(
-                                    (total, item) => total + Number(item.deudaInmobiliaria || 0),
+                                    (total, item) =>
+                                      total + obtenerDeudaPendienteLiquidacionDeposito(item),
                                     0
                                   )
                                 )}
@@ -31222,6 +32398,7 @@ const resultadosBusqueda = textoBusqueda
             {/* VISTA - LIQUIDACIONES PENDIENTES DEPOSITANTES — Alerta por corte mensual. */}
             {vistaActiva === 'liquidacionesPendientesDepositantes' && (
               <PanelLiquidacionesPendientesDepositantes
+                key={revisionLiquidacionesDeposito}
                 resumenPorCorte={resumenLiquidacionesPendientesPorCorte}
                 liquidaciones={liquidacionesPendientesDepositantesFiltradas}
                 totalLiquidaciones={liquidacionesPendientesDepositantes.length}
@@ -31662,7 +32839,8 @@ const resultadosBusqueda = textoBusqueda
                               contrato.id
                             )
                             const totalPendiente = pendientes.reduce(
-                              (total, item) => total + Number(item.deudaInmobiliaria || 0),
+                              (total, item) =>
+                                total + obtenerDeudaPendienteLiquidacionDeposito(item),
                               0
                             )
 
@@ -31704,47 +32882,84 @@ const resultadosBusqueda = textoBusqueda
                       liquidacionesDepositoHistorialCompleto,
                       contrato.id
                     )
-                    const mesesPendientes = [
-                      ...new Set(pendientesContrato.map((item) => item.mes)),
-                    ].sort((a, b) => b.localeCompare(a))
-                    const unidadesMes = [
-                      ...new Map(
-                        pendientesContrato
-                          .filter((item) => item.mes === mesAbonoDeposito)
-                          .map((item) => [item.claveUnidad, item])
-                      ).values(),
-                    ]
-                    const beneficiariosMes = pendientesContrato.filter(
-                      (item) =>
-                        item.mes === mesAbonoDeposito &&
-                        item.claveUnidad === claveUnidadAbonoDeposito
-                    )
-                    const liquidacionSeleccionada = encontrarLiquidacionDeposito(
+                    const mesesCausadosDisponibles = obtenerMesesCausadosLiquidacionPagoDepositante(
                       liquidacionesDepositoHistorialCompleto,
                       {
                         idContratoDeposito: contrato.id,
-                        mes: mesAbonoDeposito,
-                        idPropietario: idBeneficiarioAbonoDeposito,
                         claveUnidad: claveUnidadAbonoDeposito,
+                        idPropietario: idBeneficiarioAbonoDeposito,
                       }
                     )
+                    const unidadesPendientesContrato = [
+                      ...new Map(
+                        pendientesContrato.map((item) => [item.claveUnidad, item])
+                      ).values(),
+                    ].sort((a, b) => String(a.unidad || '').localeCompare(String(b.unidad || '')))
+                    const beneficiariosUnidad = [
+                      ...new Map(
+                        pendientesContrato
+                          .filter((item) => item.claveUnidad === claveUnidadAbonoDeposito)
+                          .map((item) => [item.idPropietario, item])
+                      ).values(),
+                    ]
+                    const liquidacionSeleccionada =
+                      mesAbonoDeposito && claveUnidadAbonoDeposito && idBeneficiarioAbonoDeposito
+                        ? encontrarLiquidacionDeposito(liquidacionesDepositoHistorialCompleto, {
+                            idContratoDeposito: contrato.id,
+                            mes: mesAbonoDeposito,
+                            idPropietario: idBeneficiarioAbonoDeposito,
+                            claveUnidad: claveUnidadAbonoDeposito,
+                          })
+                        : null
 
                     const actualizarValorPendiente = (mes, claveUnidad, idBeneficiario) => {
-                      const liquidacion = encontrarLiquidacionDeposito(
-                        liquidacionesDepositoHistorialCompleto,
-                        {
-                          idContratoDeposito: contrato.id,
-                          mes,
-                          idPropietario: idBeneficiario,
-                          claveUnidad,
-                        }
-                      )
                       setValorPagoDepositante(
-                        liquidacion
-                          ? String(Math.round(Number(liquidacion.deudaInmobiliaria || 0)))
-                          : ''
+                        calcularValorPendienteFormularioPagoDepositante(
+                          liquidacionesDepositoHistorialCompleto,
+                          {
+                            idContratoDeposito: contrato.id,
+                            claveUnidad,
+                            idPropietario: idBeneficiario,
+                            mesReferencia: mes,
+                          }
+                        )
                       )
                     }
+
+                    const deudaPendienteCorteActual = obtenerDeudaPendienteCorteMesPagoDepositante(
+                      liquidacionesDepositoHistorialCompleto,
+                      {
+                        idContratoDeposito: contrato.id,
+                        claveUnidad: claveUnidadAbonoDeposito,
+                        idPropietario: idBeneficiarioAbonoDeposito,
+                        mesReferencia: mesAbonoDeposito,
+                      }
+                    )
+                    const deudaCortesAnteriores = obtenerDeudaCortesAnterioresPagoDepositante(
+                      liquidacionesDepositoHistorialCompleto,
+                      {
+                        idContratoDeposito: contrato.id,
+                        claveUnidad: claveUnidadAbonoDeposito,
+                        idPropietario: idBeneficiarioAbonoDeposito,
+                        mesReferencia: mesAbonoDeposito,
+                      }
+                    )
+                    const deudaHastaCorte = obtenerDeudaHastaCortePagoDepositante(
+                      liquidacionesDepositoHistorialCompleto,
+                      {
+                        idContratoDeposito: contrato.id,
+                        claveUnidad: claveUnidadAbonoDeposito,
+                        idPropietario: idBeneficiarioAbonoDeposito,
+                        mesReferencia: mesAbonoDeposito,
+                      }
+                    )
+                    const mesCausadoPagadoInh =
+                      !!mesAbonoDeposito &&
+                      !!liquidacionSeleccionada &&
+                      deudaPendienteCorteActual <= 0
+                    const medioPagoAcordadoContrato = normalizarCondicionesPagoInh(
+                      contrato.condicionesPagoInh
+                    ).medioPago
 
                     return (
                       <>
@@ -31770,34 +32985,12 @@ const resultadosBusqueda = textoBusqueda
                         </div>
 
                         <div className="form-group">
-                          <label>Mes causado</label>
-                          <select
-                            value={mesAbonoDeposito}
-                            onChange={(e) => {
-                              const mes = e.target.value
-                              setMesAbonoDeposito(mes)
-                              const unidades = [
-                                ...new Map(
-                                  pendientesContrato
-                                    .filter((item) => item.mes === mes)
-                                    .map((item) => [item.claveUnidad, item])
-                                ).values(),
-                              ]
-                              const primeraUnidad = unidades[0]?.claveUnidad || ''
-                              setClaveUnidadAbonoDeposito(primeraUnidad)
-                              const beneficiarios = pendientesContrato.filter(
-                                (item) =>
-                                  item.mes === mes && item.claveUnidad === primeraUnidad
-                              )
-                              const primerBeneficiario = beneficiarios[0]?.idPropietario || ''
-                              setIdBeneficiarioAbonoDeposito(primerBeneficiario)
-                              actualizarValorPendiente(mes, primeraUnidad, primerBeneficiario)
-                            }}
-                          >
-                            <option value="">Seleccione mes</option>
-                            {mesesPendientes.map((mes) => (
-                              <option key={mes} value={mes}>
-                                {mes}
+                          <label>Medio de pago acordado</label>
+                          <select value={medioPagoAcordadoContrato} disabled>
+                            <option value="">Sin medio registrado en el documento</option>
+                            {MEDIOS_PAGO_INH.map((medio) => (
+                              <option key={medio} value={medio}>
+                                {medio}
                               </option>
                             ))}
                           </select>
@@ -31810,23 +33003,28 @@ const resultadosBusqueda = textoBusqueda
                             onChange={(e) => {
                               const claveUnidad = e.target.value
                               setClaveUnidadAbonoDeposito(claveUnidad)
-                              const beneficiarios = pendientesContrato.filter(
-                                (item) =>
-                                  item.mes === mesAbonoDeposito &&
-                                  item.claveUnidad === claveUnidad
-                              )
+                              const beneficiarios = [
+                                ...new Map(
+                                  pendientesContrato
+                                    .filter((item) => item.claveUnidad === claveUnidad)
+                                    .map((item) => [item.idPropietario, item])
+                                ).values(),
+                              ]
                               const primerBeneficiario = beneficiarios[0]?.idPropietario || ''
                               setIdBeneficiarioAbonoDeposito(primerBeneficiario)
-                              actualizarValorPendiente(
-                                mesAbonoDeposito,
+                              const mesActivo = resolverMesCausadoPagoDepositante({
+                                liquidaciones: liquidacionesDepositoHistorialCompleto,
+                                idContratoDeposito: contrato.id,
                                 claveUnidad,
-                                primerBeneficiario
-                              )
+                                idPropietario: primerBeneficiario,
+                                mesPreferido: mesAbonoDeposito,
+                              })
+                              setMesAbonoDeposito(mesActivo)
+                              actualizarValorPendiente(mesActivo, claveUnidad, primerBeneficiario)
                             }}
-                            disabled={!mesAbonoDeposito}
                           >
                             <option value="">Seleccione unidad</option>
-                            {unidadesMes.map((item) => (
+                            {unidadesPendientesContrato.map((item) => (
                               <option key={item.claveUnidad} value={item.claveUnidad}>
                                 {item.unidad || 'Sin unidad'}
                               </option>
@@ -31841,8 +33039,16 @@ const resultadosBusqueda = textoBusqueda
                             onChange={(e) => {
                               const idBeneficiario = e.target.value
                               setIdBeneficiarioAbonoDeposito(idBeneficiario)
+                              const mesActivo = resolverMesCausadoPagoDepositante({
+                                liquidaciones: liquidacionesDepositoHistorialCompleto,
+                                idContratoDeposito: contrato.id,
+                                claveUnidad: claveUnidadAbonoDeposito,
+                                idPropietario: idBeneficiario,
+                                mesPreferido: mesAbonoDeposito,
+                              })
+                              setMesAbonoDeposito(mesActivo)
                               actualizarValorPendiente(
-                                mesAbonoDeposito,
+                                mesActivo,
                                 claveUnidadAbonoDeposito,
                                 idBeneficiario
                               )
@@ -31850,7 +33056,7 @@ const resultadosBusqueda = textoBusqueda
                             disabled={!claveUnidadAbonoDeposito}
                           >
                             <option value="">Seleccione beneficiario</option>
-                            {beneficiariosMes.map((item) => (
+                            {beneficiariosUnidad.map((item) => (
                               <option key={item.idPropietario} value={item.idPropietario}>
                                 {item.propietario?.nombre}
                               </option>
@@ -31858,38 +33064,66 @@ const resultadosBusqueda = textoBusqueda
                           </select>
                         </div>
 
-                        {idBeneficiarioAbonoDeposito && (
-                          <div className="full">
-                            <DetalleCondicionesPagoInh
-                              variant="bloque"
-                              condiciones={contrato.condicionesPagoInh}
-                              tipoPagoLiquidacion={contrato.tipoPagoLiquidacion}
-                              idPropietario={idBeneficiarioAbonoDeposito}
-                              numeroDocumento={
-                                propietarios.find((item) => item.id === idBeneficiarioAbonoDeposito)
-                                  ?.numeroDocumento
-                              }
-                              nombreBeneficiario={
-                                beneficiariosMes.find(
-                                  (item) => item.idPropietario === idBeneficiarioAbonoDeposito
-                                )?.propietario?.nombre ||
-                                propietarios.find((item) => item.id === idBeneficiarioAbonoDeposito)
-                                  ?.nombre
-                              }
-                              participacion={
-                                liquidacionSeleccionada?.participacion ||
-                                beneficiariosMes.find(
-                                  (item) => item.idPropietario === idBeneficiarioAbonoDeposito
-                                )?.participacion
-                              }
-                              esContratante={
-                                beneficiariosMes.find(
-                                  (item) => item.idPropietario === idBeneficiarioAbonoDeposito
-                                )?.esContratante
-                              }
-                              calidadContratante={contrato.calidadContratante}
-                              observacionesAutorizacionPago={contrato.observacionesAutorizacionPago}
-                            />
+                        <div className="form-group full form-group--mes-causado-pago-depositante">
+                          <div className="form-section-title mes-causado-pago-depositante-titulo">
+                            Mes causado
+                          </div>
+                          <select
+                            value={mesAbonoDeposito}
+                            onChange={(e) => {
+                              const mes = e.target.value
+                              setMesAbonoDeposito(mes)
+                              actualizarValorPendiente(
+                                mes,
+                                claveUnidadAbonoDeposito,
+                                idBeneficiarioAbonoDeposito
+                              )
+                            }}
+                            disabled={!idBeneficiarioAbonoDeposito}
+                          >
+                            <option value="">Seleccione mes</option>
+                            {mesesCausadosDisponibles.map((item) => (
+                              <option key={item.mes} value={item.mes}>
+                                {item.pagado ? `${item.mes} — pagado` : item.mes}
+                              </option>
+                            ))}
+                          </select>
+                          {mesCausadoPagadoInh && (
+                            <p className="form-description mes-causado-pago-depositante-pagado">
+                              Este mes causado ya está pagado al depositario o beneficiario. Los
+                              saldos del corte se muestran en cero.
+                            </p>
+                          )}
+                        </div>
+
+                        {mesAbonoDeposito && idBeneficiarioAbonoDeposito && (
+                          <div className="full pago-depositante-resumen-saldos">
+                            <div className="detail-grid pago-depositante-resumen-saldos-grid">
+                              <div>
+                                <span>Saldo cortes anteriores</span>
+                                <strong>{formatearDinero(deudaCortesAnteriores)}</strong>
+                              </div>
+                              <div>
+                                <span>Saldo mes causado</span>
+                                <strong
+                                  className={
+                                    mesCausadoPagadoInh ? 'pago-depositante-saldo-cero' : undefined
+                                  }
+                                >
+                                  {formatearDinero(deudaPendienteCorteActual)}
+                                </strong>
+                              </div>
+                              <div>
+                                <span>Total a pagar al corte</span>
+                                <strong
+                                  className={`pago-depositante-resumen-saldos-total${
+                                    deudaHastaCorte <= 0 ? ' pago-depositante-saldo-cero' : ''
+                                  }`}
+                                >
+                                  {formatearDinero(deudaHastaCorte)}
+                                </strong>
+                              </div>
+                            </div>
                           </div>
                         )}
 
@@ -31900,17 +33134,9 @@ const resultadosBusqueda = textoBusqueda
                               formatearDinero={formatearDinero}
                               titulo="Pagos del arrendatario que originan esta liquidación"
                               mostrarPendienteInh
-                            />
-                          </div>
-                        )}
-
-                        {liquidacionSeleccionada && (
-                          <div className="form-group">
-                            <label>Neto pendiente de la unidad</label>
-                            <input
-                              type="text"
-                              readOnly
-                              value={formatearDinero(liquidacionSeleccionada.deudaInmobiliaria)}
+                              deudaCortesAnteriores={deudaCortesAnteriores}
+                              deudaPendienteCorte={deudaPendienteCorteActual}
+                              mesCausadoPagadoInh={mesCausadoPagadoInh}
                             />
                           </div>
                         )}
@@ -32059,8 +33285,10 @@ const resultadosBusqueda = textoBusqueda
                             className="btn-primary"
                             onClick={guardarPagoDepositante}
                             disabled={
-                              !liquidacionSeleccionada ||
-                              Number(liquidacionSeleccionada.deudaInmobiliaria || 0) <= 0 ||
+                              !claveUnidadAbonoDeposito ||
+                              !idBeneficiarioAbonoDeposito ||
+                              !mesAbonoDeposito ||
+                              deudaHastaCorte <= 0 ||
                               !documentoPagoDepositanteAdjunto
                             }
                           >
@@ -32103,7 +33331,7 @@ const resultadosBusqueda = textoBusqueda
 
                   const renderExtractoLiquidacion = (extracto) => (
                     <VistaExtractoLiquidacionDeposito
-                      key={extracto.idPropietario}
+                      key={`${extracto.idPropietario}-${extracto.claveUnidad}-${revisionLiquidacionesDeposito}`}
                       extracto={extracto}
                       formatearDinero={formatearDinero}
                       esLiquidacionMultiple={esLiquidacionMultiple}

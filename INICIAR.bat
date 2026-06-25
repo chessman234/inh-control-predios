@@ -28,32 +28,35 @@ if not exist "node_modules\" (
   )
 )
 
+echo Liberando puerto 5173 si quedo ocupado...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173" ^| findstr "LISTENING"') do (
+  taskkill /F /PID %%a >nul 2>&1
+)
+
 echo.
 echo IMPORTANTE:
-echo - La URL correcta es:  http://localhost:5173/
-echo   (escriba "localhost", no "localhome")
-echo - No abra index.html desde el explorador de archivos
-echo - Deje abierta la ventana del servidor mientras usa el programa
+echo - URL correcta:  http://localhost:5173/
+echo   (es "localhost", NO "localhome")
+echo - No abra index.html desde archivos; use el navegador con localhost
+echo - Deje abierta la ventana "INH - Servidor"
 echo.
-echo Usuarios de prueba: admin / 1234
-echo.
-
-echo Iniciando servidor local...
+echo Usuario de prueba: admin / 1234
 echo.
 
-start "INH - Servidor (no cerrar)" cmd /k "cd /d "%~dp0" && npm run dev"
+echo Iniciando servidor...
+start "INH - Servidor (no cerrar)" "%~dp0scripts\iniciar-servidor.bat"
 
-echo Esperando a que el servidor arranque...
-timeout /t 4 /nobreak >nul
+echo Esperando al servidor...
+timeout /t 6 /nobreak >nul
 
-echo Abriendo navegador en http://localhost:5173/
+echo Abriendo http://localhost:5173/
 start "" http://localhost:5173/
 
 echo.
-echo Listo. Si la pagina no carga:
-echo   1. Espere unos segundos y actualice F5
-echo   2. Revise la ventana "INH - Servidor" — debe decir Local: http://localhost:5173/
-echo   3. Si el puerto cambio (5174, 5175...), use esa URL que muestre Vite
+echo Si no carga la pagina:
+echo   1. Mire la ventana "INH - Servidor" — debe decir: Local: http://localhost:5173/
+echo   2. Si el puerto es otro (5174...), use esa URL
+echo   3. Presione F5 en el navegador
 echo.
 echo Puede cerrar ESTA ventana. NO cierre "INH - Servidor".
 echo.

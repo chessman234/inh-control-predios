@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host --open",
+    "dev:simple": "vite --host",
     "start": "vite --host --open",
     "dev:lan": "vite --host",
     "dev:server": "node server/index.js",

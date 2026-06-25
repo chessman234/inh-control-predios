@@ -2915,6 +2915,43 @@ td.saldo-atraso,
   margin-top: 4px;
 }
 
+.extracto-liquidacion-referencia-arrendatario-tabla--pago-inh th,
+.extracto-liquidacion-referencia-arrendatario-tabla--pago-inh td {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.extracto-liquidacion-referencia-arrendatario-tabla--pago-inh th:nth-child(n + 3),
+.extracto-liquidacion-referencia-arrendatario-tabla--pago-inh td:nth-child(n + 3) {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.extracto-liquidacion-referencia-arrendatario-saldo-pendiente {
+  color: #dc2626 !important;
+  font-weight: 700 !important;
+}
+
+.extracto-liquidacion-referencia-arrendatario-tabla--pago-inh
+  .extracto-liquidacion-referencia-arrendatario-total
+  .extracto-liquidacion-referencia-arrendatario-saldo-pendiente {
+  color: #b91c1c !important;
+}
+
+.extracto-liquidacion-referencia-arrendatario-tabla--pago-inh
+  .extracto-liquidacion-referencia-arrendatario-total
+  td:not(:first-child) {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.extracto-liquidacion-referencia-arrendatario-total td {
+  background: #f8fafc;
+  border-top: 2px solid #dbe7f5;
+}
+
 .extracto-liquidacion-corte-encabezado {
   display: flex;
   justify-content: space-between;
@@ -9087,6 +9124,50 @@ body.imprimiendo-extracto #extracto-impresion-root {
 .medio-pago-acordado-titulo {
   margin-top: 8px;
   margin-bottom: 10px;
+}
+
+.form-group--mes-causado-pago-depositante {
+  gap: 10px;
+}
+
+.mes-causado-pago-depositante-titulo {
+  margin-top: 6px;
+  margin-bottom: 0;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* =============================================================================
+ PAGO DEPOSITANTES - RESUMEN SALDOS
+ Totales de cortes anteriores, mes causado y deuda acumulada al corte.
+ ============================================================================= */
+
+.pago-depositante-resumen-saldos {
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  border: 1px solid #d8e2f0;
+  border-radius: 10px;
+  background: #f7fafc;
+}
+
+.pago-depositante-resumen-saldos-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 16px;
+}
+
+.pago-depositante-resumen-saldos-total {
+  color: #b42318;
+  font-size: 1.05rem;
+}
+
+.pago-depositante-saldo-cero {
+  color: #027a48;
+}
+
+.mes-causado-pago-depositante-pagado {
+  margin-top: 8px;
+  color: #027a48;
 }
 
 .form-section-title.full + .bloque-forma-pago-liquidacion {
