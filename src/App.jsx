@@ -10063,6 +10063,19 @@ const ESTILOS_IMPRESION_UNA_CARTA = `
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
+    .extracto-liquidacion-seccion--movimientos-mes {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+      margin-top: 8px !important;
+    }
+    .extracto-liquidacion-seccion--movimientos-mes h3 {
+      font-size: 9pt !important;
+      margin: 4px 0 6px !important;
+    }
+    .extracto-liquidacion-seccion--movimientos-mes .extracto-liquidacion-rango-cortes-tabla {
+      font-size: 7pt !important;
+      margin: 0 0 4px !important;
+    }
     .extracto-movimientos-table tr.movimiento-pago td,
     .extracto-movimientos-table tr.movimiento-comision td,
     .extracto-movimientos-table tr.movimiento-descuento-administracion td {
@@ -15571,7 +15584,7 @@ function TablaEstadoCuentaLiquidacionDeposito({ extracto, movimientos, formatear
   const esPagosParciales = !!extracto?.esPagosParciales
 
   return (
-    <div className="estado-cuenta-tabla">
+    <div className="estado-cuenta-tabla extracto-liquidacion-seccion--movimientos-mes">
       <div className="estado-cuenta-tabla-encabezado-movimientos">
         <h3>Movimientos mes a mes</h3>
         {rangoCortes.etiqueta !== '—' && (
@@ -16555,7 +16568,8 @@ function VistaExtractoLiquidacionDeposito({
   extracto,
   formatearDinero,
   esLiquidacionMultiple = false,
-  onVerExtractoArriendo,
+  onImprimirExtracto,
+  etiquetaImprimirExtracto = 'Imprimir extracto',
   className = '',
 }) {
   if (!extracto) return null
@@ -16580,35 +16594,41 @@ function VistaExtractoLiquidacionDeposito({
         soloDeposito
       />
 
-      <DetalleCortesExtractoLiquidacionDeposito
-        cortes={extracto.cortes}
-        formatearDinero={formatearDinero}
-        porcentajeComision={extracto.porcentajeComision}
-        esPagoFijoMensual={extracto.esPagoFijoMensual}
-        esPagosParciales={extracto.esPagosParciales}
-      />
-
-      <TablaResumenPorMesExtractoLiquidacionDeposito
-        cortes={extracto.cortes}
-        formatearDinero={formatearDinero}
-        porcentajeComision={extracto.porcentajeComision}
-        esPagoFijoMensual={extracto.esPagoFijoMensual}
-        esPagosParciales={extracto.esPagosParciales}
-        totalPendiente={obtenerTotalPendienteExtractoLiquidacionDeposito(extracto)}
-      />
-
       <div className="no-print">
-        <TablaEstadoCuentaLiquidacionDeposito
-          extracto={extracto}
-          movimientos={extracto.movimientos}
+        <DetalleCortesExtractoLiquidacionDeposito
+          cortes={extracto.cortes}
           formatearDinero={formatearDinero}
+          porcentajeComision={extracto.porcentajeComision}
+          esPagoFijoMensual={extracto.esPagoFijoMensual}
+          esPagosParciales={extracto.esPagosParciales}
         />
       </div>
 
-      {onVerExtractoArriendo && (
-        <div className="estado-cuenta-toggle-actions no-print extracto-liquidacion-accion-arriendo">
-          <button type="button" className="btn-gold btn-estado-cuenta-modal" onClick={onVerExtractoArriendo}>
-            Ver extracto contrato de arriendo
+      <div className="no-print">
+        <TablaResumenPorMesExtractoLiquidacionDeposito
+          cortes={extracto.cortes}
+          formatearDinero={formatearDinero}
+          porcentajeComision={extracto.porcentajeComision}
+          esPagoFijoMensual={extracto.esPagoFijoMensual}
+          esPagosParciales={extracto.esPagosParciales}
+          totalPendiente={obtenerTotalPendienteExtractoLiquidacionDeposito(extracto)}
+        />
+      </div>
+
+      <TablaEstadoCuentaLiquidacionDeposito
+        extracto={extracto}
+        movimientos={extracto.movimientos}
+        formatearDinero={formatearDinero}
+      />
+
+      {onImprimirExtracto && (
+        <div className="estado-cuenta-toggle-actions no-print extracto-liquidacion-accion-inferior">
+          <button
+            type="button"
+            className="btn-gold btn-imprimir-extracto-card"
+            onClick={onImprimirExtracto}
+          >
+            {etiquetaImprimirExtracto}
           </button>
         </div>
       )}
@@ -33335,10 +33355,16 @@ const resultadosBusqueda = textoBusqueda
                       extracto={extracto}
                       formatearDinero={formatearDinero}
                       esLiquidacionMultiple={esLiquidacionMultiple}
-                      onVerExtractoArriendo={
-                        extractoArriendoContrato
-                          ? () => setMostrarExtractoArriendoLiquidacionDeposito(true)
-                          : null
+                      etiquetaImprimirExtracto={
+                        esLiquidacionMultiple ? 'Imprimir liquidación' : 'Imprimir extracto'
+                      }
+                      onImprimirExtracto={(evento) =>
+                        imprimirExtractoCard(
+                          evento.currentTarget,
+                          esLiquidacionMultiple
+                            ? `Liquidación – ${extracto.propietario?.nombre || ''} – ${extracto.unidad || ''}`
+                            : tituloExtracto
+                        )
                       }
                     />
                   )
@@ -33382,22 +33408,15 @@ const resultadosBusqueda = textoBusqueda
                         >
                           Liquidaciones pendientes
                         </button>
-                        <button
-                          type="button"
-                          className="btn-gold btn-imprimir-extracto-card"
-                          onClick={(evento) =>
-                            imprimirExtractosLiquidacionConjunto(
-                              evento.currentTarget.closest('section')?.querySelector(
-                                '.extracto-liquidacion-conjunto'
-                              ),
-                              tituloExtracto
-                            )
-                          }
-                        >
-                          {esLiquidacionMultiple
-                            ? 'Imprimir liquidaciones'
-                            : 'Imprimir extracto'}
-                        </button>
+                        {extractoArriendoContrato && (
+                          <button
+                            type="button"
+                            className="btn-gold btn-estado-cuenta-modal"
+                            onClick={() => setMostrarExtractoArriendoLiquidacionDeposito(true)}
+                          >
+                            Ver extracto contrato de arriendo
+                          </button>
+                        )}
                       </div>
                     </>
                   )

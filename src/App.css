@@ -2264,10 +2264,11 @@ td.saldo-atraso,
 }
 
 /* =============================================================================
- EXTRACTO LIQUIDACION - ACCION ARRIENDO
- Boton para abrir extracto de arriendo al final del extracto de deposito.
+ EXTRACTO LIQUIDACION - ACCION INFERIOR
+ Boton de impresion al final del extracto (despues de movimientos mes a mes).
  ============================================================================= */
 
+.extracto-liquidacion-accion-inferior,
 .extracto-liquidacion-accion-arriendo {
   margin-top: 8px;
   margin-bottom: 4px;
@@ -3622,6 +3623,11 @@ td.saldo-atraso,
   .extracto-liquidacion-corte {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .extracto-liquidacion-seccion--movimientos-mes {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   .extracto-card-liquidacion.extracto-liquidacion-print,
