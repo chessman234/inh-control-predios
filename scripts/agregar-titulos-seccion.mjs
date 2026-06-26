@@ -158,6 +158,8 @@ const appJsx = [
   { ancla: 'const calcularMoraLiquidadaExtractoArriendo', titulo: 'ARRIENDOS - MORA E INTERESES DE MORA', descripcion: 'Calculo de mora proporcional y liquidada en extractos.' },
   { ancla: 'const calcularCargosLiquidadosPeriodoExtractoArriendo', titulo: 'ARRIENDOS - CARGOS LIQUIDADOS EXTRACTO', descripcion: 'Canon, mora, cobranza e IVA por periodo a fecha de corte.' },
   { ancla: 'const calcularSaldoDeudaPeriodoArriendo', titulo: 'ARRIENDOS - SALDO DEUDA POR PERIODO', descripcion: 'Saldo pendiente de liquidacion mes a mes (canon, mora, cobranza, IVA, abonos).' },
+  { ancla: 'const generarMesesContrato', titulo: 'ARRIENDOS - MESES DEL CONTRATO Y MOVIMIENTO MENSUAL', descripcion: 'Generacion de meses y movimientos con pagos y fecha de corte explicitos.' },
+  { ancla: 'const construirExtractosArriendoContratos', titulo: 'ARRIENDOS - EXTRACTOS PARA ALERTAS Y CARTERA', descripcion: 'Consolida saldos de arriendo con pagos y fecha de corte del recibo.' },
   { ancla: 'const calcularSaldosReciboPagoArriendo', titulo: 'ARRIENDOS - SALDOS RECIBO DE PAGO', descripcion: 'Solo deuda de arriendo; administracion y servicios van aparte.' },
   { ancla: 'const obtenerFechaLocalISO', titulo: 'ARRIENDOS - ROLES Y FECHA RECIBO PAGO', descripcion: 'Fecha local, limite de 20 dias para Digitador y validacion del recibo.' },
   { ancla: 'const construirEntradaHistorialModificacionReciboPagoArriendo', titulo: 'ARRIENDOS - HISTORIAL MODIFICACION RECIBO', descripcion: 'Entrada inmutable de auditoria al editar recibos de arriendo.' },

@@ -3077,7 +3077,10 @@ const asignarPagosLiquidacionPeriodoContratoMultimes = ({
   pagosOrdenados.forEach((pago) => {
     let restante = Math.max(0, Number(pago.valorPagado || 0))
     const claveAsignacion = obtenerIdPagoArriendo(pago)
-    const fechaLiquidacion = pago.fechaPago || new Date().toISOString().slice(0, 10)
+    const fechaLiquidacion =
+      pago.fechaCalculoIntereses ||
+      pago.fechaPago ||
+      obtenerFechaLocalISO()
 
     mesesCausados.forEach((mes) => {
       if (restante <= 0) return
@@ -3337,67 +3340,6 @@ const construirAsignacionCanonLiquidacionPredio = ({
   })
 
   return { asignacionGlobalPorMes, mesesConAsignacion }
-}
-
-const calcularCargosCobroMesArriendo = ({
-  contrato,
-  mes,
-  pagosDelMes,
-  gestionesDelMes = [],
-}) => {
-  const pagos = pagosDelMes || []
-  const canonCausadoBase = pagos.length > 0 ? obtenerCanonArrendamientoDesdePago(pagos[0]) : 0
-
-  const totalMoraGestionMes = (gestionesDelMes || []).reduce(
-    (total, gestion) => total + Number(gestion.mora || 0),
-    0
-  )
-
-  const totalMoraPagoMes = pagos.reduce((total, pago) => total + Number(pago.mora || 0), 0)
-  const totalDescuentoMes = pagos.reduce(
-    (total, pago) => total + Number(pago.descuento || 0),
-    0
-  )
-  const totalPagadoMes = pagos.reduce(
-    (total, pago) => total + Number(pago.valorPagado || 0),
-    0
-  )
-
-  const porcentajeInteresMora = Number(contrato?.porcentajeInteresMora || 0)
-  const fechaCorteMora = new Date().toISOString().slice(0, 10)
-  const moraContratoMes = calcularMoraAcumuladaMesArriendo({
-    baseMora: canonCausadoBase,
-    porcentajeInteresMora,
-    mesCausado: mes,
-    pagos,
-    totalDescuento: totalDescuentoMes,
-    fechaCorte: fechaCorteMora,
-  })
-  const moraTotalMes = moraContratoMes + totalMoraGestionMes
-
-  const deudaVigenteMes = calcularDeudaVigenteMesArriendo({
-    canonCausadoBase,
-    moraTotalMes,
-    totalDescuentoMes,
-    totalPagadoMes,
-  })
-
-  const porcentajeGastosCobranza = obtenerPorcentajeGastosCobranzaContrato(contrato)
-  const diasMora = calcularDiasMoraArriendo(mes, fechaCorteMora)
-  const sancionTotalMes =
-    diasMora > 0 && deudaVigenteMes > 0
-      ? calcularGastosCobranza(deudaVigenteMes, porcentajeGastosCobranza)
-      : 0
-
-  const ivaInteresesSancionMes = Math.round((moraTotalMes + sancionTotalMes) * 0.19)
-
-  return {
-    canonCausadoBase,
-    moraTotalMes,
-    sancionTotalMes,
-    ivaInteresesSancionMes,
-    totalDescuentoMes,
-  }
 }
 
 // =============================================================================
@@ -6610,7 +6552,7 @@ const obtenerMesesSaldoArrendatarioPendienteLiquidacionDeposito = ({
         ].sort()
       : obtenerRangoMesesCausadosContrato(contratoArriendo, pagosConValor)
 
-  const fechaCorteEfectiva = fechaCorte || new Date().toISOString().slice(0, 10)
+  const fechaCorteEfectiva = fechaCorte || obtenerFechaLocalISO()
   const asignacionesLiquidacion = asignarPagosLiquidacionPeriodoContratoMultimes({
     contrato: contratoArriendo,
     pagosContrato: pagosConValor,
@@ -7170,7 +7112,7 @@ const construirInformacionContratosExtractoLiquidacionDeposito = ({
       aplicaAdministracion:
         contratoArriendo.aplicaAdministracion === 'Sí' ? 'Sí' : 'No',
       interesMora: Number(contratoArriendo.porcentajeInteresMora || 0),
-      gastosCobranza: `${obtenerPorcentajeGastosCobranzaContrato(contratoArriendo)}% de la deuda vigente del periodo en mora`,
+      gastosCobranza: textoDescriptivoGastosCobranzaContratoArriendo(contratoArriendo),
       aseguradora: contratoArriendo.aseguradora || '',
       numeroPoliza: contratoArriendo.numeroPoliza || '',
       fechaInicio: contratoArriendo.fechaInicio || 'Sin registrar',
@@ -7304,6 +7246,7 @@ const construirExtractoLiquidacionDepositoUnidad = ({
       incrementosArriendo,
       ajustesAdministracion,
       gestionesCartera,
+      fechaCorte: obtenerFechaLocalISO(),
     })
 
   const saldoFinalCortes = cortes.length
@@ -7751,6 +7694,9 @@ const obtenerPorcentajeGastosCobranzaContrato = (contrato) => {
     : PORCENTAJE_GASTOS_COBRANZA_DEFECTO
 }
 
+const textoDescriptivoGastosCobranzaContratoArriendo = (contrato) =>
+  `${obtenerPorcentajeGastosCobranzaContrato(contrato)}% del canon base del periodo en mora`
+
 // =============================================================================
 // ARRIENDOS - GASTOS DE COBRANZA
 // Porcentaje y calculo de gastos de cobranza sobre canon del periodo en mora.
@@ -7759,39 +7705,31 @@ const obtenerPorcentajeGastosCobranzaContrato = (contrato) => {
 const calcularGastosCobranza = (base, porcentaje = PORCENTAJE_GASTOS_COBRANZA_DEFECTO) =>
   Math.round(Number(base || 0) * (Number(porcentaje || 0) / 100))
 
-// =============================================================================
-// ARRIENDOS - DEUDA VIGENTE POR MES
-// Saldo del mes, gastos de cobranza y fechas de vencimiento.
-// =============================================================================
-
-const calcularDeudaVigenteMesArriendo = ({
-  canonCausadoBase = 0,
-  moraTotalMes = 0,
-  totalDescuentoMes = 0,
-  totalPagadoMes = 0,
-}) =>
-  Math.max(
-    0,
-    Number(canonCausadoBase || 0) +
-      Number(moraTotalMes || 0) -
-      Number(totalDescuentoMes || 0) -
-      Number(totalPagadoMes || 0)
-  )
-
 const MS_POR_DIA = 86400000
 
 const DIA_VENCIMIENTO_CANON_ARRIENDO = 5
-const DIAS_DESPUES_VENCIMIENTO_INICIO_CALCULO_INTERES_ARRIENDO = 0
-const DIAS_DESPUES_VENCIMIENTO_INICIO_LIQUIDACION_INTERES_ARRIENDO = 0
+const DIAS_GRACIA_DESPUES_VENCIMIENTO_MORA_ARRIENDO = 5
+const DIAS_DESPUES_VENCIMIENTO_INICIO_CALCULO_INTERES_ARRIENDO =
+  DIAS_GRACIA_DESPUES_VENCIMIENTO_MORA_ARRIENDO
+const DIAS_DESPUES_VENCIMIENTO_INICIO_LIQUIDACION_INTERES_ARRIENDO =
+  DIAS_GRACIA_DESPUES_VENCIMIENTO_MORA_ARRIENDO
 
 const contratoAplicaIvaArriendo = (contrato) => contrato?.aplicaIva === 'Sí'
 
 const obtenerDiaVencimientoCanonContrato = (contrato = null) => {
-  const dia = Number(
-    contrato?.diaVencimientoCanon ?? contrato?.diaPagoCanon ?? DIA_VENCIMIENTO_CANON_ARRIENDO
-  )
-  if (!Number.isFinite(dia) || dia < 1 || dia > 31) return DIA_VENCIMIENTO_CANON_ARRIENDO
-  return dia
+  const diaExplicito = contrato?.diaVencimientoCanon ?? contrato?.diaPagoCanon
+  if (diaExplicito != null && diaExplicito !== '') {
+    const dia = Number(diaExplicito)
+    if (Number.isFinite(dia) && dia >= 1 && dia <= 31) return dia
+  }
+
+  const fechaInicio = contrato?.fechaInicio
+  if (fechaInicio) {
+    const diaInicio = Number(String(fechaInicio).slice(8, 10))
+    if (Number.isFinite(diaInicio) && diaInicio >= 1 && diaInicio <= 31) return diaInicio
+  }
+
+  return DIA_VENCIMIENTO_CANON_ARRIENDO
 }
 
 const calcularIvaArriendo = (base, contrato = null) =>
@@ -8073,10 +8011,16 @@ const procesarRenovacionesAutomaticasContratos = (
   return huboCambios ? actualizados : contratos
 }
 
-const obtenerFechaVencimientoMesArriendo = (mesCausado, contrato = null) =>
-  mesCausado
-    ? `${mesCausado}-${String(obtenerDiaVencimientoCanonContrato(contrato)).padStart(2, '0')}`
-    : ''
+const obtenerFechaVencimientoMesArriendo = (mesCausado, contrato = null) => {
+  if (!mesCausado) return ''
+
+  const [anio, mes] = mesCausado.split('-').map(Number)
+  const diaObjetivo = obtenerDiaVencimientoCanonContrato(contrato)
+  const diasEnMes = obtenerDiasDelMesCalendario(anio, mes)
+  const dia = Math.min(diaObjetivo, diasEnMes)
+
+  return `${mesCausado}-${String(dia).padStart(2, '0')}`
+}
 
 const obtenerFechaInicioCalculoInteresMoraMesArriendo = (mesCausado, contrato = null) =>
   agregarDiasFechaISO(
@@ -8463,6 +8407,310 @@ const calcularSaldoDeudaLiquidacionArriendoContrato = ({
     0
   )
 
+// =============================================================================
+// ARRIENDOS - MESES DEL CONTRATO Y MOVIMIENTO MENSUAL
+// Generacion de meses y movimientos con pagos y fecha de corte explicitos.
+// =============================================================================
+
+const calcularCanonArriendoMes = (contrato, mes, incrementosArriendo = []) => {
+  if (!contrato || !mes) {
+    return {
+      canonBase: 0,
+      incrementoAplicado: 0,
+      iva: 0,
+      canonCausado: 0,
+    }
+  }
+
+  if (!contrato.fechaInicio) {
+    return {
+      canonBase: 0,
+      administracion: 0,
+      incrementoAplicado: 0,
+      iva: 0,
+      canonCausado: 0,
+    }
+  }
+
+  const anioPago = Number(mes.substring(0, 4))
+  const { canonBase, incrementoAplicado } = resolverCanonBaseMesArriendo(
+    contrato,
+    mes,
+    incrementosArriendo
+  )
+  const administracion = obtenerAdministracionContrato(contrato, anioPago)
+  const administracionCobro = obtenerAdministracionCobroArrendatario(contrato, administracion)
+  const iva = contrato.aplicaIva === 'Sí' ? Math.round(canonBase * 0.19) : 0
+  const canonCausado = canonBase + administracionCobro + iva
+
+  return {
+    canonBase,
+    administracion,
+    administracionCobro,
+    administracionIncluidaEnCanon: administracionIncluidaEnCanonContrato(contrato),
+    incrementoAplicado,
+    iva,
+    canonCausado,
+  }
+}
+
+const generarMesesContrato = (contrato) => {
+  if (!contrato?.fechaInicio) return []
+
+  const meses = []
+  const fechaInicio = new Date(`${contrato.fechaInicio}T00:00:00`)
+  const fechaFinContrato = contrato.fechaFin
+    ? new Date(`${contrato.fechaFin}T00:00:00`)
+    : new Date()
+  const hoy = new Date(`${obtenerFechaLocalISO()}T00:00:00`)
+  const fechaFinal = fechaFinContrato < hoy ? fechaFinContrato : hoy
+
+  let anio = fechaInicio.getFullYear()
+  let mes = fechaInicio.getMonth()
+  const anioFinal = fechaFinal.getFullYear()
+  const mesFinal = fechaFinal.getMonth()
+
+  while (anio < anioFinal || (anio === anioFinal && mes <= mesFinal)) {
+    meses.push(`${anio}-${String(mes + 1).padStart(2, '0')}`)
+    mes += 1
+    if (mes > 11) {
+      mes = 0
+      anio += 1
+    }
+  }
+
+  return meses
+}
+
+const calcularMovimientoArriendoMes = (contrato, mes, opciones = {}) => {
+  const {
+    idContrato: idContratoActual = null,
+    fechaCorteMora: fechaCorteMoraReferencia = null,
+    pagosArriendo: pagosArriendoFuente = [],
+    incrementosArriendo: incrementosArriendoFuente = [],
+    ajustesAdministracion: ajustesAdministracionFuente = [],
+    gestionesCartera: gestionesCarteraFuente = [],
+  } = opciones
+
+  const idContrato = idContratoActual || obtenerIdContrato(contrato)
+
+  const aplicacion = obtenerAplicacionPagosArriendoMes(
+    contrato,
+    mes,
+    pagosArriendoFuente,
+    incrementosArriendoFuente,
+    ajustesAdministracionFuente,
+    gestionesCarteraFuente
+  )
+
+  const {
+    pagosDelMes,
+    pagosLiquidacionArriendoMes,
+    totalPagadoMes,
+    totalPagadoLiquidacionArriendo,
+    totalDescuentoMes,
+    pagosDetalle,
+    pagosDetalleLiquidacionArriendo,
+    ultimoPago,
+    recibosDelMes,
+  } = aplicacion
+
+  const gestionesDelMes = gestionesCarteraFuente.filter(
+    (gestion) => gestion.idContrato === idContrato && gestion.mes === mes
+  )
+
+  const totalMoraGestionMes = gestionesDelMes.reduce(
+    (total, gestion) => total + Number(gestion.mora || 0),
+    0
+  )
+
+  const calculo = calcularCanonArriendoMes(contrato, mes, incrementosArriendoFuente)
+  const ivaCanonCalculo = Number(calculo.iva || 0)
+
+  const canonCausadoBase = calcularMontoCanonArrendatarioMes({
+    canonBase: Number(calculo.canonBase || 0),
+    administracion: Number(calculo.administracion || 0),
+    ivaCanon: ivaCanonCalculo,
+    contrato,
+  })
+
+  const { canonBase, ivaCanonMes, baseLiquidacion, baseMoraCanon } =
+    calcularBaseLiquidacionEstadoCuentaArriendoMes(
+      { canonBase: calculo.canonBase },
+      contrato
+    )
+
+  const porcentajeInteresMora = Number(contrato.porcentajeInteresMora || 0)
+  const fechaCorteMora = fechaCorteMoraReferencia || obtenerFechaLocalISO()
+  let moraContratoMes = calcularMoraAcumuladaMesArriendo({
+    baseMora: baseMoraCanon,
+    porcentajeInteresMora,
+    mesCausado: mes,
+    pagos: pagosLiquidacionArriendoMes,
+    totalDescuento: totalDescuentoMes,
+    fechaCorte: fechaCorteMora,
+    contrato,
+    canonBase,
+    ivaCanonMes,
+    moraSobreCanonSinIva: true,
+  })
+
+  if (
+    mesArriendoSinInteresesMora({
+      mesCausado: mes,
+      saldoCapitalInicial: baseMoraCanon - totalDescuentoMes,
+      pagos: pagosLiquidacionArriendoMes,
+      contrato,
+      canonBase,
+      ivaCanonMes,
+      moraSobreCanonSinIva: true,
+    })
+  ) {
+    moraContratoMes = 0
+  }
+
+  const moraTotalMes = moraContratoMes + totalMoraGestionMes
+
+  const gastosCobranzaPeriodo = calcularSancionGastosCobranzaPeriodoArriendo({
+    contrato,
+    mesCausado: mes,
+    canonBase,
+    ivaCanonMes,
+    baseMoraCanon,
+    totalDescuento: totalDescuentoMes,
+    pagosLiquidacion: pagosLiquidacionArriendoMes,
+    fechaCorte: fechaCorteMora,
+  })
+  const sancionContratoMes = gastosCobranzaPeriodo.sancionCobranza
+
+  const deudaVigenteMes = Math.max(
+    0,
+    baseLiquidacion + moraTotalMes + sancionContratoMes - totalDescuentoMes - totalPagadoLiquidacionArriendo
+  )
+
+  const sancionTotalMes = sancionContratoMes
+  const ivaMoraMes = calcularIvaArriendo(moraTotalMes, contrato)
+  const ivaGastosCobranzaMes = calcularIvaArriendo(sancionTotalMes, contrato)
+  const ivaInteresesSancionMes = ivaMoraMes + ivaGastosCobranzaMes
+
+  const totalLiquidacionMes =
+    baseLiquidacion + moraTotalMes + sancionTotalMes + ivaInteresesSancionMes
+  const canonCausado = totalLiquidacionMes
+
+  const movimientoParcial = {
+    mes,
+    fechaPago: ultimoPago?.fechaPago || 'Sin pago',
+    recibo:
+      recibosDelMes.length > 0
+        ? recibosDelMes.join(', ')
+        : ultimoPago?.recibo || 'Sin recibo',
+    pagosDetalle,
+    pagosDetalleLiquidacionArriendo,
+    pagosMes: pagosDelMes,
+    pagosLiquidacionArriendoMes,
+    canonCausadoBase,
+    canonCausadoBaseLiquidacion: baseLiquidacion,
+    moraGestion: totalMoraGestionMes,
+    moraContrato: moraContratoMes,
+    canonBase: calculo.canonBase,
+    administracion: calculo.administracion,
+    administracionIncluidaEnCanon: calculo.administracionIncluidaEnCanon,
+    incrementoAplicado: calculo.incrementoAplicado,
+    iva: ivaCanonMes + ivaInteresesSancionMes,
+    ivaCanon: ivaCanonMes,
+    ivaMora: ivaMoraMes,
+    ivaGastosCobranza: ivaGastosCobranzaMes,
+    ivaInteresesSancion: ivaInteresesSancionMes,
+    totalLiquidacionMes,
+    canonCausado,
+    pagado: totalPagadoMes,
+    totalPagadoLiquidacionArriendo,
+    mora: moraTotalMes,
+    sancionCobranza: sancionTotalMes,
+    deudaVigenteMes,
+    descuento: totalDescuentoMes,
+  }
+
+  const saldoDeuda = calcularSaldoDeudaPeriodoArriendo(
+    contrato,
+    movimientoParcial,
+    fechaCorteMoraReferencia || ''
+  )
+
+  let estadoMovimiento = 'Pagado'
+
+  if (saldoDeuda > 0 && totalPagadoMes > 0) {
+    estadoMovimiento = 'Abono registrado'
+  }
+
+  if (saldoDeuda > 0 && totalPagadoMes === 0) {
+    estadoMovimiento = 'Pendiente'
+  }
+
+  return {
+    ...movimientoParcial,
+    saldoDeuda,
+    estadoMovimiento,
+  }
+}
+
+const construirContextoCalculoArriendo = ({
+  pagosArriendo = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = [],
+  gestionesCartera = [],
+} = {}) => ({
+  pagosArriendo,
+  incrementosArriendo,
+  ajustesAdministracion,
+  gestionesCartera,
+})
+
+// =============================================================================
+// ARRIENDOS - EXTRACTOS PARA ALERTAS Y CARTERA
+// Consolida saldos de arriendo con pagos y fecha de corte del recibo.
+// =============================================================================
+
+const construirExtractosArriendoContratos = ({
+  contratosArriendo = [],
+  pagosArriendo = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = [],
+  gestionesCartera = [],
+  fechaCorte = '',
+} = {}) => {
+  const fechaCorteEfectiva = fechaCorte || obtenerFechaLocalISO()
+  const contextoCalculo = construirContextoCalculoArriendo({
+    pagosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera,
+  })
+
+  return contratosArriendo.map((contrato) => {
+    const idContratoActual = obtenerIdContrato(contrato)
+    const mesesContrato = generarMesesContrato(contrato)
+    const movimientos = mesesContrato.map((mes) =>
+      calcularMovimientoArriendoMes(contrato, mes, {
+        idContrato: idContratoActual,
+        fechaCorteMora: fechaCorteEfectiva,
+        ...contextoCalculo,
+      })
+    )
+    const resumenDeudaEstadoCuenta = calcularResumenDeudaEstadoCuentaArriendo({
+      contrato,
+      movimientos,
+      fechaCorte: fechaCorteEfectiva,
+    })
+
+    return {
+      contrato,
+      movimientos: movimientos.sort((a, b) => b.mes.localeCompare(a.mes)),
+      resumen: resumenDeudaEstadoCuenta,
+    }
+  })
+}
+
 const movimientoArriendoTieneSaldoPendiente = (
   contrato,
   movimiento,
@@ -8675,8 +8923,8 @@ const enriquecerResumenDeudaServiciosPublicosExtractoArriendo = (
   }
 }
 
-const obtenerFechaInicioMoraMesArriendo = (mesCausado) =>
-  obtenerFechaInicioCalculoInteresMoraMesArriendo(mesCausado)
+const obtenerFechaInicioMoraMesArriendo = (mesCausado, contrato = null) =>
+  obtenerFechaInicioCalculoInteresMoraMesArriendo(mesCausado, contrato)
 
 const calcularMoraArriendoProporcionalRango = ({
   base = 0,
@@ -8940,13 +9188,13 @@ const calcularMoraSugeridaPagoArriendo = ({
   const porcentajeInteresMora = Number(contrato?.porcentajeInteresMora || 0)
   if (!mesCausado || !fechaPago || !canonCausadoBase || !porcentajeInteresMora) return 0
 
-  const vencimiento = obtenerFechaVencimientoMesArriendo(mesCausado)
+  const vencimiento = obtenerFechaVencimientoMesArriendo(mesCausado, contrato)
   if (compararFechasISO(fechaPago, vencimiento) <= 0) return 0
-  if (!puedeLiquidarInteresesMoraMesArriendo(mesCausado, fechaPago)) return 0
+  if (!puedeLiquidarInteresesMoraMesArriendo(mesCausado, fechaPago, contrato)) return 0
 
   const pagosAnteriores = ordenarPagosArriendoCronologico(pagosPrevios)
   let saldoCapital = Number(canonCausadoBase || 0) - Number(totalDescuentoPrevio || 0)
-  let cursorFecha = obtenerFechaInicioCalculoInteresMoraMesArriendo(mesCausado)
+  let cursorFecha = obtenerFechaInicioCalculoInteresMoraMesArriendo(mesCausado, contrato)
 
   pagosAnteriores.forEach((pago) => {
     if (!pago.fechaPago || saldoCapital <= 0) return
@@ -14950,7 +15198,7 @@ const construirFilasEstadoCuentaServicio = (servicio, movimientos) =>
       return filas
     })
 
-const esMovimientoSaldoAtraso = (movimiento, fechaCorte) => {
+const esMovimientoSaldoAtraso = (movimiento, fechaCorte, contrato = null) => {
   const saldo = Number(
     movimiento?.saldoDeuda ??
       movimiento?.saldoPendiente ??
@@ -14966,7 +15214,7 @@ const esMovimientoSaldoAtraso = (movimiento, fechaCorte) => {
   }
 
   if (movimiento?.mes) {
-    return fecha > obtenerFechaVencimientoMesArriendo(movimiento.mes)
+    return fecha > obtenerFechaVencimientoMesArriendo(movimiento.mes, contrato)
   }
 
   if (movimiento?.anio) {
@@ -15446,7 +15694,12 @@ const esSaldoEnAtraso = ({
     return fecha > fechaLimite
   }
 
-  if (movimientosConDeuda.some((movimiento) => esMovimientoSaldoAtraso(movimiento, fecha))) {
+  const contratoExtracto = extracto?.contrato || null
+  if (
+    movimientosConDeuda.some((movimiento) =>
+      esMovimientoSaldoAtraso(movimiento, fecha, contratoExtracto)
+    )
+  ) {
     return true
   }
 
@@ -16041,8 +16294,7 @@ function EstadoCuentaArrendamiento({
   const opcionesAtrasoEfectivas =
     opcionesAtraso ?? opcionesAtrasoExtracto(extracto, { fechaCorte })
   const textoGastos =
-    textoGastosCobranza ||
-    `${obtenerPorcentajeGastosCobranzaContrato(contrato)}% de la deuda vigente del periodo en mora`
+    textoGastosCobranza || textoDescriptivoGastosCobranzaContratoArriendo(contrato)
 
   return (
     <section className={`estado-cuenta-print ${className}`.trim()}>
@@ -17747,9 +17999,7 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   `${anioActual}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 )
 
-  const [fechaCorteCartera, setFechaCorteCartera] = useState(
-    new Date().toISOString().slice(0, 10)
-  )
+  const [fechaCorteCartera, setFechaCorteCartera] = useState(obtenerFechaLocalISO())
 
   const [vistaCarteraDiaria, setVistaCarteraDiaria] = useState('')
 
@@ -19535,48 +19785,8 @@ const contratoActivoPorPredio = (codigoPredio) => {
   return dias > 0 ? dias : 0
 }
 
-  const calcularCanonArriendo = (contrato, mes) => {
-    if (!contrato || !mes) {
-      return {
-        canonBase: 0,
-        incrementoAplicado: 0,
-        iva: 0,
-        canonCausado: 0,
-      }
-    }
-
-    if (!contrato.fechaInicio) {
-      return {
-        canonBase: 0,
-        administracion: 0,
-        incrementoAplicado: 0,
-        iva: 0,
-        canonCausado: 0,
-      }
-    }
-
-    const anioPago = Number(mes.substring(0, 4))
-    const { canonBase, incrementoAplicado } = resolverCanonBaseMesArriendo(
-      contrato,
-      mes,
-      incrementosArriendo
-    )
-
-     const administracion = obtenerAdministracionContrato(contrato, anioPago)
-     const administracionCobro = obtenerAdministracionCobroArrendatario(contrato, administracion)
-     const iva = contrato.aplicaIva === 'Sí' ? Math.round(canonBase * 0.19) : 0
-     const canonCausado = canonBase + administracionCobro + iva
-
-    return {
-    canonBase,
-    administracion,
-    administracionCobro,
-    administracionIncluidaEnCanon: administracionIncluidaEnCanonContrato(contrato),
-    incrementoAplicado,
-    iva,
-    canonCausado,
-   }
-  }
+  const calcularCanonArriendo = (contrato, mes) =>
+    calcularCanonArriendoMes(contrato, mes, incrementosArriendo)
 
   const contratoPagoArriendo = contratosArriendo.find(
   (contrato) => obtenerIdContrato(contrato) === idContratoPagoArriendo
@@ -21941,14 +22151,18 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       ? pagosArriendo.filter((pago) => pago.id !== idPagoExcluir)
       : pagosArriendo
     const mesesContrato = generarMesesContrato(contrato)
+    const contextoCalculo = construirContextoCalculoArriendo({
+      pagosArriendo: pagosFuente,
+      incrementosArriendo,
+      ajustesAdministracion,
+      gestionesCartera,
+    })
     const movimientos = mesesContrato.map((mes) =>
-      calcularMovimientoArriendoMes(
-        contrato,
-        mes,
+      calcularMovimientoArriendoMes(contrato, mes, {
         idContrato,
-        fechaCorte || null,
-        pagosFuente
-      )
+        fechaCorteMora: fechaCorte || null,
+        ...contextoCalculo,
+      })
     )
 
     const tieneSaldoPendiente = movimientos.some((movimiento) =>
@@ -22194,6 +22408,9 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     }
 
     if (itemActualizado) {
+      if (tipo === 'arriendo') {
+        setFechaCorteCartera(obtenerFechaLocalISO())
+      }
       setReciboPagoSeleccionado(itemActualizado)
       const detalleHistorial =
         tipo === 'arriendo'
@@ -24370,7 +24587,16 @@ if (
     (contrato) => obtenerIdContrato(contrato) === contratoGestionCartera.idContrato
   )
   const movimientoGestionCartera = contratoGestion
-    ? calcularMovimientoArriendoMes(contratoGestion, contratoGestionCartera.mes)
+    ? calcularMovimientoArriendoMes(contratoGestion, contratoGestionCartera.mes, {
+        idContrato: obtenerIdContrato(contratoGestion),
+        fechaCorteMora: fechaCorteCartera || obtenerFechaLocalISO(),
+        ...construirContextoCalculoArriendo({
+          pagosArriendo,
+          incrementosArriendo,
+          ajustesAdministracion,
+          gestionesCartera,
+        }),
+      })
     : null
   const gastosCobranzaGestion = Number(movimientoGestionCartera?.sancionCobranza || 0)
 
@@ -25191,245 +25417,19 @@ alert('Pago de servicio público guardado correctamente.')
       })
     : null
 
-    const generarMesesContrato = (contrato) => {
-  if (!contrato?.fechaInicio) return []
+const contextoCalculoArriendo = construirContextoCalculoArriendo({
+  pagosArriendo,
+  incrementosArriendo,
+  ajustesAdministracion,
+  gestionesCartera,
+})
 
-  const meses = []
+const fechaCorteAlertasArriendo = fechaCorteCartera || obtenerFechaLocalISO()
 
-  const fechaInicio = new Date(`${contrato.fechaInicio}T00:00:00`)
-  const fechaFinContrato = contrato.fechaFin
-    ? new Date(`${contrato.fechaFin}T00:00:00`)
-    : new Date()
-
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-
-  const fechaFinal = fechaFinContrato < hoy ? fechaFinContrato : hoy
-
-  let anio = fechaInicio.getFullYear()
-  let mes = fechaInicio.getMonth()
-
-  const anioFinal = fechaFinal.getFullYear()
-  const mesFinal = fechaFinal.getMonth()
-
-  while (anio < anioFinal || (anio === anioFinal && mes <= mesFinal)) {
-    meses.push(`${anio}-${String(mes + 1).padStart(2, '0')}`)
-
-    mes += 1
-
-    if (mes > 11) {
-      mes = 0
-      anio += 1
-    }
-  }
-
-  return meses
-}   
-  
-const calcularMovimientoArriendoMes = (
-  contrato,
-  mes,
-  idContratoActual = null,
-  fechaCorteMoraReferencia = null,
-  pagosArriendoFuente = null
-) => {
-  const idContrato = idContratoActual || obtenerIdContrato(contrato)
-  const pagosFuente = pagosArriendoFuente ?? pagosArriendo
-
-  const aplicacion = obtenerAplicacionPagosArriendoMes(
-    contrato,
-    mes,
-    pagosFuente,
-    incrementosArriendo,
-    ajustesAdministracion,
-    gestionesCartera
-  )
-
-  const {
-    pagosDelMes,
-    pagosLiquidacionArriendoMes,
-    totalPagadoMes,
-    totalPagadoLiquidacionArriendo,
-    totalDescuentoMes,
-    pagosDetalle,
-    pagosDetalleLiquidacionArriendo,
-    ultimoPago,
-    recibosDelMes,
-  } = aplicacion
-
-  const gestionesDelMes = gestionesCartera.filter(
-    (gestion) => gestion.idContrato === idContrato && gestion.mes === mes
-  )
-
-  const totalMoraGestionMes = gestionesDelMes.reduce(
-    (total, gestion) => total + Number(gestion.mora || 0),
-    0
-  )
-
-  const calculo = calcularCanonArriendo(contrato, mes)
-  const ivaCanonCalculo = Number(calculo.iva || 0)
-
-  const canonCausadoBase = calcularMontoCanonArrendatarioMes({
-    canonBase: Number(calculo.canonBase || 0),
-    administracion: Number(calculo.administracion || 0),
-    ivaCanon: ivaCanonCalculo,
-    contrato,
-  })
-
-  const { canonBase, ivaCanonMes, baseLiquidacion, baseMoraCanon } =
-    calcularBaseLiquidacionEstadoCuentaArriendoMes(
-      { canonBase: calculo.canonBase },
-      contrato
-    )
-
-  const porcentajeInteresMora = Number(contrato.porcentajeInteresMora || 0)
-  const fechaCorteMora =
-    fechaCorteMoraReferencia || new Date().toISOString().slice(0, 10)
-  let moraContratoMes = calcularMoraAcumuladaMesArriendo({
-    baseMora: baseMoraCanon,
-    porcentajeInteresMora,
-    mesCausado: mes,
-    pagos: pagosLiquidacionArriendoMes,
-    totalDescuento: totalDescuentoMes,
-    fechaCorte: fechaCorteMora,
-    contrato,
-    canonBase,
-    ivaCanonMes,
-    moraSobreCanonSinIva: true,
-  })
-
-  if (
-    mesArriendoSinInteresesMora({
-      mesCausado: mes,
-      saldoCapitalInicial: baseMoraCanon - totalDescuentoMes,
-      pagos: pagosLiquidacionArriendoMes,
-      contrato,
-      canonBase,
-      ivaCanonMes,
-      moraSobreCanonSinIva: true,
-    })
-  ) {
-    moraContratoMes = 0
-  }
-
-  const porcentajeGastosCobranza = obtenerPorcentajeGastosCobranzaContrato(contrato)
-  const moraTotalMes = moraContratoMes + totalMoraGestionMes
-
-  const gastosCobranzaPeriodo = calcularSancionGastosCobranzaPeriodoArriendo({
-    contrato,
-    mesCausado: mes,
-    canonBase,
-    ivaCanonMes,
-    baseMoraCanon,
-    totalDescuento: totalDescuentoMes,
-    pagosLiquidacion: pagosLiquidacionArriendoMes,
-    fechaCorte: fechaCorteMora,
-  })
-  const sancionContratoMes = gastosCobranzaPeriodo.sancionCobranza
-
-  const canonPendienteGastosCobranza = calcularSaldoCanonBasePendienteArriendoMes({
-    canonBase,
-    ivaCanonMes,
-    totalDescuento: totalDescuentoMes,
-    pagos: pagosLiquidacionArriendoMes,
-  })
-
-  const deudaVigenteMes = Math.max(
-    0,
-    baseLiquidacion + moraTotalMes + sancionContratoMes - totalDescuentoMes - totalPagadoLiquidacionArriendo
-  )
-
-  const sancionTotalMes = sancionContratoMes
-  const ivaMoraMes = calcularIvaArriendo(moraTotalMes, contrato)
-  const ivaGastosCobranzaMes = calcularIvaArriendo(sancionTotalMes, contrato)
-  const ivaInteresesSancionMes = ivaMoraMes + ivaGastosCobranzaMes
-
-  const totalLiquidacionMes =
-    baseLiquidacion + moraTotalMes + sancionTotalMes + ivaInteresesSancionMes
-  const canonCausado = totalLiquidacionMes
-
-  const movimientoParcial = {
-    mes,
-    fechaPago: ultimoPago?.fechaPago || 'Sin pago',
-    recibo:
-      recibosDelMes.length > 0
-        ? recibosDelMes.join(', ')
-        : ultimoPago?.recibo || 'Sin recibo',
-    pagosDetalle,
-    pagosDetalleLiquidacionArriendo,
-    pagosMes: pagosDelMes,
-    pagosLiquidacionArriendoMes,
-    canonCausadoBase,
-    canonCausadoBaseLiquidacion: baseLiquidacion,
-    moraGestion: totalMoraGestionMes,
-    moraContrato: moraContratoMes,
-    canonBase: calculo.canonBase,
-    administracion: calculo.administracion,
-    administracionIncluidaEnCanon: calculo.administracionIncluidaEnCanon,
-    incrementoAplicado: calculo.incrementoAplicado,
-    iva: ivaCanonMes + ivaInteresesSancionMes,
-    ivaCanon: ivaCanonMes,
-    ivaMora: ivaMoraMes,
-    ivaGastosCobranza: ivaGastosCobranzaMes,
-    ivaInteresesSancion: ivaInteresesSancionMes,
-    totalLiquidacionMes,
-    canonCausado,
-    pagado: totalPagadoMes,
-    totalPagadoLiquidacionArriendo,
-    mora: moraTotalMes,
-    sancionCobranza: sancionTotalMes,
-    deudaVigenteMes,
-    descuento: totalDescuentoMes,
-  }
-
-  const saldoDeuda = calcularSaldoDeudaPeriodoArriendo(
-    contrato,
-    movimientoParcial,
-    fechaCorteMoraReferencia || ''
-  )
-
-  let estadoMovimiento = 'Pagado'
-
-  if (saldoDeuda > 0 && totalPagadoMes > 0) {
-    estadoMovimiento = 'Abono registrado'
-  }
-
-  if (saldoDeuda > 0 && totalPagadoMes === 0) {
-    estadoMovimiento = 'Pendiente'
-  }
-
-  return {
-    ...movimientoParcial,
-    saldoDeuda,
-    estadoMovimiento,
-  }
-}
-
-     const extractosArriendoBase = contratosArriendo.map((contrato) => {
-  const idContratoActual = obtenerIdContrato(contrato)
-
-  const mesesContrato = generarMesesContrato(contrato)
-
-  const movimientos = mesesContrato.map((mes) =>
-    calcularMovimientoArriendoMes(
-      contrato,
-      mes,
-      idContratoActual,
-      fechaCorteCartera || null
-    )
-  )
-
-  const resumenDeudaEstadoCuenta = calcularResumenDeudaEstadoCuentaArriendo({
-    contrato,
-    movimientos,
-    fechaCorte: fechaCorteCartera,
-  })
-
-  return {
-    contrato,
-    movimientos: movimientos.sort((a, b) => b.mes.localeCompare(a.mes)),
-    resumen: resumenDeudaEstadoCuenta,
-  }
+const extractosArriendoBase = construirExtractosArriendoContratos({
+  contratosArriendo,
+  ...contextoCalculoArriendo,
+  fechaCorte: fechaCorteAlertasArriendo,
 })
 
 const extractoPagoArriendo = contratoPagoArriendo
@@ -25453,12 +25453,10 @@ const canonMensualPagoArriendo = Number(canonCalculado?.canonCausado || 0)
 
 const movimientoPagoArriendoMes =
   contratoPagoArriendo && mesPagoArriendo
-    ? calcularMovimientoArriendoMes(
-        contratoPagoArriendo,
-        mesPagoArriendo,
-        null,
-        fechaPagoArriendo || null
-      )
+    ? calcularMovimientoArriendoMes(contratoPagoArriendo, mesPagoArriendo, {
+        fechaCorteMora: fechaPagoArriendo || fechaCorteAlertasArriendo,
+        ...contextoCalculoArriendo,
+      })
     : null
 
 const desglosePagoArriendo = contratoPagoArriendo
@@ -25671,6 +25669,7 @@ const guardarPagoArriendo = () => {
   const { nuevoPago, reciboParaImprimir } = datosRecibo
 
   setPagosArriendo([nuevoPago, ...pagosArriendo])
+  setFechaCorteCartera(obtenerFechaLocalISO())
   setReciboArriendoImprimir(reciboParaImprimir)
 
   registrarHistorial({
@@ -25883,11 +25882,11 @@ const propietariosContratoSeleccionado = contratoSeleccionado
   .filter((contrato) => contrato.estado === 'Activo')
   .map((contrato) => {
     const idContratoActual = obtenerIdContrato(contrato)
-    const movimientoMes = calcularMovimientoArriendoMes(
-      contrato,
-      mesCarteraArriendos,
-      idContratoActual
-    )
+    const movimientoMes = calcularMovimientoArriendoMes(contrato, mesCarteraArriendos, {
+      idContrato: idContratoActual,
+      fechaCorteMora: fechaCorteAlertasArriendo,
+      ...contextoCalculoArriendo,
+    })
 
     const extractoContrato = extractosArriendoBase.find(
       (extracto) => obtenerIdContrato(extracto.contrato) === idContratoActual
@@ -25909,7 +25908,7 @@ const propietariosContratoSeleccionado = contratoSeleccionado
       calcularSaldoDeudaPeriodoArriendo(
         contrato,
         movimientoMes,
-        fechaCorteCartera || ''
+        fechaCorteAlertasArriendo
       )
     )
 
@@ -25922,7 +25921,7 @@ const propietariosContratoSeleccionado = contratoSeleccionado
       idContratoActual
     )
 
-    const fechaLimiteNormal = obtenerFechaVencimientoMesArriendo(mesCarteraArriendos)
+    const fechaLimiteNormal = obtenerFechaVencimientoMesArriendo(mesCarteraArriendos, contrato)
 
     const fechaBaseGestion =
       ultimaGestionReal?.fechaGestion || fechaLimiteNormal
@@ -29558,7 +29557,7 @@ const resultadosBusqueda = textoBusqueda
       setMesCarteraArriendos(
         `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`
       )
-      setFechaCorteCartera(hoy.toISOString().slice(0, 10))
+      setFechaCorteCartera(obtenerFechaLocalISO())
       setVistaCarteraDiaria('')
       setContratoGestionCartera(null)
     }}
@@ -35104,7 +35103,7 @@ const resultadosBusqueda = textoBusqueda
                     estadoCartera={contratoGestionCartera.estadoCartera}
                     className="estado-cuenta-modal-compact"
                     resumenClassName="resumen-deuda-modal"
-                    textoGastosCobranza={`${obtenerPorcentajeGastosCobranzaContrato(contratoDeuda)}% de la deuda vigente del mes (${formatearDinero(contratoGestionCartera.sancionGestion || 0)} sobre ${formatearDinero(contratoGestionCartera.deudaVigenteMes || 0)})`}
+                    textoGastosCobranza={textoDescriptivoGastosCobranzaContratoArriendo(contratoDeuda)}
                     opcionesAtraso={opcionesAtrasoCartera(
                       contratoGestionCartera,
                       extractoGestionCartera,
@@ -37459,7 +37458,11 @@ const resultadosBusqueda = textoBusqueda
             <td
               className={
                 saldo > 0 &&
-                esMovimientoSaldoAtraso({ mes: pago.mes, saldoDeuda: saldo }, fechaCorteCartera)
+                esMovimientoSaldoAtraso(
+                  { mes: pago.mes, saldoDeuda: saldo },
+                  fechaCorteCartera,
+                  contratoSeleccionado
+                )
                   ? 'saldo-atraso'
                   : ''
               }
