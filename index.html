@@ -11,6 +11,14 @@
     <title>INH Control de Predios</title>
     <script>
       ;(function () {
+        if (
+          location.hostname === 'chessman234.github.io' &&
+          !location.pathname.startsWith('/inh-control-predios')
+        ) {
+          location.replace('/inh-control-predios/')
+          return
+        }
+
         var reloadKey = 'inh-cache-reload'
         var warnKey = 'inh-cache-reload-warn'
 
@@ -55,7 +63,29 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div
+        id="inh-boot-loader"
+        style="
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #03152f;
+          color: #ffffff;
+          font-family: Arial, sans-serif;
+          padding: 24px;
+          text-align: center;
+        "
+      >
+        <div>
+          <p style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 700">
+            INH Control de Predios
+          </p>
+          <p style="margin: 0; opacity: 0.85">Cargando sistema...</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

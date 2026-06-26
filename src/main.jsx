@@ -8,8 +8,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './App.css'
 import App from './App.jsx'
-import logoInhUrl from './assets/logo-inh.png?url'
 
+const logoInhUrl = `${import.meta.env.BASE_URL}logo-inh.svg`
 document.documentElement.style.setProperty('--logo-inh-url', `url("${logoInhUrl}")`)
 
 // =============================================================================
@@ -111,6 +111,8 @@ sessionStorage.removeItem('inh-cache-reload')
 sessionStorage.removeItem('inh-cache-reload-warn')
 
 function renderApp() {
+  document.getElementById('inh-boot-loader')?.remove()
+
   appRoot.render(
     <StrictMode>
       <ErrorBoundary>

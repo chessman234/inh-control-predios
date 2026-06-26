@@ -35,7 +35,8 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173" ^| findstr "LISTENING
 
 echo.
 echo IMPORTANTE:
-echo - URL correcta:  http://localhost:5173/
+echo - URL local:     http://localhost:5173/
+echo - URL nube:      https://chessman234.github.io/inh-control-predios/
 echo   (es "localhost", NO "localhome")
 echo - No abra index.html desde archivos; use el navegador con localhost
 echo - Deje abierta la ventana "INH - Servidor"

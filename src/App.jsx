@@ -4,7 +4,6 @@
 // =============================================================================
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import logoInhUrl from './assets/logo-inh.png?url'
 import {
   cargarDatosApi,
   getTokenSesion,
@@ -26,9 +25,9 @@ import {
 // Logo, tipos de pago, comisiones y configuracion base del sistema.
 // =============================================================================
 
-const LOGO_INH = logoInhUrl
+const LOGO_INH = `${import.meta.env.BASE_URL}logo-inh.svg`
 const obtenerUrlAbsolutaLogoInh = () =>
-  new URL(logoInhUrl, window.location.origin).href
+  new URL(LOGO_INH, window.location.origin).href
 
 const PORCENTAJE_GASTOS_COBRANZA_DEFECTO = 10
 const TIPOS_COMISION_DEPOSITO = ['Administración', 'Solo arrendar']
@@ -25417,20 +25416,33 @@ alert('Pago de servicio público guardado correctamente.')
       })
     : null
 
-const contextoCalculoArriendo = construirContextoCalculoArriendo({
-  pagosArriendo,
-  incrementosArriendo,
-  ajustesAdministracion,
-  gestionesCartera,
-})
+const contextoCalculoArriendo = useMemo(
+  () =>
+    construirContextoCalculoArriendo({
+      pagosArriendo,
+      incrementosArriendo,
+      ajustesAdministracion,
+      gestionesCartera,
+    }),
+  [pagosArriendo, incrementosArriendo, ajustesAdministracion, gestionesCartera]
+)
 
 const fechaCorteAlertasArriendo = fechaCorteCartera || obtenerFechaLocalISO()
 
-const extractosArriendoBase = construirExtractosArriendoContratos({
+const extractosArriendoBase = useMemo(() => {
+  if (!usuarioActual) return []
+
+  return construirExtractosArriendoContratos({
+    contratosArriendo,
+    ...contextoCalculoArriendo,
+    fechaCorte: fechaCorteAlertasArriendo,
+  })
+}, [
+  usuarioActual,
   contratosArriendo,
-  ...contextoCalculoArriendo,
-  fechaCorte: fechaCorteAlertasArriendo,
-})
+  contextoCalculoArriendo,
+  fechaCorteAlertasArriendo,
+])
 
 const extractoPagoArriendo = contratoPagoArriendo
   ? extractosArriendoBase.find(

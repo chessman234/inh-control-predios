@@ -78,7 +78,18 @@ function escribirIndexedDB(datos) {
 function leerLocalStorage() {
   const datosGuardados = localStorage.getItem(STORAGE_KEY)
   if (!datosGuardados) return null
-  return JSON.parse(datosGuardados)
+
+  try {
+    return JSON.parse(datosGuardados)
+  } catch (error) {
+    console.warn('Datos locales corruptos, se descartan:', error)
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // Ignorar si el navegador bloquea el borrado.
+    }
+    return null
+  }
 }
 
 function escribirLocalStorage(datos) {
