@@ -24075,6 +24075,7 @@ const editarContrato = (contrato) => {
 // =============================================================================
 
   const guardarContrato = async () => {
+    try {
       if (!puedeRegistrar) {
     alert('No tiene permisos para registrar contratos.')
     return
@@ -24340,6 +24341,13 @@ cerrarFormularioContrato({
   mensaje:
     'Contrato guardado correctamente. La unidad quedó marcada como arrendada.',
 })
+    } catch (error) {
+      console.error('Error al guardar contrato de arriendo:', error)
+      alert(
+        `No se pudo completar el guardado del contrato: ${error?.message || 'error inesperado'}. ` +
+          'Si el problema continúa, recargue con Ctrl+F5 y descargue un respaldo desde Reportes y respaldos.'
+      )
+    }
   }
 
 // =============================================================================
