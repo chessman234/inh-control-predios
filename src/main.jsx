@@ -9,7 +9,7 @@ import './index.css'
 import './App.css'
 import App from './App.jsx'
 
-const logoInhUrl = `${import.meta.env.BASE_URL}logo-inh.svg`
+const logoInhUrl = `${import.meta.env.BASE_URL}logo-inh.png`
 document.documentElement.style.setProperty('--logo-inh-url', `url("${logoInhUrl}")`)
 
 // =============================================================================

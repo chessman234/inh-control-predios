@@ -17,6 +17,7 @@ import {
 import {
   cancelarGuardadoDatosLocalesPendiente,
   cargarDatosLocales,
+  flushGuardadoDatosLocalesPendiente,
   guardarDatosLocales,
 } from './storage/datosLocales.js'
 
@@ -25,7 +26,7 @@ import {
 // Logo, tipos de pago, comisiones y configuracion base del sistema.
 // =============================================================================
 
-const LOGO_INH = `${import.meta.env.BASE_URL}logo-inh.svg`
+const LOGO_INH = `${import.meta.env.BASE_URL}logo-inh.png`
 const obtenerUrlAbsolutaLogoInh = () =>
   new URL(LOGO_INH, window.location.origin).href
 
@@ -8411,7 +8412,12 @@ const calcularSaldoDeudaLiquidacionArriendoContrato = ({
 // Generacion de meses y movimientos con pagos y fecha de corte explicitos.
 // =============================================================================
 
-const calcularCanonArriendoMes = (contrato, mes, incrementosArriendo = []) => {
+const calcularCanonArriendoMes = (
+  contrato,
+  mes,
+  incrementosArriendo = [],
+  ajustesAdministracion = []
+) => {
   if (!contrato || !mes) {
     return {
       canonBase: 0,
@@ -8437,7 +8443,11 @@ const calcularCanonArriendoMes = (contrato, mes, incrementosArriendo = []) => {
     mes,
     incrementosArriendo
   )
-  const administracion = obtenerAdministracionContrato(contrato, anioPago)
+  const administracion = obtenerAdministracionContratoPuro(
+    contrato,
+    anioPago,
+    ajustesAdministracion
+  )
   const administracionCobro = obtenerAdministracionCobroArrendatario(contrato, administracion)
   const iva = contrato.aplicaIva === 'Sí' ? Math.round(canonBase * 0.19) : 0
   const canonCausado = canonBase + administracionCobro + iva
@@ -8452,6 +8462,11 @@ const calcularCanonArriendoMes = (contrato, mes, incrementosArriendo = []) => {
     canonCausado,
   }
 }
+
+// =============================================================================
+// ARRIENDOS - MESES DEL CONTRATO Y MOVIMIENTO MENSUAL
+// Generacion de meses y movimientos con pagos y fecha de corte explicitos.
+// =============================================================================
 
 const generarMesesContrato = (contrato) => {
   if (!contrato?.fechaInicio) return []
@@ -8523,7 +8538,12 @@ const calcularMovimientoArriendoMes = (contrato, mes, opciones = {}) => {
     0
   )
 
-  const calculo = calcularCanonArriendoMes(contrato, mes, incrementosArriendoFuente)
+  const calculo = calcularCanonArriendoMes(
+    contrato,
+    mes,
+    incrementosArriendoFuente,
+    ajustesAdministracionFuente
+  )
   const ivaCanonCalculo = Number(calculo.iva || 0)
 
   const canonCausadoBase = calcularMontoCanonArrendatarioMes({
@@ -18290,30 +18310,49 @@ useEffect(() => {
   setContratosArriendo((prev) => procesarRenovacionesAutomaticasContratos(prev))
 }, [datosCargados])
 
+// =============================================================================
+// PERSISTENCIA - ARMAR PAYLOAD Y GUARDADO INMEDIATO
+// Construye el objeto completo y permite guardar sin esperar el debounce.
+// =============================================================================
+
+  const construirDatosParaGuardar = (parches = {}) => ({
+    predios,
+    propietarios,
+    predioPropietarios,
+    documentos,
+    historialCambios,
+    unidadesNegocio,
+    contratosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    pagosArriendo,
+    pagosAdministracion,
+    gestionesCartera,
+    facturasServiciosPublicos,
+    pagosServiciosPublicos,
+    valoresPrediales,
+    pagosPrediales,
+    contratosDeposito,
+    pagosLiquidacionDeposito,
+    usuariosSistema,
+    ...parches,
+  })
+
+  const persistirDatosSistemaInmediato = async (parches = {}) => {
+    const datosParaGuardar = construirDatosParaGuardar(parches)
+    if (usaApiRemota()) {
+      if (getTokenSesion()) {
+        programarGuardadoDatosApi(datosParaGuardar)
+      }
+      return { ok: true }
+    }
+    return guardarDatosLocales(datosParaGuardar, { inmediato: true })
+  }
+
 useEffect(() => {
   if (!datosCargados) return
 
-  const datosParaGuardar = {
-  predios,
-  propietarios,
-  predioPropietarios,
-  documentos,
-  historialCambios,
-  unidadesNegocio,
-  contratosArriendo,
-  incrementosArriendo,
-  ajustesAdministracion,
-  pagosArriendo,
-  pagosAdministracion,
-  gestionesCartera,
-  facturasServiciosPublicos,
-  pagosServiciosPublicos,
-  valoresPrediales,
-  pagosPrediales,
-  contratosDeposito,
-  pagosLiquidacionDeposito,
-  usuariosSistema,
-}
+  const datosParaGuardar = construirDatosParaGuardar()
   if (usaApiRemota()) {
     if (getTokenSesion()) {
       programarGuardadoDatosApi(datosParaGuardar)
@@ -18355,6 +18394,27 @@ useEffect(() => {
   pagosLiquidacionDeposito,
   usuariosSistema,
 ])
+
+// =============================================================================
+// PERSISTENCIA - FLUSH AL CERRAR PESTAÑA
+// Evita perder el guardado diferido si el usuario cierra el navegador.
+// =============================================================================
+
+useEffect(() => {
+  if (usaApiRemota()) return undefined
+
+  const sincronizarAlSalir = () => {
+    void flushGuardadoDatosLocalesPendiente()
+  }
+
+  window.addEventListener('pagehide', sincronizarAlSalir)
+  window.addEventListener('beforeunload', sincronizarAlSalir)
+
+  return () => {
+    window.removeEventListener('pagehide', sincronizarAlSalir)
+    window.removeEventListener('beforeunload', sincronizarAlSalir)
+  }
+}, [])
 
 // =============================================================================
 // ACCIONES - RESPALDOS DEL SISTEMA
@@ -19647,20 +19707,21 @@ const contratoActivoPorPredio = (codigoPredio) => {
         }
       })
 
-  const registrarHistorial = (entrada) => {
-    const nuevoRegistro = {
-      id: `HIST-${Date.now()}`,
-      fecha: new Date().toISOString(),
-      usuario: usuarioActual?.usuario || 'sistema',
-      nombreUsuario: usuarioActual?.nombre || 'Sistema',
-      accion: entrada.accion || 'Acción',
-      modulo: entrada.modulo || 'Sistema',
-      entidadId: entrada.entidadId || '',
-      detalle: entrada.detalle || '',
-      valorAnterior: entrada.valorAnterior || '',
-      valorNuevo: entrada.valorNuevo || '',
-    }
+  const crearEntradaHistorial = (entrada) => ({
+    id: `HIST-${Date.now()}`,
+    fecha: new Date().toISOString(),
+    usuario: usuarioActual?.usuario || 'sistema',
+    nombreUsuario: usuarioActual?.nombre || 'Sistema',
+    accion: entrada.accion || 'Acción',
+    modulo: entrada.modulo || 'Sistema',
+    entidadId: entrada.entidadId || '',
+    detalle: entrada.detalle || '',
+    valorAnterior: entrada.valorAnterior || '',
+    valorNuevo: entrada.valorNuevo || '',
+  })
 
+  const registrarHistorial = (entrada) => {
+    const nuevoRegistro = crearEntradaHistorial(entrada)
     setHistorialCambios((prev) => [nuevoRegistro, ...prev])
   }
 
@@ -19785,7 +19846,7 @@ const contratoActivoPorPredio = (codigoPredio) => {
 }
 
   const calcularCanonArriendo = (contrato, mes) =>
-    calcularCanonArriendoMes(contrato, mes, incrementosArriendo)
+    calcularCanonArriendoMes(contrato, mes, incrementosArriendo, ajustesAdministracion)
 
   const contratoPagoArriendo = contratosArriendo.find(
   (contrato) => obtenerIdContrato(contrato) === idContratoPagoArriendo
@@ -24013,11 +24074,17 @@ const editarContrato = (contrato) => {
 // Registrar, renovar y terminar contratos de arriendo.
 // =============================================================================
 
-  const guardarContrato = () => {
+  const guardarContrato = async () => {
       if (!puedeRegistrar) {
     alert('No tiene permisos para registrar contratos.')
     return
     }
+
+    const canonVacio =
+      canonMensual === '' || canonMensual === null || canonMensual === undefined
+    const incrementoVacio =
+      incrementoAnual === '' || incrementoAnual === null || incrementoAnual === undefined
+
        if (
        !codigoPredioContrato ||
        !idUnidadContrato ||
@@ -24025,8 +24092,8 @@ const editarContrato = (contrato) => {
        !docArrendatario ||
        !telefonoArrendatario ||
        !correoArrendatario ||
-       !canonMensual ||
-       !incrementoAnual ||
+       canonVacio ||
+       incrementoVacio ||
        !fechaInicioContrato
      ) {
       alert('Complete predio, unidad de negocio, arrendatario, documento, teléfono, correo, canon, incremento y fecha de inicio.')
@@ -24148,12 +24215,15 @@ if (contratoEditando) {
     )
   }
 
-  registrarHistorial({
+  const entradaHistorialEdicion = crearEntradaHistorial({
     accion: 'Edición',
     modulo: 'Contratos',
     entidadId: idContratoEditando,
     detalle: `Actualización del contrato ${idContratoEditando}`,
   })
+  const historialActualizadoEdicion = [entradaHistorialEdicion, ...historialCambios]
+
+  setHistorialCambios(historialActualizadoEdicion)
 
   const contratoActualizado = contratosActualizados.find((contrato) =>
     coincideContratoArriendo(contrato, contratoEditando)
@@ -24166,6 +24236,20 @@ if (contratoEditando) {
     setContratoArriendoDocumentosAdjuntos((previo) =>
       marcarAdjuntosComoGuardados(previo, clavesAdjuntosGuardados)
     )
+  }
+
+  const resultadoPersistencia = await persistirDatosSistemaInmediato({
+    contratosArriendo: contratosActualizados,
+    historialCambios: historialActualizadoEdicion,
+  })
+
+  if (!resultadoPersistencia?.ok) {
+    alert(
+      resultadoPersistencia?.mensaje ||
+        'El contrato se actualizó en pantalla pero no se pudo guardar en este navegador. ' +
+          'Descargue un respaldo desde Reportes y respaldos y revise el espacio disponible.'
+    )
+    return
   }
 
   cerrarFormularioContrato({
@@ -24210,27 +24294,47 @@ if (contratoEditando) {
   ...datosAseguradoraContrato,
 }
 
-   setContratosArriendo([nuevoContrato, ...contratosArriendo])
+   const contratosActualizadosNuevo = [nuevoContrato, ...contratosArriendo]
 
-setUnidadesNegocio(
-  unidadesNegocio.map((unidad) =>
+   setContratosArriendo(contratosActualizadosNuevo)
+
+const unidadesActualizadasNuevo = unidadesNegocio.map((unidad) =>
     unidad.id === idUnidadContrato
       ? { ...unidad, estado: 'Arrendada' }
       : unidad
   )
-)
 
-registrarHistorial({
+setUnidadesNegocio(unidadesActualizadasNuevo)
+
+const entradaHistorialNuevo = crearEntradaHistorial({
   accion: 'Creación',
   modulo: 'Contratos',
   entidadId: nuevoContrato.idContrato,
   detalle: `Registro de contrato ${nuevoContrato.idContrato} - predio ${codigoPredioContrato}`,
 })
+const historialActualizadoNuevo = [entradaHistorialNuevo, ...historialCambios]
+
+setHistorialCambios(historialActualizadoNuevo)
 
 const clavesAdjuntosGuardados = registrarDocumentosAdjuntosContratoArriendo({
   adjuntos: contratoArriendoDocumentosAdjuntos,
   contrato: nuevoContrato,
 })
+
+const resultadoPersistenciaNuevo = await persistirDatosSistemaInmediato({
+  contratosArriendo: contratosActualizadosNuevo,
+  unidadesNegocio: unidadesActualizadasNuevo,
+  historialCambios: historialActualizadoNuevo,
+})
+
+if (!resultadoPersistenciaNuevo?.ok) {
+  alert(
+    resultadoPersistenciaNuevo?.mensaje ||
+      'El contrato se registró en pantalla pero no se pudo guardar en este navegador. ' +
+        'Descargue un respaldo desde Reportes y respaldos y revise el espacio disponible.'
+  )
+  return
+}
 
 cerrarFormularioContrato({
   mensaje:

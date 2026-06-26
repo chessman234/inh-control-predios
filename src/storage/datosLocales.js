@@ -191,10 +191,25 @@ export function guardarDatosLocales(datos, opciones = {}) {
 
 // =============================================================================
 // CANCELAR GUARDADO PENDIENTE
-// Limpia temporizador de guardado diferido.
+// Solo detiene el temporizador; los datos pendientes se conservan para el
+// siguiente guardado o para flushGuardadoDatosLocalesPendiente.
 // =============================================================================
 
 export function cancelarGuardadoDatosLocalesPendiente() {
   clearTimeout(temporizadorGuardado)
+  temporizadorGuardado = null
+}
+
+// =============================================================================
+// FLUSH GUARDADO PENDIENTE
+// Escribe de inmediato lo que quedó en cola (cierre de pestaña, guardado crítico).
+// =============================================================================
+
+export function flushGuardadoDatosLocalesPendiente() {
+  clearTimeout(temporizadorGuardado)
+  temporizadorGuardado = null
+  const datos = guardadoPendiente
   guardadoPendiente = null
+  if (!datos) return Promise.resolve({ ok: true, flushed: false })
+  return ejecutarGuardado(datos)
 }

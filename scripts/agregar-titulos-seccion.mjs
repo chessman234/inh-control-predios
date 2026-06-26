@@ -67,7 +67,7 @@ function insertarPorAnclas(rutaArchivo, secciones, tipo = 'js') {
 
 const appJsx = [
   { ancla: 'import React', titulo: 'IMPORTS', descripcion: 'Dependencias React, API remota y almacenamiento local.' },
-  { ancla: 'const LOGO_INH = logoInhUrl', titulo: 'CONSTANTES GLOBALES', descripcion: 'Logo, tipos de pago, comisiones y configuracion base del sistema.' },
+  { ancla: 'const LOGO_INH = `${import.meta.env.BASE_URL}logo-inh.png`', titulo: 'CONSTANTES GLOBALES', descripcion: 'Logo, tipos de pago, comisiones y configuracion base del sistema.' },
   { ancla: 'const normalizarTipoPagoLiquidacionDeposito', titulo: 'LIQUIDACION INH - NORMALIZACION DE PAGOS', descripcion: 'Medios de pago, cuentas bancarias y validaciones INH.' },
   { ancla: 'const obtenerPropietariosContratoDeposito', titulo: 'CONTRATOS DEPOSITO - PROPIETARIOS Y BENEFICIARIOS', descripcion: 'Participacion de propietarios y beneficiarios de liquidacion.' },
   { ancla: 'const obtenerAnioInicioVigenciasPredial', titulo: 'IMPUESTO PREDIAL - VIGENCIAS Y SALDOS', descripcion: 'Anios de vigencia, extractos por propietario y saldo pendiente.' },
@@ -210,6 +210,7 @@ const appJsx = [
   { ancla: 'const [idContratoPagoDepositante, setIdContratoPagoDepositante]', titulo: 'ESTADO - PAGO A DEPOSITANTES', descripcion: 'Contrato, beneficiario, medio de pago y documento soporte.' },
   { ancla: 'const [predios, setPredios]', titulo: 'ESTADO - DATOS PRINCIPALES DEL SISTEMA', descripcion: 'Arrays de predios, contratos, pagos, usuarios y demas entidades.' },
   { ancla: 'const cargarDatosEnEstado = (datos)', titulo: 'PERSISTENCIA - CARGAR DATOS EN ESTADO', descripcion: 'Hidrata el estado de React desde localStorage o API.' },
+  { ancla: 'const construirDatosParaGuardar = (parches = {})', titulo: 'PERSISTENCIA - ARMAR PAYLOAD Y GUARDADO INMEDIATO', descripcion: 'Construye el objeto completo y permite guardar sin esperar el debounce.' },
   { ancla: 'useEffect(() => {', titulo: 'PERSISTENCIA - EFECTOS DE CARGA Y GUARDADO', descripcion: 'Carga inicial, autoguardado y sincronizacion de datos.' },
   { ancla: 'const limpiarFormularioPagoDepositante', titulo: 'ACCIONES - PAGO A DEPOSITANTES', descripcion: 'Formulario, validaciones y registro de pagos al depositante.' },
   { ancla: 'const textoBusquedaContratoPagoDepositante', titulo: 'DERIVADOS - PAGO A DEPOSITANTES', descripcion: 'Contratos filtrados, seleccion y datos del formulario de pago.' },
@@ -387,7 +388,8 @@ const otrosArchivos = [
       { ancla: 'function abrirBaseDatos', titulo: 'INDEXEDDB - CONEXION', descripcion: 'Abre la base de datos del navegador.' },
       { ancla: 'export async function cargarDatosLocales', titulo: 'CARGAR DATOS LOCALES', descripcion: 'Lee datos desde IndexedDB o migra desde localStorage.' },
       { ancla: 'async function ejecutarGuardado', titulo: 'GUARDAR DATOS LOCALES', descripcion: 'Persiste datos con debounce y manejo de cuota.' },
-      { ancla: 'export function cancelarGuardadoDatosLocalesPendiente', titulo: 'CANCELAR GUARDADO PENDIENTE', descripcion: 'Limpia temporizador de guardado diferido.' },
+      { ancla: 'export function cancelarGuardadoDatosLocalesPendiente', titulo: 'CANCELAR GUARDADO PENDIENTE', descripcion: 'Detiene el temporizador sin descartar datos en cola.' },
+      { ancla: 'export function flushGuardadoDatosLocalesPendiente', titulo: 'FLUSH GUARDADO PENDIENTE', descripcion: 'Escribe de inmediato lo que quedo en cola al cerrar la pestana.' },
     ],
   },
   {
