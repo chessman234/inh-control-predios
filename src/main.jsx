@@ -107,6 +107,9 @@ class ErrorBoundary extends Component {
 const rootElement = document.getElementById('root')
 const appRoot = createRoot(rootElement)
 
+sessionStorage.removeItem('inh-cache-reload')
+sessionStorage.removeItem('inh-cache-reload-warn')
+
 function renderApp() {
   appRoot.render(
     <StrictMode>

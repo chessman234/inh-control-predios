@@ -5,7 +5,54 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#03152f" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>INH Control de Predios</title>
+    <script>
+      ;(function () {
+        var reloadKey = 'inh-cache-reload'
+        var warnKey = 'inh-cache-reload-warn'
+
+        window.addEventListener(
+          'error',
+          function (event) {
+            var target = event.target
+            if (!target || target.tagName !== 'SCRIPT' || !target.src) return
+            if (!/\/assets\/index-[^/]+\.js(?:\?|$)/.test(target.src)) return
+            if (sessionStorage.getItem(reloadKey)) return
+
+            sessionStorage.setItem(reloadKey, String(Date.now()))
+            var url = new URL(window.location.href)
+            url.searchParams.set('cb', String(Date.now()))
+            window.location.replace(url.toString())
+          },
+          true
+        )
+
+        window.setTimeout(function () {
+          var root = document.getElementById('root')
+          if (!root || root.childElementCount || sessionStorage.getItem(warnKey)) return
+
+          sessionStorage.setItem(warnKey, '1')
+          var reloadUrl = new URL(window.location.href)
+          reloadUrl.searchParams.set('cb', String(Date.now()))
+
+          document.body.insertAdjacentHTML(
+            'beforeend',
+            '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#03152f;color:#fff;font-family:Arial,sans-serif;padding:24px;text-align:center;z-index:99999">' +
+              '<div style="max-width:420px">' +
+              '<h2 style="margin:0 0 12px">No se pudo cargar el sistema</h2>' +
+              '<p style="margin:0 0 16px;line-height:1.5">El navegador puede estar usando una version antigua en cache.</p>' +
+              '<p style="margin:0 0 16px"><a href="' +
+              reloadUrl.toString() +
+              '" style="color:#93c5fd;font-weight:700">Recargar ahora</a></p>' +
+              '<p style="margin:0;opacity:.85">O presione <strong>Ctrl+F5</strong></p>' +
+              '</div></div>'
+          )
+        }, 8000)
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
