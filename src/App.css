@@ -4617,6 +4617,80 @@ td.saldo-atraso,
   line-height: 1.45;
 }
 
+/* =============================================================================
+ RECIBO ARRIENDO - AUDITORIA LIQUIDACION
+ Trazabilidad de fechas y recalculo de mora/cobranza en recibo de pago.
+ ============================================================================= */
+
+.recibo-auditoria-liquidacion {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.recibo-lineas-auditoria {
+  margin-top: 8px;
+}
+
+.recibo-lineas-auditoria li {
+  font-size: 13px;
+}
+
+/* =============================================================================
+ RECIBO ARRIENDO - HISTORIAL MODIFICACIONES
+ Registro inmutable de cambios administrativos sobre el recibo.
+ ============================================================================= */
+
+.recibo-historial-modificaciones {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fafafa;
+}
+
+.recibo-historial-modificaciones-lista {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.recibo-historial-modificacion-item {
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.recibo-historial-modificacion-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.recibo-historial-modificacion-meta strong {
+  color: #06244d;
+}
+
+.recibo-historial-modificacion-motivo {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.recibo-historial-modificacion-motivo span {
+  color: #64748b;
+  font-weight: 700;
+}
+
 .recibo-nuevo-saldo {
   display: flex;
   align-items: baseline;

@@ -7838,6 +7838,133 @@ const calcularIvaComisionInh = (comision) => Math.round(Number(comision || 0) * 
 const compararFechasISO = (fechaA = '', fechaB = '') =>
   String(fechaA || '').localeCompare(String(fechaB || ''))
 
+// =============================================================================
+// ARRIENDOS - ROLES Y FECHA RECIBO PAGO
+// Fecha local, limite de 20 dias para Digitador y validacion del recibo.
+// =============================================================================
+
+const obtenerFechaLocalISO = (fecha = new Date()) => {
+  const referencia = fecha instanceof Date ? fecha : new Date(fecha)
+  const anio = referencia.getFullYear()
+  const mes = String(referencia.getMonth() + 1).padStart(2, '0')
+  const dia = String(referencia.getDate()).padStart(2, '0')
+  return `${anio}-${mes}-${dia}`
+}
+
+const formatearFechaLocalHumana = (fechaISO = '') => {
+  if (!fechaISO) return 'Sin fecha'
+  const [anio, mes, dia] = String(fechaISO).split('-')
+  if (!anio || !mes || !dia) return fechaISO
+  return `${dia}/${mes}/${anio}`
+}
+
+const DIAS_MAX_ANTIGUEDAD_RECIBO_DIGITADOR = 20
+
+const normalizarRolUsuarioPagoArriendo = (rol = '') => {
+  if (rol === 'Digitador' || rol === 'Operador') return 'Digitador'
+  if (rol === 'Administrador') return 'Administrador'
+  return String(rol || '').trim()
+}
+
+const esDigitadorReciboPagoArriendo = (rol = '') =>
+  normalizarRolUsuarioPagoArriendo(rol) === 'Digitador'
+
+const esAdministradorReciboPagoArriendo = (rol = '') =>
+  normalizarRolUsuarioPagoArriendo(rol) === 'Administrador'
+
+const calcularFechaMinimaReciboDigitador = (
+  fechaDigitacion = obtenerFechaLocalISO()
+) => agregarDiasFechaISO(fechaDigitacion, -DIAS_MAX_ANTIGUEDAD_RECIBO_DIGITADOR)
+
+const validarFechaReciboPagoArriendo = (
+  fechaRecibo,
+  fechaDigitacion = obtenerFechaLocalISO(),
+  rolUsuario = 'Administrador'
+) => {
+  if (!fechaRecibo) {
+    return { valido: false, mensaje: 'Debe registrar la fecha del recibo.' }
+  }
+
+  if (compararFechasISO(fechaRecibo, fechaDigitacion) > 0) {
+    return {
+      valido: false,
+      mensaje:
+        'La fecha del recibo no puede ser posterior a la fecha de digitación (hoy).',
+    }
+  }
+
+  if (esDigitadorReciboPagoArriendo(rolUsuario)) {
+    const fechaMinima = calcularFechaMinimaReciboDigitador(fechaDigitacion)
+    if (compararFechasISO(fechaRecibo, fechaMinima) < 0) {
+      return {
+        valido: false,
+        mensaje:
+          'El Digitador únicamente puede registrar pagos con una antigüedad máxima de 20 días calendario.',
+      }
+    }
+  }
+
+  return { valido: true, mensaje: '' }
+}
+
+// =============================================================================
+// ARRIENDOS - HISTORIAL MODIFICACION RECIBO
+// Entrada inmutable de auditoria al editar recibos de arriendo.
+// =============================================================================
+
+const construirEntradaHistorialModificacionReciboPagoArriendo = ({
+  usuario = {},
+  motivo = '',
+  fechaReciboAnterior = '',
+  fechaReciboNueva = '',
+  auditoriaAnterior = null,
+  auditoriaNueva = null,
+  cambiosAdicionales = {},
+}) => ({
+  id: `MOD-REC-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+  fechaHora: new Date().toISOString(),
+  usuario: usuario.usuario || 'sistema',
+  nombreUsuario: usuario.nombre || 'Sistema',
+  rol: usuario.rol || '',
+  motivo: String(motivo || '').trim(),
+  fechaReciboAnterior,
+  fechaReciboNueva,
+  moraAntes: Number(auditoriaAnterior?.moraRecalculada || 0),
+  moraDespues: Number(auditoriaNueva?.moraRecalculada || 0),
+  gastosCobranzaAntes: Number(auditoriaAnterior?.gastosCobranzaRecalculados || 0),
+  gastosCobranzaDespues: Number(auditoriaNueva?.gastosCobranzaRecalculados || 0),
+  ivaMoraCobranzaAntes: Number(auditoriaAnterior?.ivaMoraCobranzaRecalculado || 0),
+  ivaMoraCobranzaDespues: Number(auditoriaNueva?.ivaMoraCobranzaRecalculado || 0),
+  auditoriaAnterior,
+  auditoriaNueva,
+  ...cambiosAdicionales,
+})
+
+const construirAuditoriaLiquidacionReciboPagoArriendo = ({
+  fechaRecibo,
+  fechaDigitacion,
+  desglosePago = {},
+}) => {
+  const fechaCalculoIntereses = fechaRecibo || fechaDigitacion
+
+  return {
+    fechaDigitacion,
+    fechaRecibo: fechaRecibo || fechaDigitacion,
+    fechaCalculoIntereses,
+    recalculoPorFechaRecibo: fechaRecibo !== fechaDigitacion,
+    moraRecalculada: Number(desglosePago.moraPendiente || 0),
+    gastosCobranzaRecalculados: Number(desglosePago.gastosCobranza || 0),
+    ivaMoraCobranzaRecalculado: Number(desglosePago.ivaMoraCobranza || 0),
+    liquidacionResultante: {
+      canonIvaPendiente: Number(desglosePago.canonIvaPendiente || 0),
+      moraPendiente: Number(desglosePago.moraPendiente || 0),
+      gastosCobranza: Number(desglosePago.gastosCobranza || 0),
+      ivaMoraCobranza: Number(desglosePago.ivaMoraCobranza || 0),
+      totalPendiente: Number(desglosePago.totalPendiente || 0),
+    },
+  }
+}
+
 const obtenerDiasDelMesCalendario = (anio, mesCalendario) =>
   new Date(anio, mesCalendario, 0).getDate()
 
@@ -17285,8 +17412,8 @@ const obtenerDescripcionRol = (rol) => {
   if (rol === 'Administrador') {
     return 'Acceso completo: crear, editar, usuarios y respaldos.'
   }
-  if (rol === 'Operador') {
-    return 'Puede registrar información. No edita ni administra usuarios.'
+  if (rol === 'Operador' || rol === 'Digitador') {
+    return 'Puede registrar pagos con fecha de recibo hasta 20 días de antigüedad. No edita recibos ni administra usuarios.'
   }
   if (rol === 'Consulta') {
     return 'Solo consulta, busca e imprime. No registra ni edita.'
@@ -17748,6 +17875,7 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [edicionReciboFecha, setEdicionReciboFecha] = useState('')
   const [edicionReciboValor, setEdicionReciboValor] = useState('')
   const [edicionReciboObservaciones, setEdicionReciboObservaciones] = useState('')
+  const [edicionReciboMotivo, setEdicionReciboMotivo] = useState('')
   const [predioDepositanteConsulta, setPredioDepositanteConsulta] = useState(null)
   const [unidadDepositanteConsulta, setUnidadDepositanteConsulta] = useState(null)
   const [codigoPredioLiquidacionSeleccionado, setCodigoPredioLiquidacionSeleccionado] = useState('')
@@ -21783,6 +21911,7 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     setEdicionReciboObservaciones(
       String(pago.observaciones || pago.observacion || '').trim()
     )
+    setEdicionReciboMotivo('')
     setEditandoReciboPago(true)
   }
 
@@ -21792,6 +21921,61 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     setEdicionReciboFecha('')
     setEdicionReciboValor('')
     setEdicionReciboObservaciones('')
+    setEdicionReciboMotivo('')
+  }
+
+// =============================================================================
+// ARRIENDOS - DESGLOSE AUDITORIA EN FECHA
+// Calcula mora y cobranza a una fecha excluyendo el pago en edicion.
+// =============================================================================
+
+  const calcularDesgloseArriendoEnFechaParaAuditoria = (
+    contrato,
+    fechaCorte,
+    idPagoExcluir = null
+  ) => {
+    if (!contrato) return { ...DESGLOSE_PAGO_ARRIENDO_VACIO }
+
+    const idContrato = obtenerIdContrato(contrato)
+    const pagosFuente = idPagoExcluir
+      ? pagosArriendo.filter((pago) => pago.id !== idPagoExcluir)
+      : pagosArriendo
+    const mesesContrato = generarMesesContrato(contrato)
+    const movimientos = mesesContrato.map((mes) =>
+      calcularMovimientoArriendoMes(
+        contrato,
+        mes,
+        idContrato,
+        fechaCorte || null,
+        pagosFuente
+      )
+    )
+
+    const tieneSaldoPendiente = movimientos.some((movimiento) =>
+      movimientoArriendoTieneSaldoPendiente(contrato, movimiento, fechaCorte || '')
+    )
+
+    if (tieneSaldoPendiente) {
+      return construirDesglosePendientePagoArriendoContrato({
+        contrato,
+        movimientos,
+        fechaCorte: fechaCorte || '',
+      })
+    }
+
+    const mesReferencia =
+      (fechaCorte ? fechaCorte.slice(0, 7) : '') ||
+      mesesContrato[mesesContrato.length - 1] ||
+      ''
+    const movimientoReferencia =
+      movimientos.find((movimiento) => movimiento.mes === mesReferencia) ||
+      movimientos[movimientos.length - 1]
+
+    return construirDesglosePendientePagoArriendo({
+      contrato,
+      movimiento: movimientoReferencia,
+      fechaCorte: fechaCorte || '',
+    })
   }
 
 // =============================================================================
@@ -21810,6 +21994,8 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     const fecha = edicionReciboFecha
     const valor = Number(edicionReciboValor)
     const observaciones = edicionReciboObservaciones.trim()
+    const motivo = edicionReciboMotivo.trim()
+    const fechaDigitacionEdicion = obtenerFechaLocalISO()
 
     if (!numero) {
       alert('El número de recibo es obligatorio.')
@@ -21824,10 +22010,78 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
       return
     }
 
-    const { tipo, idOrigen } = reciboPagoSeleccionado
+    const { tipo, idOrigen, pago: pagoOriginal } = reciboPagoSeleccionado
+
+    if (tipo === 'arriendo') {
+      const validacionFecha = validarFechaReciboPagoArriendo(
+        fecha,
+        fechaDigitacionEdicion,
+        usuarioActual?.rol
+      )
+      if (!validacionFecha.valido) {
+        alert(validacionFecha.mensaje)
+        return
+      }
+      if (!motivo) {
+        alert('Debe indicar el motivo del cambio para editar un recibo de arriendo.')
+        return
+      }
+    }
+
     let itemActualizado = null
 
     if (tipo === 'arriendo') {
+      const contrato = contratosArriendo.find(
+        (item) => obtenerIdContrato(item) === pagoOriginal.idContrato
+      )
+
+      if (!contrato) {
+        alert('No se encontró el contrato asociado al recibo.')
+        return
+      }
+
+      const fechaAnterior = normalizarFechaReciboPago(pagoOriginal.fechaPago)
+      const auditoriaAnterior =
+        pagoOriginal.auditoriaLiquidacion ||
+        construirAuditoriaLiquidacionReciboPagoArriendo({
+          fechaRecibo: fechaAnterior,
+          fechaDigitacion:
+            pagoOriginal.fechaDigitacion || fechaDigitacionEdicion,
+          desglosePago: calcularDesgloseArriendoEnFechaParaAuditoria(
+            contrato,
+            fechaAnterior,
+            idOrigen
+          ),
+        })
+
+      const desgloseNuevo = calcularDesgloseArriendoEnFechaParaAuditoria(
+        contrato,
+        fecha,
+        idOrigen
+      )
+      const auditoriaNueva = construirAuditoriaLiquidacionReciboPagoArriendo({
+        fechaRecibo: fecha,
+        fechaDigitacion: pagoOriginal.fechaDigitacion || fechaDigitacionEdicion,
+        desglosePago: desgloseNuevo,
+      })
+
+      const entradaHistorial = construirEntradaHistorialModificacionReciboPagoArriendo({
+        usuario: usuarioActual,
+        motivo,
+        fechaReciboAnterior: fechaAnterior,
+        fechaReciboNueva: fecha,
+        auditoriaAnterior,
+        auditoriaNueva,
+        cambiosAdicionales: {
+          valorPagadoAnterior: Number(pagoOriginal.valorPagado || 0),
+          valorPagadoNuevo: valor,
+          observacionesAnterior: String(pagoOriginal.observaciones || '').trim(),
+          observacionesNuevo: observaciones,
+          numeroReciboAnterior: obtenerNumeroReciboPago(pagoOriginal, tipo),
+          numeroReciboNuevo: numero,
+        },
+      })
+
       setPagosArriendo((prev) =>
         prev.map((pago) => {
           if (pago.id !== idOrigen) return pago
@@ -21835,8 +22089,14 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
             ...pago,
             recibo: numero,
             fechaPago: fecha,
+            fechaCalculoIntereses: auditoriaNueva.fechaCalculoIntereses,
             valorPagado: valor,
             observaciones,
+            auditoriaLiquidacion: auditoriaNueva,
+            historialModificacionesRecibo: [
+              ...(pago.historialModificacionesRecibo || []),
+              entradaHistorial,
+            ],
           }
           itemActualizado = {
             ...reciboPagoSeleccionado,
@@ -21935,11 +22195,19 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
 
     if (itemActualizado) {
       setReciboPagoSeleccionado(itemActualizado)
+      const detalleHistorial =
+        tipo === 'arriendo'
+          ? `Recibo ${numero} (Arriendo) editado por administrador. Motivo: ${motivo}. Fecha ${normalizarFechaReciboPago(pagoOriginal.fechaPago)} → ${fecha}.`
+          : `Recibo ${numero} (${ETIQUETAS_TIPO_RECIBO_PAGO[tipo]}) actualizado desde Documentos`
       registrarHistorial({
         accion: 'Edición',
         modulo: 'Recibos de pago',
         entidadId: numero,
-        detalle: `Recibo ${numero} (${ETIQUETAS_TIPO_RECIBO_PAGO[tipo]}) actualizado desde Documentos`,
+        detalle: detalleHistorial,
+        valorAnterior:
+          tipo === 'arriendo'
+            ? `${formatearDinero(pagoOriginal.valorPagado)} · ${normalizarFechaReciboPago(pagoOriginal.fechaPago)}`
+            : '',
         valorNuevo: formatearDinero(valor),
       })
     }
@@ -23759,6 +24027,37 @@ cerrarFormularioContrato({
 // Genera HTML e imprime recibo de arriendo.
 // =============================================================================
 
+const construirHtmlAuditoriaLiquidacionReciboArriendoImpresion = (auditoria) => {
+  if (!auditoria) return ''
+
+  const liquidacion = auditoria.liquidacionResultante || {}
+  const filas = [
+    ['Fecha de digitación', formatearFechaLocalHumana(auditoria.fechaDigitacion)],
+    ['Fecha real del recibo', formatearFechaLocalHumana(auditoria.fechaRecibo)],
+    ['Fecha usada para intereses y cobranza', formatearFechaLocalHumana(auditoria.fechaCalculoIntereses)],
+    ['Intereses de mora recalculados', formatearDinero(auditoria.moraRecalculada || 0)],
+    ['Gastos de cobranza recalculados', formatearDinero(auditoria.gastosCobranzaRecalculados || 0)],
+    ['IVA mora y cobranza recalculado', formatearDinero(auditoria.ivaMoraCobranzaRecalculado || 0)],
+    ['Total liquidado al recibo', formatearDinero(liquidacion.totalPendiente || 0)],
+  ]
+    .map(
+      ([etiqueta, valor]) =>
+        `<div class="fila-saldo"><span>${escapeHtml(etiqueta)}</span><strong>${escapeHtml(valor)}</strong></div>`
+    )
+    .join('')
+
+  const notaRecalculo = auditoria.recalculoPorFechaRecibo
+    ? `<p class="obs obs-nota">La mora y los gastos de cobranza se calcularon hasta la fecha del recibo (${escapeHtml(formatearFechaLocalHumana(auditoria.fechaRecibo))}), no hasta la fecha de digitación.</p>`
+    : ''
+
+  return `<div class="obs"><span class="lbl">Trazabilidad de liquidación</span>${filas}${notaRecalculo}</div>`
+}
+
+// =============================================================================
+// IMPRESION - RECIBO PAGO ARRIENDO
+// Genera HTML e imprime recibo de arriendo.
+// =============================================================================
+
 const imprimirReciboPagoArriendo = (recibo) => {
   if (!recibo) {
     alert('No hay recibo para imprimir.')
@@ -23779,6 +24078,14 @@ const imprimirReciboPagoArriendo = (recibo) => {
   const filaContactoWhatsapp = tieneWhatsapp
     ? `<tr><td class="lbl">Teléfono</td><td>${escapeHtml(recibo.telefono || recibo.contrato?.telefono || '')}</td><td class="lbl">WhatsApp</td><td>${escapeHtml(whatsapp)}</td></tr>`
     : `<tr><td class="lbl">Teléfono</td><td colspan="3">${escapeHtml(recibo.telefono || recibo.contrato?.telefono || '')}</td></tr>`
+  const fechaDigitacionRecibo =
+    recibo.fechaDigitacion ||
+    recibo.auditoriaLiquidacion?.fechaDigitacion ||
+    recibo.fechaPago ||
+    ''
+  const htmlAuditoria = construirHtmlAuditoriaLiquidacionReciboArriendoImpresion(
+    recibo.auditoriaLiquidacion
+  )
 
   abrirVentanaReciboMediaCarta(
     'Recibo de pago',
@@ -23819,7 +24126,11 @@ const imprimirReciboPagoArriendo = (recibo) => {
         <table class="datos">
           <tr>
             <td class="lbl">Contrato</td><td>${escapeHtml(numeroContratoRecibo)}</td>
-            <td class="lbl">Fecha</td><td>${escapeHtml(recibo.fechaPago || 'Sin fecha')}</td>
+            <td class="lbl">Fecha del recibo</td><td>${escapeHtml(formatearFechaLocalHumana(recibo.fechaPago))}</td>
+          </tr>
+          <tr>
+            <td class="lbl">Fecha de digitación</td><td>${escapeHtml(formatearFechaLocalHumana(fechaDigitacionRecibo))}</td>
+            <td class="lbl">Fecha cálculo intereses</td><td>${escapeHtml(formatearFechaLocalHumana(recibo.fechaCalculoIntereses || recibo.fechaPago))}</td>
           </tr>
           <tr>
             <td class="lbl">Concepto</td><td>${escapeHtml(recibo.concepto || 'Pago de arriendo')}</td>
@@ -23834,6 +24145,7 @@ const imprimirReciboPagoArriendo = (recibo) => {
           <div class="val">${escapeHtml(formatearDinero(recibo.valorPagado || 0))}</div>
         </div>
         <div class="fila-saldo"><span>Nuevo saldo de arriendo</span><strong>${escapeHtml(formatearDinero(recibo.saldoPosterior || 0))}</strong></div>
+        ${htmlAuditoria}
         <div class="obs"><span class="lbl">Observaciones</span>${escapeHtml(observaciones)}</div>
       </div>
       <div class="firmas">
@@ -24918,14 +25230,16 @@ const calcularMovimientoArriendoMes = (
   contrato,
   mes,
   idContratoActual = null,
-  fechaCorteMoraReferencia = null
+  fechaCorteMoraReferencia = null,
+  pagosArriendoFuente = null
 ) => {
   const idContrato = idContratoActual || obtenerIdContrato(contrato)
+  const pagosFuente = pagosArriendoFuente ?? pagosArriendo
 
   const aplicacion = obtenerAplicacionPagosArriendoMes(
     contrato,
     mes,
-    pagosArriendo,
+    pagosFuente,
     incrementosArriendo,
     ajustesAdministracion,
     gestionesCartera
@@ -25162,6 +25476,16 @@ const desglosePagoArriendo = contratoPagoArriendo
   : construirDesglosePendientePagoArriendo()
 const totalPendientePeriodoPago = desglosePagoArriendo.totalPendiente
 
+const fechaDigitacionPagoArriendo = obtenerFechaLocalISO()
+
+const auditoriaVistaPreviaPagoArriendo = fechaPagoArriendo
+  ? construirAuditoriaLiquidacionReciboPagoArriendo({
+      fechaRecibo: fechaPagoArriendo,
+      fechaDigitacion: fechaDigitacionPagoArriendo,
+      desglosePago: desglosePagoArriendo,
+    })
+  : null
+
 const obtenerSaldosReciboPagoArriendo = () =>
   calcularSaldosReciboPagoArriendo({
     desglosePago: desglosePagoArriendo,
@@ -25178,6 +25502,18 @@ const manejarCambioConceptoPagoArriendo = (concepto) => {
 }
 
 const manejarCambioFechaPagoArriendo = (fecha) => {
+  if (fecha) {
+    const validacion = validarFechaReciboPagoArriendo(
+      fecha,
+      fechaDigitacionPagoArriendo,
+      usuarioActual?.rol
+    )
+    if (!validacion.valido) {
+      alert(validacion.mensaje)
+      return
+    }
+  }
+
   setFechaPagoArriendo(fecha)
 
   if (enAtrasoPagoArriendo && extractoPagoArriendo) {
@@ -25255,6 +25591,23 @@ const construirReciboPagoArriendoActual = () => {
     return null
   }
 
+  const fechaDigitacion = obtenerFechaLocalISO()
+  const validacionFecha = validarFechaReciboPagoArriendo(
+    fechaPagoArriendo,
+    fechaDigitacion,
+    usuarioActual?.rol
+  )
+  if (!validacionFecha.valido) {
+    alert(validacionFecha.mensaje)
+    return null
+  }
+
+  const auditoriaLiquidacion = construirAuditoriaLiquidacionReciboPagoArriendo({
+    fechaRecibo: fechaPagoArriendo,
+    fechaDigitacion,
+    desglosePago: desglosePagoArriendo,
+  })
+
   const calculoMes = calcularCanonArriendo(contrato, mesPagoArriendo)
   const saldosRecibo = obtenerSaldosReciboPagoArriendo()
 
@@ -25273,6 +25626,9 @@ const construirReciboPagoArriendoActual = () => {
     whatsapp: contrato.whatsapp || '',
     mes: mesPagoArriendo,
     fechaPago: fechaPagoArriendo,
+    fechaDigitacion,
+    fechaCalculoIntereses: auditoriaLiquidacion.fechaCalculoIntereses,
+    auditoriaLiquidacion,
     concepto: conceptoPagoArriendo.trim(),
     canonBase: calculoMes.canonBase,
     administracion: calculoMes.administracion,
@@ -28793,7 +29149,7 @@ const resultadosBusqueda = textoBusqueda
           onChange={(e) => setNuevoUsuarioRol(e.target.value)}
         >
           <option value="Administrador">Administrador</option>
-          <option value="Operador">Operador</option>
+          <option value="Operador">Digitador</option>
           <option value="Consulta">Consulta</option>
         </select>
       </div>
@@ -28894,7 +29250,7 @@ const resultadosBusqueda = textoBusqueda
           disabled={usuarioEditandoId === usuarioActual.usuario}
         >
           <option value="Administrador">Administrador</option>
-          <option value="Operador">Operador</option>
+          <option value="Operador">Digitador</option>
           <option value="Consulta">Consulta</option>
         </select>
       </div>
@@ -35878,7 +36234,7 @@ const resultadosBusqueda = textoBusqueda
                   type="button"
                   className="btn-small"
                   onClick={() => {
-                    const hoy = new Date().toISOString().slice(0, 10)
+                    const hoy = obtenerFechaLocalISO()
                     setIdContratoPagoArriendo(obtenerIdContrato(contrato))
                     setCodigoPredioPagoArriendo(contrato.codigoPredio)
                     setFechaPagoArriendo(hoy)
@@ -35957,6 +36313,14 @@ const resultadosBusqueda = textoBusqueda
             enAtraso={enAtrasoPagoArriendo}
             mesPagoArriendo={mesPagoArriendo}
             valorBloqueado={valorPagoArriendoBloqueado}
+            fechaDigitacionHoy={fechaDigitacionPagoArriendo}
+            fechaMinimaRecibo={
+              esAdministrador
+                ? ''
+                : calcularFechaMinimaReciboDigitador(fechaDigitacionPagoArriendo)
+            }
+            esAdministradorRecibo={esAdministrador}
+            auditoriaLiquidacion={auditoriaVistaPreviaPagoArriendo}
             formatearDinero={formatearDinero}
             onCambiarContrato={reiniciarSeleccionContratoPagoArriendo}
             onVerEstadoCuenta={() => {
@@ -40659,9 +41023,19 @@ const resultadosBusqueda = textoBusqueda
                         <input
                           type="date"
                           value={edicionReciboFecha}
+                          max={obtenerFechaLocalISO()}
                           onChange={(e) => setEdicionReciboFecha(e.target.value)}
                         />
                       </div>
+                      {reciboPagoSeleccionado.tipo === 'arriendo' && (
+                        <div className="form-group full">
+                          <p className="form-description">
+                            Como Administrador puede corregir la fecha del recibo sin límite de
+                            antigüedad. Al guardar se reliquidará mora y cobranza hasta la nueva
+                            fecha.
+                          </p>
+                        </div>
+                      )}
                       <div className="form-group">
                         <label>Valor</label>
                         <input
@@ -40679,6 +41053,17 @@ const resultadosBusqueda = textoBusqueda
                             rows="3"
                             value={edicionReciboObservaciones}
                             onChange={(e) => setEdicionReciboObservaciones(e.target.value)}
+                          />
+                        </div>
+                      )}
+                      {reciboPagoSeleccionado.tipo === 'arriendo' && (
+                        <div className="form-group full">
+                          <label>Motivo del cambio</label>
+                          <textarea
+                            rows="3"
+                            value={edicionReciboMotivo}
+                            onChange={(e) => setEdicionReciboMotivo(e.target.value)}
+                            placeholder="Indique el motivo de la corrección (obligatorio para arriendo)"
                           />
                         </div>
                       )}
@@ -41365,9 +41750,19 @@ const resultadosBusqueda = textoBusqueda
                     <input
                       type="date"
                       value={edicionReciboFecha}
+                      max={obtenerFechaLocalISO()}
                       onChange={(e) => setEdicionReciboFecha(e.target.value)}
                     />
                   </div>
+                  {reciboPagoSeleccionado.tipo === 'arriendo' && (
+                    <div className="form-group full">
+                      <p className="form-description">
+                        Como Administrador puede corregir la fecha del recibo sin límite de
+                        antigüedad. Al guardar se reliquidará mora y cobranza hasta la nueva
+                        fecha.
+                      </p>
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Valor</label>
                     <input
@@ -41385,6 +41780,17 @@ const resultadosBusqueda = textoBusqueda
                         rows="3"
                         value={edicionReciboObservaciones}
                         onChange={(e) => setEdicionReciboObservaciones(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {reciboPagoSeleccionado.tipo === 'arriendo' && (
+                    <div className="form-group full">
+                      <label>Motivo del cambio</label>
+                      <textarea
+                        rows="3"
+                        value={edicionReciboMotivo}
+                        onChange={(e) => setEdicionReciboMotivo(e.target.value)}
+                        placeholder="Indique el motivo de la corrección (obligatorio para arriendo)"
                       />
                     </div>
                   )}
@@ -43510,6 +43916,118 @@ function ReciboServicioPublicoImpresion({ recibo, formatearDinero, onImprimir, o
 }
 
 // =============================================================================
+// COMPONENTE - AUDITORIA LIQUIDACION RECIBO ARRIENDO
+// Trazabilidad de fechas y recalculo de mora/cobranza al registrar el pago.
+// =============================================================================
+
+function BloqueAuditoriaLiquidacionReciboArriendo({ auditoria, formatearDinero }) {
+  if (!auditoria) return null
+
+  const liquidacion = auditoria.liquidacionResultante || {}
+
+  return (
+    <div className="recibo-auditoria-liquidacion">
+      <p className="recibo-campo-label">Trazabilidad de liquidación</p>
+      <ul className="recibo-lineas recibo-lineas-auditoria">
+        <li>
+          <span>Fecha de digitación</span>
+          <strong>{formatearFechaLocalHumana(auditoria.fechaDigitacion)}</strong>
+        </li>
+        <li>
+          <span>Fecha real del recibo</span>
+          <strong>{formatearFechaLocalHumana(auditoria.fechaRecibo)}</strong>
+        </li>
+        <li>
+          <span>Fecha usada para intereses y cobranza</span>
+          <strong>{formatearFechaLocalHumana(auditoria.fechaCalculoIntereses)}</strong>
+        </li>
+        <li>
+          <span>Intereses de mora recalculados</span>
+          <strong>{formatearDinero(auditoria.moraRecalculada || 0)}</strong>
+        </li>
+        <li>
+          <span>Gastos de cobranza recalculados</span>
+          <strong>{formatearDinero(auditoria.gastosCobranzaRecalculados || 0)}</strong>
+        </li>
+        <li>
+          <span>IVA mora y cobranza recalculado</span>
+          <strong>{formatearDinero(auditoria.ivaMoraCobranzaRecalculado || 0)}</strong>
+        </li>
+        <li className="recibo-linea-total">
+          <span>Total liquidado al recibo</span>
+          <strong>{formatearDinero(liquidacion.totalPendiente || 0)}</strong>
+        </li>
+      </ul>
+      {auditoria.recalculoPorFechaRecibo && (
+        <p className="form-description recibo-desglose-nota recibo-desglose-alerta">
+          La mora y los gastos de cobranza se calcularon hasta la fecha del recibo (
+          {formatearFechaLocalHumana(auditoria.fechaRecibo)}), no hasta la fecha de digitación.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
+// COMPONENTE - HISTORIAL MODIFICACIONES RECIBO ARRIENDO
+// Registro inmutable de cambios administrativos sobre el recibo.
+// =============================================================================
+
+function BloqueHistorialModificacionesReciboArriendo({ historial = [], formatearDinero }) {
+  if (!historial.length) return null
+
+  return (
+    <div className="recibo-historial-modificaciones">
+      <p className="recibo-campo-label">Historial de modificaciones (solo lectura)</p>
+      <ul className="recibo-historial-modificaciones-lista">
+        {historial.map((entrada) => (
+          <li key={entrada.id} className="recibo-historial-modificacion-item">
+            <div className="recibo-historial-modificacion-meta">
+              <strong>{entrada.nombreUsuario || entrada.usuario}</strong>
+              <span>{entrada.rol || 'Sin rol'}</span>
+              <span>{formatearFechaLocalHumana(String(entrada.fechaHora || '').slice(0, 10))}</span>
+            </div>
+            <p className="recibo-historial-modificacion-motivo">
+              <span>Motivo:</span> {entrada.motivo || 'Sin motivo registrado'}
+            </p>
+            <ul className="recibo-lineas recibo-lineas-auditoria">
+              <li>
+                <span>Fecha del recibo</span>
+                <strong>
+                  {formatearFechaLocalHumana(entrada.fechaReciboAnterior)} →{' '}
+                  {formatearFechaLocalHumana(entrada.fechaReciboNueva)}
+                </strong>
+              </li>
+              <li>
+                <span>Intereses de mora</span>
+                <strong>
+                  {formatearDinero(entrada.moraAntes || 0)} →{' '}
+                  {formatearDinero(entrada.moraDespues || 0)}
+                </strong>
+              </li>
+              <li>
+                <span>Gastos de cobranza</span>
+                <strong>
+                  {formatearDinero(entrada.gastosCobranzaAntes || 0)} →{' '}
+                  {formatearDinero(entrada.gastosCobranzaDespues || 0)}
+                </strong>
+              </li>
+              <li>
+                <span>IVA mora y cobranza</span>
+                <strong>
+                  {formatearDinero(entrada.ivaMoraCobranzaAntes || 0)} →{' '}
+                  {formatearDinero(entrada.ivaMoraCobranzaDespues || 0)}
+                </strong>
+              </li>
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+// =============================================================================
 // COMPONENTE - FORMULARIO RECIBO PAGO ARRIENDO
 // Captura de datos para recibo de pago.
 // =============================================================================
@@ -43540,6 +44058,10 @@ function FormularioReciboPagoArriendo({
   enAtraso,
   mesPagoArriendo = '',
   valorBloqueado,
+  fechaDigitacionHoy = '',
+  fechaMinimaRecibo = '',
+  esAdministradorRecibo = false,
+  auditoriaLiquidacion = null,
   formatearDinero,
   onCambiarContrato,
   onVerEstadoCuenta,
@@ -43637,14 +44159,31 @@ function FormularioReciboPagoArriendo({
               <strong className="recibo-campo-valor">{numeroContratoVisible}</strong>
             </div>
             <div className="recibo-campo recibo-campo-editable">
-              <span className="recibo-campo-label">Fecha de pago</span>
+              <span className="recibo-campo-label">Fecha de pago (recibo)</span>
               <input
                 type="date"
                 className="recibo-campo-input"
                 value={fechaPagoArriendo}
+                min={fechaMinimaRecibo || undefined}
+                max={fechaDigitacionHoy || undefined}
                 onChange={(e) => onCambiarFecha(e.target.value)}
               />
             </div>
+            <div className="recibo-campo">
+              <span className="recibo-campo-label">Fecha de digitación</span>
+              <strong className="recibo-campo-valor">
+                {formatearFechaLocalHumana(fechaDigitacionHoy)}
+              </strong>
+            </div>
+            {!esAdministradorRecibo && fechaMinimaRecibo && (
+              <div className="recibo-campo recibo-campo-ancho">
+                <p className="form-description recibo-desglose-nota">
+                  Como Digitador, puede registrar fechas hasta{' '}
+                  {DIAS_MAX_ANTIGUEDAD_RECIBO_DIGITADOR} días calendario antes de hoy (
+                  {formatearFechaLocalHumana(fechaMinimaRecibo)} en adelante).
+                </p>
+              </div>
+            )}
             <div className="recibo-campo recibo-campo-editable recibo-campo-ancho">
               <span className="recibo-campo-label">Concepto</span>
               {opcionesConcepto.length === 1 ? (
@@ -43747,6 +44286,11 @@ function FormularioReciboPagoArriendo({
             por periodos del más atrasado; si queda saldo, la mora sigue liquidándose sobre cada
             periodo pendiente.
           </p>
+
+          <BloqueAuditoriaLiquidacionReciboArriendo
+            auditoria={auditoriaLiquidacion}
+            formatearDinero={formatearDinero}
+          />
 
           <div className="recibo-observaciones-box recibo-campo-editable">
             <span className="recibo-campo-label">Observaciones</span>
@@ -43896,8 +44440,18 @@ function ReciboPagoArriendoImpresion({
               <strong className="recibo-campo-valor">{numeroContratoVisible}</strong>
             </div>
             <div className="recibo-campo">
-              <span className="recibo-campo-label">Fecha de pago</span>
-              <strong className="recibo-campo-valor">{recibo.fechaPago || 'Sin fecha'}</strong>
+              <span className="recibo-campo-label">Fecha del recibo</span>
+              <strong className="recibo-campo-valor">
+                {formatearFechaLocalHumana(recibo.fechaPago)}
+              </strong>
+            </div>
+            <div className="recibo-campo">
+              <span className="recibo-campo-label">Fecha de digitación</span>
+              <strong className="recibo-campo-valor">
+                {formatearFechaLocalHumana(
+                  recibo.fechaDigitacion || recibo.auditoriaLiquidacion?.fechaDigitacion
+                )}
+              </strong>
             </div>
             <div className="recibo-campo recibo-campo-ancho">
               <span className="recibo-campo-label">Concepto</span>
@@ -43927,6 +44481,16 @@ function ReciboPagoArriendoImpresion({
               </strong>
             </li>
           </ul>
+
+          <BloqueAuditoriaLiquidacionReciboArriendo
+            auditoria={recibo.auditoriaLiquidacion}
+            formatearDinero={formatearDinero}
+          />
+
+          <BloqueHistorialModificacionesReciboArriendo
+            historial={recibo.historialModificacionesRecibo}
+            formatearDinero={formatearDinero}
+          />
 
           <div className="recibo-observaciones-box">
             <span className="recibo-campo-label">Observaciones</span>
