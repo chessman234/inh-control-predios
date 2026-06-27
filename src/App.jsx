@@ -1192,6 +1192,36 @@ const obtenerIdUnidadLegacyDesdeId = (idUnidad = '') => {
   return match ? `${match[1]}-${match[2]}` : null
 }
 
+// =============================================================================
+// SERVICIOS PUBLICOS - BUSQUEDA POR ID UNIDAD
+// Coincidencia exacta, sufijo legacy (LOC-001) o formato UNI-001.
+// =============================================================================
+
+const coincideBusquedaIdUnidadServicios = (idUnidad = '', textoBusqueda = '') => {
+  const id = String(idUnidad || '').trim().toLowerCase()
+  const busqueda = String(textoBusqueda || '').trim().toLowerCase()
+  if (!id || !busqueda) return false
+  if (id === busqueda) return true
+  if (id.endsWith(`-${busqueda}`)) return true
+
+  const legacyDesdeId = obtenerIdUnidadLegacyDesdeId(idUnidad)
+  if (legacyDesdeId && legacyDesdeId.toLowerCase() === busqueda) return true
+
+  const matchUni = busqueda.match(/^uni-(\d{3,4})$/)
+  if (matchUni) {
+    const consecutivo = matchUni[1]
+    return (
+      id.endsWith(`-loc-${consecutivo}`) ||
+      id.endsWith(`-apt-${consecutivo}`) ||
+      id.endsWith(`-ofi-${consecutivo}`) ||
+      id.endsWith(`-bod-${consecutivo}`) ||
+      id.endsWith(`-uni-${consecutivo}`)
+    )
+  }
+
+  return false
+}
+
 const generarCodigoUnidad = (codigoPredio, tipo = 'Local', unidades = []) => {
   const codigoPredioLimpio = String(codigoPredio || '').trim()
   if (!codigoPredioLimpio) return 'UNI-001'
@@ -14876,6 +14906,116 @@ const calcularMovimientoServicioMes = (
   }
 }
 
+// =============================================================================
+// SERVICIOS PUBLICOS - REFERENCIA FACTURA PARA PAGO
+// Resuelve factura existente o referencia virtual de cobro fijo mensual.
+// =============================================================================
+
+const resolverFacturaPagoServicioPublicoDesdeResumen = (
+  item,
+  facturasServiciosPublicos = [],
+  catalogoServicios = []
+) => {
+  if (!item?.idUnidad || !item?.periodo || item.periodo === 'Sin factura') {
+    return null
+  }
+
+  if (item.id && String(item.id).startsWith('FAC-SER-')) {
+    const porId = facturasServiciosPublicos.find((factura) => factura.id === item.id)
+    if (porId) return porId
+  }
+
+  const porPeriodo = facturasServiciosPublicos.find(
+    (factura) =>
+      factura.idUnidad === item.idUnidad &&
+      factura.idServicio === item.idServicio &&
+      factura.periodo === item.periodo
+  )
+  if (porPeriodo) return porPeriodo
+
+  const registroServicio = catalogoServicios.find(
+    (registro) =>
+      registro.idServicio === item.idServicio && registro.unidad?.id === item.idUnidad
+  )
+  const servicio = registroServicio?.servicio
+  const unidad = registroServicio?.unidad
+  if (servicio?.tipoCobro !== 'Valor fijo mensual' || !unidad) return null
+
+  const dia = String(servicio.diaPago || 1).padStart(2, '0')
+
+  return {
+    id: '',
+    idUnidad: item.idUnidad,
+    codigoPredio: item.codigoPredio || unidad.codigoPredio,
+    nombreUnidad: item.nombreUnidad || unidad.nombre,
+    tipoUnidad: unidad.tipo || '',
+    idServicio: item.idServicio,
+    tipoServicio: item.tipoServicio || servicio.tipo,
+    empresa: item.empresa || servicio.empresa,
+    numeroCuenta: item.numeroCuenta || servicio.numeroCuenta,
+    responsable: servicio.responsable || 'Arrendatario',
+    tipoCobro: servicio.tipoCobro,
+    generaReciboIndependiente: servicio.generaReciboIndependiente || 'Sí',
+    periodo: item.periodo,
+    valorFactura: Number(item.valorFactura ?? item.saldoPendiente ?? servicio.valorFijo ?? 0),
+    fechaLimite: item.fechaLimite || `${item.periodo}-${dia}`,
+    numeroFactura: 'COBRO-FIJO',
+    observacion: '',
+    estado: 'Pendiente',
+    esFacturaFijaVirtual: true,
+  }
+}
+
+const materializarFacturaPagoServicioPublico = (
+  facturaSeleccionada,
+  facturasServiciosPublicos = []
+) => {
+  if (!facturaSeleccionada) {
+    return { factura: null, facturas: facturasServiciosPublicos, fueCreada: false }
+  }
+
+  if (facturaSeleccionada.id) {
+    const existente = facturasServiciosPublicos.find(
+      (factura) => factura.id === facturaSeleccionada.id
+    )
+    if (existente) {
+      return { factura: existente, facturas: facturasServiciosPublicos, fueCreada: false }
+    }
+  }
+
+  const porPeriodo = facturasServiciosPublicos.find(
+    (factura) =>
+      factura.idUnidad === facturaSeleccionada.idUnidad &&
+      factura.idServicio === facturaSeleccionada.idServicio &&
+      factura.periodo === facturaSeleccionada.periodo
+  )
+  if (porPeriodo) {
+    return { factura: porPeriodo, facturas: facturasServiciosPublicos, fueCreada: false }
+  }
+
+  if (
+    facturaSeleccionada.tipoCobro !== 'Valor fijo mensual' &&
+    !facturaSeleccionada.esFacturaFijaVirtual
+  ) {
+    return { factura: null, facturas: facturasServiciosPublicos, fueCreada: false }
+  }
+
+  const { esFacturaFijaVirtual, totalPagado, saldoPendiente, ...datosFactura } =
+    facturaSeleccionada
+  const nuevaFactura = {
+    ...datosFactura,
+    id: `FAC-SER-${Date.now()}`,
+    numeroFactura: facturaSeleccionada.numeroFactura || 'COBRO-FIJO',
+    estado: 'Pendiente',
+  }
+
+  return {
+    factura: nuevaFactura,
+    facturas: [nuevaFactura, ...facturasServiciosPublicos],
+    fueCreada: true,
+  }
+}
+
 const calcularCreditoAdministracionDesdePagoArriendo = (
   contrato,
   mes,
@@ -25331,19 +25471,30 @@ const guardarPagoServicioPublico = () => {
     return
   }
 
-  const valorFactura = Number(facturaPagoServicioSeleccionada.valorFactura || 0)
+  const { factura: facturaReferencia, facturas: facturasBase } =
+    materializarFacturaPagoServicioPublico(
+      facturaPagoServicioSeleccionada,
+      facturasServiciosPublicos
+    )
+
+  if (!facturaReferencia) {
+    alert('No se encontró la factura para registrar el pago.')
+    return
+  }
+
+  const valorFactura = Number(facturaReferencia.valorFactura || 0)
   const valorPagado = Number(valorPagoServicioPublico || 0)
 
   const nuevoPagoServicio = {
     id: `PAG-SER-${Date.now()}`,
-    idFactura: facturaPagoServicioSeleccionada.id,
-    idUnidad: facturaPagoServicioSeleccionada.idUnidad,
-    codigoPredio: facturaPagoServicioSeleccionada.codigoPredio,
-    nombreUnidad: facturaPagoServicioSeleccionada.nombreUnidad,
-    idServicio: facturaPagoServicioSeleccionada.idServicio,
-    tipoServicio: facturaPagoServicioSeleccionada.tipoServicio,
-    empresa: facturaPagoServicioSeleccionada.empresa,
-    periodo: facturaPagoServicioSeleccionada.periodo,
+    idFactura: facturaReferencia.id,
+    idUnidad: facturaReferencia.idUnidad,
+    codigoPredio: facturaReferencia.codigoPredio,
+    nombreUnidad: facturaReferencia.nombreUnidad,
+    idServicio: facturaReferencia.idServicio,
+    tipoServicio: facturaReferencia.tipoServicio,
+    empresa: facturaReferencia.empresa,
+    periodo: facturaReferencia.periodo,
     fechaPago: fechaPagoServicioPublico,
     valorFactura,
     valorPagado,
@@ -25355,11 +25506,11 @@ const guardarPagoServicioPublico = () => {
   const pagosActualizados = [nuevoPagoServicio, ...pagosServiciosPublicos]
 
   const totalPagadoFactura = pagosActualizados
-    .filter((pago) => pago.idFactura === facturaPagoServicioSeleccionada.id)
+    .filter((pago) => pago.idFactura === facturaReferencia.id)
     .reduce((total, pago) => total + Number(pago.valorPagado || 0), 0)
 
-  const facturasActualizadas = facturasServiciosPublicos.map((factura) => {
-    if (factura.id !== facturaPagoServicioSeleccionada.id) return factura
+  const facturasActualizadas = facturasBase.map((factura) => {
+    if (factura.id !== facturaReferencia.id) return factura
 
     return {
       ...factura,
@@ -25371,12 +25522,12 @@ const guardarPagoServicioPublico = () => {
 setFacturasServiciosPublicos(facturasActualizadas)
 
 if (
-  facturaPagoServicioSeleccionada.tipoCobro === 'Valor fijo mensual' &&
-  facturaPagoServicioSeleccionada.generaReciboIndependiente === 'Sí'
+  facturaReferencia.tipoCobro === 'Valor fijo mensual' &&
+  facturaReferencia.generaReciboIndependiente === 'Sí'
 ) {
   const reciboServicio = {
     ...nuevoPagoServicio,
-    factura: facturaPagoServicioSeleccionada,
+    factura: facturaReferencia,
   }
 
   setReciboServicioImprimir(reciboServicio)
@@ -25392,6 +25543,81 @@ if (
 limpiarFormularioPagoServicio()
 
 alert('Pago de servicio público guardado correctamente.')
+}
+
+// =============================================================================
+// ACCIONES - SERVICIOS PUBLICOS - CONSULTA Y ESTADO DE CUENTA
+// Navegacion desde la tabla de consulta hacia pago o extracto.
+// =============================================================================
+
+const prepararRegistroPagoServicioPublicoDesdeConsulta = (
+  item,
+  catalogoServicios = []
+) => {
+  if (item.periodo === 'Sin factura') {
+    alert('Primero debe registrar una factura para este servicio.')
+    return
+  }
+
+  if (item.estadoResumen === 'Pagada') {
+    alert('Esta factura ya está pagada.')
+    return
+  }
+
+  const facturaReferencia = resolverFacturaPagoServicioPublicoDesdeResumen(
+    item,
+    facturasServiciosPublicos,
+    catalogoServicios
+  )
+
+  if (!facturaReferencia) {
+    alert('No se encontró la factura original para registrar el pago.')
+    return
+  }
+
+  cerrarFormularios()
+  setPredioSeleccionado(null)
+  setContratoSeleccionado(null)
+  setSeccionActiva('servicios')
+  setVistaActiva('registrarPagoServicio')
+
+  setFacturaPagoServicioSeleccionada({
+    ...facturaReferencia,
+    totalPagado: item.totalPagado,
+    saldoPendiente: item.saldoPendiente,
+  })
+
+  setBusquedaFacturaPagoServicio(
+    `${item.idUnidad} - ${item.nombreUnidad} - ${item.tipoServicio} - ${item.periodo}`
+  )
+  setFechaPagoServicioPublico('')
+  setValorPagoServicioPublico(String(item.saldoPendiente || item.valorFactura || 0))
+  setMedioPagoServicioPublico('Transferencia')
+  setReciboPagoServicioPublico('')
+  setObservacionPagoServicioPublico('')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const abrirEstadoCuentaServicioDesdeConsulta = (item, extractosServicios = []) => {
+  const extractoServicio = extractosServicios.find(
+    (extracto) =>
+      extracto.unidad.id === item.idUnidad && extracto.idServicio === item.idServicio
+  )
+
+  if (!extractoServicio) {
+    alert('No se encontró el estado de cuenta de este servicio.')
+    return
+  }
+
+  cerrarFormularios()
+  setPredioSeleccionado(null)
+  setContratoSeleccionado(null)
+  setOrigenEstadoCuentaServicios(null)
+  setSeccionActiva('servicios')
+  setVistaActiva('estadoCuentaServicios')
+  setBusquedaServicios(item.idUnidad)
+  setServicioEstadoCuentaSeleccionado(extractoServicio)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
   const extractosPrediales = predios.map((predio) => {
     const movimientos = []
@@ -26828,14 +27054,14 @@ const resumenServiciosPublicos = serviciosPublicosDisponibles.map((item) => {
 
 const resumenServiciosFiltrados = textoBusquedaServicios
   ? resumenServiciosPublicos.filter((item) =>
-      String(item.idUnidad || '').toLowerCase() === textoBusquedaServicios
+      coincideBusquedaIdUnidadServicios(item.idUnidad, textoBusquedaServicios)
     )
   : []
 
 const extractosServiciosFiltrados = textoBusquedaServicios
   ? extractosServiciosPublicos.filter((extracto) => {
       if (
-        String(extracto.unidad.id || '').toLowerCase() !== textoBusquedaServicios
+        !coincideBusquedaIdUnidadServicios(extracto.unidad.id, textoBusquedaServicios)
       ) {
         return false
       }
@@ -28898,6 +29124,9 @@ const resultadosBusqueda = textoBusqueda
             seccion: 'servicios',
             vista: 'verServicios',
             clave: 'consultarServicios',
+            onAntes: () => {
+              setBusquedaServicios('')
+            },
           })
         }
       >
@@ -28915,6 +29144,7 @@ const resultadosBusqueda = textoBusqueda
             onAntes: () => {
               setServicioEstadoCuentaSeleccionado(null)
               setOrigenEstadoCuentaServicios(null)
+              setBusquedaServicios('')
             },
           })
         }
@@ -39064,7 +39294,7 @@ const resultadosBusqueda = textoBusqueda
               type="text"
               value={busquedaServicios}
               onChange={(e) => setBusquedaServicios(e.target.value)}
-              placeholder="Ej: UNI-0002"
+              placeholder="Ej: P001-LOC-001 o LOC-001"
             />
 
             {busquedaServicios && (
@@ -39169,50 +39399,12 @@ const resultadosBusqueda = textoBusqueda
       <button
         type="button"
         className="btn-small"
-       onClick={() => {
-  if (item.periodo === 'Sin factura') {
-    alert('Primero debe registrar una factura para este servicio.')
-    return
-  }
-
-  const facturaOriginal = facturasServiciosPublicos.find(
-    (factura) => factura.id === item.id
-  )
-
-  if (!facturaOriginal) {
-    alert('No se encontró la factura original para registrar el pago.')
-    return
-  }
-
-  if (facturaOriginal.estado === 'Pagada') {
-    alert('Esta factura ya está pagada.')
-    return
-  }
-
-  cerrarFormularios()
-  setPredioSeleccionado(null)
-  setContratoSeleccionado(null)
-  setSeccionActiva('servicios')
-  setVistaActiva('registrarPagoServicio')
-
-  setFacturaPagoServicioSeleccionada({
-    ...facturaOriginal,
-    totalPagado: item.totalPagado,
-    saldoPendiente: item.saldoPendiente,
-  })
-
-  setBusquedaFacturaPagoServicio(
-    `${item.idUnidad} - ${item.nombreUnidad} - ${item.tipoServicio} - ${item.periodo}`
-  )
-
-  setFechaPagoServicioPublico('')
-  setValorPagoServicioPublico(String(item.saldoPendiente || item.valorFactura || 0))
-  setMedioPagoServicioPublico('Transferencia')
-  setReciboPagoServicioPublico('')
-  setObservacionPagoServicioPublico('')
-
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}}
+        onClick={() =>
+          prepararRegistroPagoServicioPublicoDesdeConsulta(
+            item,
+            serviciosPublicosDisponibles
+          )
+        }
       >
         Registrar pago
       </button>
@@ -39221,28 +39413,9 @@ const resultadosBusqueda = textoBusqueda
     <button
       type="button"
       className="btn-small"
-      onClick={() => {
-        const extractoServicio = extractosServiciosPublicos.find(
-          (extracto) =>
-            extracto.unidad.id === item.idUnidad &&
-            extracto.idServicio === item.idServicio
-        )
-
-        if (!extractoServicio) {
-          alert('No se encontró el estado de cuenta de este servicio.')
-          return
-        }
-
-        cerrarFormularios()
-        setPredioSeleccionado(null)
-        setContratoSeleccionado(null)
-        setOrigenEstadoCuentaServicios(null)
-        setSeccionActiva('servicios')
-        setVistaActiva('estadoCuentaServicios')
-        setBusquedaServicios(item.idUnidad)
-        setServicioEstadoCuentaSeleccionado(extractoServicio)
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      }}
+      onClick={() =>
+        abrirEstadoCuentaServicioDesdeConsulta(item, extractosServiciosPublicos)
+      }
     >
       Estado de cuenta
     </button>
@@ -39328,7 +39501,7 @@ const resultadosBusqueda = textoBusqueda
                 setBusquedaServicios(e.target.value)
                 setServicioEstadoCuentaSeleccionado(null)
               }}
-              placeholder="Ej: UNI-0002"
+              placeholder="Ej: P001-LOC-001 o LOC-001"
             />
 
             {busquedaServicios && (
