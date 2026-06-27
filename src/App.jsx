@@ -25397,6 +25397,51 @@ const prepararRegistroFacturaServicioPendiente = (item) => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// =============================================================================
+// ACCIONES - SERVICIOS PUBLICOS - EDICION DESDE PENDIENTES
+// Abre el formulario de edicion del servicio en la unidad correspondiente.
+// =============================================================================
+
+const prepararEdicionServicioServicioPendiente = (item) => {
+  if (!puedeAdministrar) {
+    alert('Solo el administrador puede editar servicios.')
+    return
+  }
+
+  const unidad =
+    unidadesNegocio.find(
+      (registro) =>
+        registro.id === item.idUnidad && registro.codigoPredio === item.codigoPredio
+    ) || item.unidad
+
+  if (!unidad) {
+    alert('No se encontró la unidad de negocio.')
+    return
+  }
+
+  const servicioIndex = (unidad.serviciosPublicos || []).findIndex((_, index) =>
+    idsServicioUnidadEquivalentes(unidad, index).includes(item.idServicio)
+  )
+
+  if (servicioIndex < 0) {
+    alert('No se encontró el servicio en la unidad.')
+    return
+  }
+
+  const servicio = unidad.serviciosPublicos[servicioIndex]
+
+  cerrarFormularios()
+  setPredioSeleccionado(null)
+  setContratoSeleccionado(null)
+  setSeccionActiva('arriendos')
+  setVistaActiva('unidades')
+  setBusquedaUnidades(String(item.idUnidad || ''))
+  setMostrarTodasUnidades(true)
+  setUnidadSeleccionadaServicios(unidad)
+  abrirFormularioEditarServicioUnidad(servicio, servicioIndex)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 const prepararActualizacionAdministracionPendiente = (item) => {
   if (!puedeRegistrar) {
     alert('No tiene permisos para actualizar administración.')
@@ -39632,7 +39677,9 @@ const resultadosBusqueda = textoBusqueda
         mesActual={mesActualServicios}
         formatearDinero={formatearDinero}
         puedeRegistrar={puedeRegistrar}
+        puedeAdministrar={puedeAdministrar}
         onRegistrarFactura={prepararRegistroFacturaServicioPendiente}
+        onEditarServicio={prepararEdicionServicioServicioPendiente}
         onVerEstadoCuenta={(item) => {
           cerrarFormularios()
           setOrigenEstadoCuentaServicios(null)
@@ -42502,7 +42549,9 @@ function PanelServiciosPendientesAlerta({
   mesActual,
   formatearDinero,
   puedeRegistrar,
+  puedeAdministrar,
   onRegistrarFactura,
+  onEditarServicio,
   onVerEstadoCuenta,
 }) {
   const serviciosSinFacturaVariable = serviciosSinActualizar.filter(
@@ -42587,6 +42636,15 @@ function PanelServiciosPendientesAlerta({
                     >
                       Ver estado de cuenta
                     </button>
+                    {puedeAdministrar && (
+                      <button
+                        type="button"
+                        className="btn-small"
+                        onClick={() => onEditarServicio(item)}
+                      >
+                        Editar
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -42653,6 +42711,15 @@ function PanelServiciosPendientesAlerta({
                     ) : (
                       <span className="form-description">Solo consulta</span>
                     )}
+                    {puedeAdministrar && (
+                      <button
+                        type="button"
+                        className="btn-small"
+                        onClick={() => onEditarServicio(item)}
+                      >
+                        Editar
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -42702,13 +42769,24 @@ function PanelServiciosPendientesAlerta({
                 <td>{item.periodo}</td>
                 <td className="saldo-atraso">{formatearDinero(item.saldoPendiente)}</td>
                 <td>
-                  <button
-                    type="button"
-                    className="btn-small"
-                    onClick={() => onVerEstadoCuenta(item)}
-                  >
-                    Ver estado de cuenta
-                  </button>
+                  <div className="table-actions">
+                    <button
+                      type="button"
+                      className="btn-small"
+                      onClick={() => onVerEstadoCuenta(item)}
+                    >
+                      Ver estado de cuenta
+                    </button>
+                    {puedeAdministrar && (
+                      <button
+                        type="button"
+                        className="btn-small"
+                        onClick={() => onEditarServicio(item)}
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

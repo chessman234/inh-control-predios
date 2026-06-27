@@ -227,6 +227,7 @@ const appJsx = [
   { ancla: 'const guardarActualizacionPredialAnio', titulo: 'ACCIONES - IMPUESTO PREDIAL - ACTUALIZAR VIGENCIA', descripcion: 'Actualizar vigencias prediales pendientes.' },
   { ancla: 'const guardarPagoPredial', titulo: 'ACCIONES - IMPUESTO PREDIAL - REGISTRAR ABONO', descripcion: 'Abonos exclusivos por ano, intereses, descuentos y soporte.' },
   { ancla: 'const guardarFacturaServicioPublico', titulo: 'ACCIONES - SERVICIOS PUBLICOS - FACTURAS', descripcion: 'Registrar facturas de servicios por unidad.' },
+  { ancla: 'const prepararEdicionServicioServicioPendiente', titulo: 'ACCIONES - SERVICIOS PUBLICOS - EDICION DESDE PENDIENTES', descripcion: 'Abre el formulario de edicion del servicio en la unidad correspondiente.' },
   { ancla: 'const guardarPagoArriendo', titulo: 'ACCIONES - ARRIENDOS - REGISTRAR PAGO', descripcion: 'Pagos de arriendo, mora, IVA y asignacion multi-mes.' },
   { ancla: 'const iniciarSesion', titulo: 'ACCIONES - LOGIN Y SESION', descripcion: 'Inicio de sesion, cierre y restablecimiento de clave.' },
   { ancla: 'if (!usuarioActual) {', titulo: 'VISTA - PANTALLA DE LOGIN', descripcion: 'Formulario de acceso y restablecimiento de clave.' },
