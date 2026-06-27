@@ -47,8 +47,16 @@ echo.
 echo Iniciando servidor...
 start "INH - Servidor (no cerrar)" "%~dp0scripts\iniciar-servidor.bat"
 
-echo Esperando al servidor...
-timeout /t 6 /nobreak >nul
+echo Esperando a que el servidor este listo en el puerto 5173...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\esperar-puerto.ps1" -Puerto 5173 -TimeoutSegundos 90
+if errorlevel 1 (
+  echo.
+  echo [ERROR] El servidor no arranco. Revise la ventana "INH - Servidor".
+  echo Si muestra otro puerto ^(5174, 5175...^), abra esa URL en el navegador.
+  echo.
+  pause
+  exit /b 1
+)
 
 echo Abriendo http://localhost:5173/
 start "" http://localhost:5173/

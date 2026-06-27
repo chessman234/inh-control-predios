@@ -24576,10 +24576,12 @@ cerrarFormularioContrato({
 // Genera HTML e imprime recibo de arriendo.
 // =============================================================================
 
-const construirHtmlAuditoriaLiquidacionReciboArriendoImpresion = (auditoria) => {
+const construirHtmlAuditoriaLiquidacionReciboArriendoImpresion = (
+  auditoria,
+  saldoAlCorteRecibo = 0
+) => {
   if (!auditoria) return ''
 
-  const liquidacion = auditoria.liquidacionResultante || {}
   const filas = [
     ['Fecha de digitación', formatearFechaLocalHumana(auditoria.fechaDigitacion)],
     ['Fecha real del recibo', formatearFechaLocalHumana(auditoria.fechaRecibo)],
@@ -24587,7 +24589,7 @@ const construirHtmlAuditoriaLiquidacionReciboArriendoImpresion = (auditoria) => 
     ['Intereses de mora recalculados', formatearDinero(auditoria.moraRecalculada || 0)],
     ['Gastos de cobranza recalculados', formatearDinero(auditoria.gastosCobranzaRecalculados || 0)],
     ['IVA mora y cobranza recalculado', formatearDinero(auditoria.ivaMoraCobranzaRecalculado || 0)],
-    ['Total liquidado al recibo', formatearDinero(liquidacion.totalPendiente || 0)],
+    ['Total liquidado al recibo', formatearDinero(saldoAlCorteRecibo || 0)],
   ]
     .map(
       ([etiqueta, valor]) =>
@@ -24641,7 +24643,8 @@ const imprimirReciboPagoArriendo = (recibo) => {
     recibo.fechaPago ||
     ''
   const htmlAuditoria = construirHtmlAuditoriaLiquidacionReciboArriendoImpresion(
-    recibo.auditoriaLiquidacion
+    recibo.auditoriaLiquidacion,
+    reciboImpresion.saldoPosterior || 0
   )
 
   abrirVentanaReciboMediaCarta(
@@ -44371,10 +44374,12 @@ function ReciboServicioPublicoImpresion({ recibo, formatearDinero, onImprimir, o
 // Trazabilidad de fechas y recalculo de mora/cobranza al registrar el pago.
 // =============================================================================
 
-function BloqueAuditoriaLiquidacionReciboArriendo({ auditoria, formatearDinero }) {
+function BloqueAuditoriaLiquidacionReciboArriendo({
+  auditoria,
+  formatearDinero,
+  saldoAlCorteRecibo = 0,
+}) {
   if (!auditoria) return null
-
-  const liquidacion = auditoria.liquidacionResultante || {}
 
   return (
     <div className="recibo-auditoria-liquidacion">
@@ -44406,7 +44411,7 @@ function BloqueAuditoriaLiquidacionReciboArriendo({ auditoria, formatearDinero }
         </li>
         <li className="recibo-linea-total">
           <span>Total liquidado al recibo</span>
-          <strong>{formatearDinero(liquidacion.totalPendiente || 0)}</strong>
+          <strong>{formatearDinero(saldoAlCorteRecibo || 0)}</strong>
         </li>
       </ul>
       {auditoria.recalculoPorFechaRecibo && (
@@ -44746,6 +44751,7 @@ function FormularioReciboPagoArriendo({
           <BloqueAuditoriaLiquidacionReciboArriendo
             auditoria={auditoriaLiquidacion}
             formatearDinero={formatearDinero}
+            saldoAlCorteRecibo={saldoPosterior || 0}
           />
 
           <div className="recibo-observaciones-box recibo-campo-editable">
@@ -44961,6 +44967,7 @@ function ReciboPagoArriendoImpresion({
           <BloqueAuditoriaLiquidacionReciboArriendo
             auditoria={recibo.auditoriaLiquidacion}
             formatearDinero={formatearDinero}
+            saldoAlCorteRecibo={reciboVisual.saldoPosterior || 0}
           />
 
           <BloqueHistorialModificacionesReciboArriendo
