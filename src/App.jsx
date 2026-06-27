@@ -8794,6 +8794,86 @@ const calcularSaldosReciboPagoArriendo = ({
 }
 
 // =============================================================================
+// ARRIENDOS - SALDOS RECIBO HISTORICO
+// Recalcula saldo del periodo a la fecha del recibo (incluye recibos guardados).
+// =============================================================================
+
+const calcularSaldosReciboPagoArriendoHistorico = ({
+  recibo = null,
+  contrato = null,
+  pagosArriendo = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = [],
+  gestionesCartera = [],
+} = {}) => {
+  if (!recibo?.mes || !contrato) {
+    return {
+      saldoAnterior: Number(recibo?.saldoAnterior || 0),
+      saldoPosterior: Number(recibo?.saldoPosterior || 0),
+    }
+  }
+
+  const pagosFuente = (pagosArriendo || []).filter((pago) => {
+    if (recibo.id && pago.id === recibo.id) return false
+    return coincidePagoContratoArriendo(pago, contrato)
+  })
+
+  const movimiento = calcularMovimientoArriendoMes(contrato, recibo.mes, {
+    fechaCorteMora: recibo.fechaCalculoIntereses || recibo.fechaPago || '',
+    pagosArriendo: pagosFuente,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera,
+  })
+
+  const desglose = construirDesglosePendientePagoArriendo({
+    contrato,
+    movimiento,
+    fechaCorte: recibo.fechaCalculoIntereses || recibo.fechaPago || '',
+  })
+
+  return calcularSaldosReciboPagoArriendo({
+    desglosePago: desglose,
+    valorPagado: recibo.valorPagado,
+  })
+}
+
+const enriquecerReciboPagoArriendoConSaldos = (
+  recibo,
+  {
+    contratosArriendo = [],
+    pagosArriendo = [],
+    incrementosArriendo = [],
+    ajustesAdministracion = [],
+    gestionesCartera = [],
+  } = {}
+) => {
+  if (!recibo) return recibo
+
+  const contrato =
+    recibo.contrato ||
+    contratosArriendo.find((item) => obtenerIdContrato(item) === recibo.idContrato)
+
+  if (!contrato) return recibo
+
+  const saldos = calcularSaldosReciboPagoArriendoHistorico({
+    recibo,
+    contrato,
+    pagosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera,
+  })
+
+  return {
+    ...recibo,
+    contrato,
+    saldoAnterior: saldos.saldoAnterior,
+    saldoPosterior: saldos.saldoPosterior,
+  }
+}
+
+// =============================================================================
 // ARRIENDOS - RESUMEN DEUDA ESTADO DE CUENTA
 // Totales pendientes por concepto y deuda consolidada.
 // =============================================================================
@@ -24533,8 +24613,16 @@ const imprimirReciboPagoArriendo = (recibo) => {
     return
   }
 
+  const reciboImpresion = enriquecerReciboPagoArriendoConSaldos(recibo, {
+    contratosArriendo,
+    pagosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera,
+  })
+
   const numeroContratoRecibo = obtenerNumeroContratoVisible(
-    recibo.contrato,
+    reciboImpresion.contrato,
     predios,
     contratosArriendo
   )
@@ -24595,15 +24683,18 @@ const imprimirReciboPagoArriendo = (recibo) => {
         <table class="datos">
           <tr>
             <td class="lbl">Contrato</td><td>${escapeHtml(numeroContratoRecibo)}</td>
-            <td class="lbl">Fecha del recibo</td><td>${escapeHtml(formatearFechaLocalHumana(recibo.fechaPago))}</td>
+            <td class="lbl">Periodo</td><td>${escapeHtml(reciboImpresion.mes || 'Sin periodo')}</td>
+          </tr>
+          <tr>
+            <td class="lbl">Fecha del recibo</td><td>${escapeHtml(formatearFechaLocalHumana(reciboImpresion.fechaPago))}</td>
+            <td class="lbl">Medio de pago</td><td>${escapeHtml(reciboImpresion.medioPago || '')}</td>
           </tr>
           <tr>
             <td class="lbl">Fecha de digitación</td><td>${escapeHtml(formatearFechaLocalHumana(fechaDigitacionRecibo))}</td>
-            <td class="lbl">Fecha cálculo intereses</td><td>${escapeHtml(formatearFechaLocalHumana(recibo.fechaCalculoIntereses || recibo.fechaPago))}</td>
+            <td class="lbl">Fecha cálculo intereses</td><td>${escapeHtml(formatearFechaLocalHumana(reciboImpresion.fechaCalculoIntereses || reciboImpresion.fechaPago))}</td>
           </tr>
           <tr>
-            <td class="lbl">Concepto</td><td>${escapeHtml(recibo.concepto || 'Pago de arriendo')}</td>
-            <td class="lbl">Medio de pago</td><td>${escapeHtml(recibo.medioPago || '')}</td>
+            <td class="lbl">Concepto</td><td colspan="3">${escapeHtml(reciboImpresion.concepto || 'Pago de arriendo')}</td>
           </tr>
         </table>
       </div>
@@ -24611,9 +24702,10 @@ const imprimirReciboPagoArriendo = (recibo) => {
         <div class="seccion-tit">04 · Detalle económico</div>
         <div class="monto-caja">
           <span class="lbl">Valor pagado</span>
-          <div class="val">${escapeHtml(formatearDinero(recibo.valorPagado || 0))}</div>
+          <div class="val">${escapeHtml(formatearDinero(reciboImpresion.valorPagado || 0))}</div>
         </div>
-        <div class="fila-saldo"><span>Nuevo saldo de arriendo</span><strong>${escapeHtml(formatearDinero(recibo.saldoPosterior || 0))}</strong></div>
+        <div class="fila-saldo"><span>Saldo pendiente del periodo (antes del pago)</span><strong>${escapeHtml(formatearDinero(reciboImpresion.saldoAnterior || 0))}</strong></div>
+        <div class="fila-saldo"><span>Nuevo saldo del periodo</span><strong>${escapeHtml(formatearDinero(reciboImpresion.saldoPosterior || 0))}</strong></div>
         ${htmlAuditoria}
         <div class="obs"><span class="lbl">Observaciones</span>${escapeHtml(observaciones)}</div>
       </div>
@@ -36693,6 +36785,10 @@ const resultadosBusqueda = textoBusqueda
         recibo={reciboArriendoImprimir}
         predios={predios}
         contratosArriendo={contratosArriendo}
+        pagosArriendo={pagosArriendo}
+        incrementosArriendo={incrementosArriendo}
+        ajustesAdministracion={ajustesAdministracion}
+        gestionesCartera={gestionesCartera}
         formatearDinero={formatearDinero}
         onImprimir={() => imprimirReciboPagoArriendo(reciboArriendoImprimir)}
         onCerrar={cerrarFlujoPagoArriendo}
@@ -44529,7 +44625,7 @@ function FormularioReciboPagoArriendo({
           {mesPagoArriendo && (
             <p className="form-description recibo-desglose-nota">
               Periodo de referencia: <strong>{mesPagoArriendo}</strong>
-              {enAtraso ? ' · desglose consolidado de todos los periodos en mora.' : '.'}
+              {' · liquidado a la fecha del recibo (solo este periodo).'}
             </p>
           )}
 
@@ -44570,7 +44666,12 @@ function FormularioReciboPagoArriendo({
           </div>
 
           <div className="recibo-nuevo-saldo">
-            <span>Nuevo saldo de arriendo</span>
+            <span>Saldo pendiente del periodo (antes del pago)</span>
+            <strong>{formatearDinero(saldoAnterior || 0)}</strong>
+          </div>
+
+          <div className="recibo-nuevo-saldo">
+            <span>Nuevo saldo del periodo</span>
             <strong className={saldoPosterior > 0 ? 'saldo-atraso' : ''}>
               {formatearDinero(saldoPosterior || 0)}
             </strong>
@@ -44631,6 +44732,10 @@ function ReciboPagoArriendoImpresion({
   recibo,
   predios = [],
   contratosArriendo = [],
+  pagosArriendo = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = [],
+  gestionesCartera = [],
   formatearDinero,
   esVistaPrevia = false,
   onImprimir = null,
@@ -44639,8 +44744,16 @@ function ReciboPagoArriendoImpresion({
 }) {
   if (!recibo) return null
 
+  const reciboVisual = enriquecerReciboPagoArriendoConSaldos(recibo, {
+    contratosArriendo,
+    pagosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera,
+  })
+
   const numeroContratoVisible = obtenerNumeroContratoVisible(
-    recibo.contrato,
+    reciboVisual.contrato,
     predios,
     contratosArriendo
   )
@@ -44736,9 +44849,13 @@ function ReciboPagoArriendoImpresion({
               <strong className="recibo-campo-valor">{numeroContratoVisible}</strong>
             </div>
             <div className="recibo-campo">
+              <span className="recibo-campo-label">Periodo</span>
+              <strong className="recibo-campo-valor">{reciboVisual.mes || 'Sin periodo'}</strong>
+            </div>
+            <div className="recibo-campo">
               <span className="recibo-campo-label">Fecha del recibo</span>
               <strong className="recibo-campo-valor">
-                {formatearFechaLocalHumana(recibo.fechaPago)}
+                {formatearFechaLocalHumana(reciboVisual.fechaPago)}
               </strong>
             </div>
             <div className="recibo-campo">
@@ -44771,9 +44888,13 @@ function ReciboPagoArriendoImpresion({
 
           <ul className="recibo-lineas">
             <li>
-              <span>Nuevo saldo de arriendo</span>
-              <strong className={(recibo.saldoPosterior || 0) > 0 ? 'saldo-atraso' : ''}>
-                {formatearDinero(recibo.saldoPosterior || 0)}
+              <span>Saldo pendiente del periodo (antes del pago)</span>
+              <strong>{formatearDinero(reciboVisual.saldoAnterior || 0)}</strong>
+            </li>
+            <li>
+              <span>Nuevo saldo del periodo</span>
+              <strong className={(reciboVisual.saldoPosterior || 0) > 0 ? 'saldo-atraso' : ''}>
+                {formatearDinero(reciboVisual.saldoPosterior || 0)}
               </strong>
             </li>
           </ul>
