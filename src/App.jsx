@@ -28084,7 +28084,6 @@ const resultadosBusqueda = textoBusqueda
     predialesPendientes: 'predial',
     facturaServicio: 'servicios',
     pagoServicio: 'servicios',
-    consultarServicios: 'servicios',
     estadoCuentaServicios: 'servicios',
     serviciosPendientesAlerta: 'servicios',
     cargarDocumento: 'documentos',
@@ -28148,7 +28147,6 @@ const resultadosBusqueda = textoBusqueda
     if (seccionActiva === 'servicios') {
       if (vistaActiva === 'registrarFacturaServicio') return 'facturaServicio'
       if (vistaActiva === 'registrarPagoServicio') return 'pagoServicio'
-      if (['servicios', 'verServicios'].includes(vistaActiva)) return 'consultarServicios'
       if (vistaActiva === 'estadoCuentaServicios') return 'estadoCuentaServicios'
       if (vistaActiva === 'serviciosPendientesAlerta') return 'serviciosPendientesAlerta'
     }
@@ -29202,23 +29200,6 @@ const resultadosBusqueda = textoBusqueda
           </button>
         </>
       )}
-
-      <button
-        type="button"
-        className={claseSubmenuItem(esSubmenuActivo('consultarServicios'))}
-        onClick={() =>
-          irSubmenu({
-            seccion: 'servicios',
-            vista: 'verServicios',
-            clave: 'consultarServicios',
-            onAntes: () => {
-              setBusquedaServicios('')
-            },
-          })
-        }
-      >
-        Consultar servicios públicos
-      </button>
 
       <button
         type="button"
