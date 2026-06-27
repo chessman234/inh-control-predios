@@ -2954,6 +2954,7 @@ const calcularSaldoPendienteAsignacionLiquidacionPeriodoArriendo = ({
     contrato,
     mes,
     fechaCorte,
+    pagosAsignadosPeriodo,
     pagosContrato,
     incrementosArriendo,
     ajustesAdministracion,
@@ -2969,13 +2970,14 @@ const calcularSaldoPendienteAsignacionLiquidacionPeriodoArriendo = ({
 
 // =============================================================================
 // ARRIENDO - OBLIGACION BRUTA LIQUIDACION PERIODO
-// Total causado del periodo a una fecha sin reducir mora por abonos asignados.
+// Total causado a fecha de corte; los abonos previos eximen mora si fueron a tiempo.
 // =============================================================================
 
 const calcularObligacionBrutaLiquidacionPeriodoArriendo = ({
   contrato,
   mes,
   fechaCorte = '',
+  pagosAsignadosPeriodo = [],
   pagosContrato = [],
   incrementosArriendo = [],
   ajustesAdministracion = [],
@@ -2984,7 +2986,7 @@ const calcularObligacionBrutaLiquidacionPeriodoArriendo = ({
   const movimientoBruto = construirMovimientoVirtualLiquidacionMesArriendo({
     contrato,
     mes,
-    pagosAsignados: [],
+    pagosAsignados: pagosAsignadosPeriodo,
     pagosContrato,
     incrementosArriendo,
     ajustesAdministracion,
@@ -8109,18 +8111,24 @@ const mesArriendoSinInteresesMora = ({
   if (!pagosOrdenados.length) return false
 
   let saldo = Number(saldoCapitalInicial || 0)
+  let fechaCapitalLiquidado = null
   pagosOrdenados.forEach((pago) => {
+    if (saldo <= 0) return
     saldo -= reducirCapitalMoraPorPagoArriendo(pago, {
       canonBase,
       ivaCanonMes,
       moraSobreCanonSinIva,
     })
+    if (saldo <= 0 && !fechaCapitalLiquidado) {
+      fechaCapitalLiquidado = pago.fechaPago
+    }
   })
 
   if (saldo > 0) return false
 
-  const ultimoPago = pagosOrdenados[pagosOrdenados.length - 1]
-  return compararFechasISO(ultimoPago.fechaPago, vencimiento) <= 0
+  return Boolean(
+    fechaCapitalLiquidado && compararFechasISO(fechaCapitalLiquidado, vencimiento) <= 0
+  )
 }
 
 // =============================================================================
@@ -13740,16 +13748,9 @@ const construirFilasEstadoCuentaArriendo = (contrato, movimientos, fechaCorte = 
         pagosDetalleLiquidacion,
         fechaCorteEfectiva
       )
-      const movimientoParaCargos = {
-        ...movimiento,
-        pagosLiquidacionArriendoMes: [],
-        pagosMes: [],
-        pagado: 0,
-        totalPagadoLiquidacionArriendo: 0,
-      }
       const liquidacion = calcularCargosLiquidadosPeriodoExtractoArriendo({
         contrato,
-        movimiento: movimientoParaCargos,
+        movimiento,
         fechaCorte: fechaCortePeriodo,
       })
       const {
@@ -13832,7 +13833,7 @@ const construirFilasEstadoCuentaArriendo = (contrato, movimientos, fechaCorte = 
 
       const totalCargosPeriodo = calcularTotalCargosFilasLiquidacionPeriodoArriendo(
         liquidacion,
-        movimientoParaCargos
+        movimiento
       )
       const totalDescuentoPeriodo = Number(movimiento?.descuento || 0)
       let cupoAbonoPeriodo = Math.max(0, totalCargosPeriodo - totalDescuentoPeriodo)
