@@ -8776,20 +8776,20 @@ const movimientoArriendoTieneSaldoPendiente = (
 
 // =============================================================================
 // ARRIENDOS - SALDOS RECIBO DE PAGO
-// Solo deuda de arriendo (canon, mora, cobranza); administración y servicios van aparte.
+// Saldo anterior y posterior del periodo liquidado a la fecha del recibo.
 // =============================================================================
 
 const calcularSaldosReciboPagoArriendo = ({
   desglosePago = {},
   valorPagado = 0,
 } = {}) => {
-  const deudaArriendoPendiente = Number(desglosePago.totalPendiente || 0)
+  const deudaPeriodoPendiente = Number(desglosePago.totalPendiente || 0)
   const pago = Number(valorPagado || 0)
-  const saldoArriendoPosterior = Math.max(0, deudaArriendoPendiente - pago)
+  const saldoPeriodoPosterior = Math.max(0, deudaPeriodoPendiente - pago)
 
   return {
-    saldoAnterior: deudaArriendoPendiente,
-    saldoPosterior: saldoArriendoPosterior,
+    saldoAnterior: deudaPeriodoPendiente,
+    saldoPosterior: saldoPeriodoPosterior,
   }
 }
 
@@ -25810,19 +25810,14 @@ const movimientoPagoArriendoMes =
       })
     : null
 
-const desglosePagoArriendo = contratoPagoArriendo
-  ? enAtrasoPagoArriendo && extractoPagoArriendo?.movimientos
-    ? construirDesglosePendientePagoArriendoContrato({
-        contrato: contratoPagoArriendo,
-        movimientos: extractoPagoArriendo.movimientos,
-        fechaCorte: fechaPagoArriendo || fechaCorteCartera || '',
-      })
-    : construirDesglosePendientePagoArriendo({
+const desglosePagoArriendo =
+  contratoPagoArriendo && mesPagoArriendo && movimientoPagoArriendoMes
+    ? construirDesglosePendientePagoArriendo({
         contrato: contratoPagoArriendo,
         movimiento: movimientoPagoArriendoMes,
         fechaCorte: fechaPagoArriendo || fechaCorteCartera || '',
       })
-  : construirDesglosePendientePagoArriendo()
+    : construirDesglosePendientePagoArriendo()
 const totalPendientePeriodoPago = desglosePagoArriendo.totalPendiente
 
 const fechaDigitacionPagoArriendo = obtenerFechaLocalISO()
@@ -25935,7 +25930,7 @@ const construirReciboPagoArriendoActual = () => {
 
   if (valorPagado > saldoAnteriorReciboPago) {
     alert(
-      `El valor pagado (${formatearDinero(valorPagado)}) no puede superar el total pendiente de arriendo (${formatearDinero(saldoAnteriorReciboPago)}).`
+      `El valor pagado (${formatearDinero(valorPagado)}) no puede superar el total pendiente del periodo (${formatearDinero(saldoAnteriorReciboPago)}).`
     )
     return null
   }
