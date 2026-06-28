@@ -554,6 +554,85 @@ td.saldo-atraso,
   margin: 0 0 8px;
 }
 
+.gestion-cartera-anteriores-seccion {
+  margin-top: 18px;
+}
+
+.gestion-cartera-ultima-card {
+  background: #f8fafc;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.gestion-cartera-ultima-grid {
+  margin-top: 0;
+}
+
+.gestion-cartera-observacion {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  color: #334155;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.gestion-cartera-observacion span {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.gestion-cartera-anteriores-acciones {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.gestion-cartera-historial-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.gestion-cartera-historial-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.gestion-cartera-extracto-tabla {
+  overflow-x: auto;
+}
+
+.gestion-cartera-extracto-tabla h3 {
+  margin: 0 0 12px;
+}
+
+.extracto-table-gestiones th,
+.extracto-table-gestiones td {
+  font-size: 12px;
+  vertical-align: top;
+}
+
+.gestion-cartera-extracto-observacion {
+  min-width: 180px;
+  max-width: 280px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.gestion-cartera-extracto-print {
+  margin-top: 8px;
+}
+
+.modal-card .gestion-cartera-extracto-print {
+  padding: 12px 0 0;
+}
+
 .modal-section-title {
   margin-top: 18px;
   margin-bottom: 8px;
@@ -3697,16 +3776,30 @@ td.saldo-atraso,
   font-weight: 900;
 }
 
-.login-card > p {
+.login-card-body > p {
   color: #64748b;
   font-size: 15px;
   margin: 0 0 24px;
   line-height: 1.5;
 }
 
+.login-card-body {
+  width: 100%;
+}
+
 .login-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   margin-top: 0;
   text-align: left;
+}
+
+.login-form .form-group,
+.login-form .form-group.full,
+.login-form .full {
+  grid-column: unset;
+  width: 100%;
 }
 
 .login-form .form-group {
@@ -3729,6 +3822,7 @@ td.saldo-atraso,
   font-size: 15px;
   outline: none;
   box-sizing: border-box;
+  min-height: 52px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -3751,10 +3845,15 @@ td.saldo-atraso,
 .full-login-btn {
   width: 100%;
   height: 54px;
+  min-height: 54px;
   margin-top: 10px;
   border-radius: 15px;
   font-size: 16px;
   font-weight: 900;
+}
+
+.login-form .full-login-btn {
+  flex-shrink: 0;
 }
 
 .login-toggle-btn {
@@ -3827,23 +3926,25 @@ td.saldo-atraso,
     display: none;
   }
 
-  .login-card h1,
-  .login-card > p,
-  .login-form {
+  .login-card-body {
     grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px;
   }
 
-  .login-card h1 {
+  .login-card-body h1 {
     font-size: 34px;
-    margin: 80px 60px 8px;
+    margin: 0 0 8px;
   }
 
-  .login-card > p {
-    margin: 0 60px 28px;
+  .login-card-body > p {
+    margin: 0 0 28px;
   }
 
   .login-form {
-    margin: 0 60px 50px;
+    margin: 0;
   }
 }
 
@@ -4904,6 +5005,20 @@ td.saldo-atraso,
 
 .cartera-panel-atraso {
   margin-top: 0;
+}
+
+.cartera-panel-gestiones-realizadas {
+  margin-top: 0;
+}
+
+.gestion-cartera-realizadas-detalle {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.gestion-cartera-realizadas-resumen {
+  margin-bottom: 16px;
 }
 
 .cartera-consulta-actions {
@@ -8104,21 +8219,58 @@ body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root {
 
 .estado-cuenta-tipo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
-  gap: 16px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
   margin-top: 8px;
+}
+
+.estado-cuenta-inh-filtros {
+  display: grid;
+  grid-template-columns:
+    minmax(170px, 1fr)
+    minmax(150px, 1fr)
+    minmax(150px, 1fr)
+    auto;
+  gap: 14px;
+  align-items: end;
+  width: 100%;
+}
+
+.estado-cuenta-inh-filtros-acciones {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+
+.estado-cuenta-inh-filtros-acciones button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.estado-cuenta-inh-acciones {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.estado-cuenta-inh-acciones button {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .estado-cuenta-tipo-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
   text-align: left;
   background: #fffdf7;
   border: 1px solid #ead49a;
   border-radius: 16px;
-  padding: 20px 22px;
+  padding: 16px 14px;
+  min-height: 100%;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -8134,16 +8286,164 @@ body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root {
   line-height: 1;
 }
 
-.estado-cuenta-tipo-card strong {
+.estado-cuenta-tipo-icon-inh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: #06244d;
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.estado-cuenta-inh-tabla h3 {
+  margin: 0 0 12px;
+}
+
+.extracto-table-inh th,
+.extracto-table-inh td {
+  font-size: 13px;
+}
+
+.estado-cuenta-inh-nota {
+  margin-top: 16px;
+}
+
+.estado-cuenta-inh-informe {
+  margin-top: 24px;
+  padding: 18px 20px;
+  border: 1px solid #ead49a;
+  border-radius: 16px;
+  background: #fffdf7;
+}
+
+.estado-cuenta-inh-informe h3 {
+  margin: 0 0 6px;
   font-size: 18px;
+  color: #0e1b42;
+}
+
+.estado-cuenta-inh-informe-encabezado {
+  margin-bottom: 14px;
+}
+
+.estado-cuenta-inh-informe-encabezado p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.estado-cuenta-inh-informe-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.estado-cuenta-inh-informe-grid div {
+  background: #ffffff;
+  border: 1px solid #ead49a;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.estado-cuenta-inh-informe-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.estado-cuenta-inh-informe-grid strong {
+  display: block;
+  color: #0e1b42;
+  font-size: 18px;
+}
+
+.estado-cuenta-inh-informe-grid small {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.estado-cuenta-inh-informe-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #06244d;
+  color: #f8fafc;
+}
+
+.estado-cuenta-inh-informe-total span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.estado-cuenta-inh-informe-total strong {
+  font-size: 22px;
+}
+
+@media (max-width: 960px) {
+  .estado-cuenta-inh-informe-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .estado-cuenta-inh-informe-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.estado-cuenta-tipo-card strong {
+  font-size: 16px;
   color: #1e293b;
 }
 
 .estado-cuenta-tipo-card p {
   margin: 0;
   color: #64748b;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+@media (max-width: 1280px) {
+  .estado-cuenta-tipo-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .estado-cuenta-tipo-card {
+    flex: 0 0 min(220px, 28vw);
+  }
+
+  .estado-cuenta-inh-filtros {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
+  .estado-cuenta-inh-filtros-acciones {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 720px) {
+  .estado-cuenta-inh-filtros {
+    grid-template-columns: 1fr;
+  }
 }
 
 .panel-inicio-grid {
@@ -10365,12 +10665,16 @@ body.imprimiendo-extracto .extracto-predios-propietario-print .extracto-predios-
     border-radius: 20px;
   }
 
-  .login-card h1 {
+  .login-card-body {
+    width: 100%;
+  }
+
+  .login-card-body h1 {
     font-size: 24px;
     margin: 0 0 8px;
   }
 
-  .login-card > p {
+  .login-card-body > p {
     margin: 0 0 20px;
   }
 

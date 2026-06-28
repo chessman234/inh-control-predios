@@ -7925,6 +7925,9 @@ const construirAuditoriaLiquidacionReciboPagoArriendo = ({
     moraRecalculada: Number(desglosePago.moraPendiente || 0),
     gastosCobranzaRecalculados: Number(desglosePago.gastosCobranza || 0),
     ivaMoraCobranzaRecalculado: Number(desglosePago.ivaMoraCobranza || 0),
+    detallePeriodos: Array.isArray(desglosePago.detallePeriodos)
+      ? desglosePago.detallePeriodos
+      : [],
     liquidacionResultante: {
       canonIvaPendiente: Number(desglosePago.canonIvaPendiente || 0),
       moraPendiente: Number(desglosePago.moraPendiente || 0),
@@ -8818,19 +8821,33 @@ const calcularSaldosReciboPagoArriendoHistorico = ({
     return coincidePagoContratoArriendo(pago, contrato)
   })
 
-  const movimiento = calcularMovimientoArriendoMes(contrato, recibo.mes, {
-    fechaCorteMora: recibo.fechaCalculoIntereses || recibo.fechaPago || '',
+  const fechaCorteRecibo = recibo.fechaCalculoIntereses || recibo.fechaPago || ''
+  const contextoCalculo = construirContextoCalculoArriendo({
     pagosArriendo: pagosFuente,
     incrementosArriendo,
     ajustesAdministracion,
     gestionesCartera,
   })
-
-  const desglose = construirDesglosePendientePagoArriendo({
-    contrato,
-    movimiento,
-    fechaCorte: recibo.fechaCalculoIntereses || recibo.fechaPago || '',
-  })
+  const movimientos = generarMesesContrato(contrato).map((mes) =>
+    calcularMovimientoArriendoMes(contrato, mes, {
+      idContrato: obtenerIdContrato(contrato),
+      fechaCorteMora: fechaCorteRecibo,
+      ...contextoCalculo,
+    })
+  )
+  const desgloseGuardado = recibo.auditoriaLiquidacion?.liquidacionResultante
+  const desglose =
+    desgloseGuardado && Number(desgloseGuardado.totalPendiente || 0) > 0
+      ? {
+          ...desgloseGuardado,
+          detallePeriodos: recibo.auditoriaLiquidacion?.detallePeriodos || [],
+        }
+      : construirDesgloseLiquidacionReciboPagoArriendo({
+          contrato,
+          movimientos,
+          fechaCorte: fechaCorteRecibo,
+          mesReferencia: recibo.mes,
+        })
 
   return calcularSaldosReciboPagoArriendo({
     desglosePago: desglose,
@@ -8992,6 +9009,430 @@ const calcularResumenDeudaEstadoCuentaArriendo = ({
     saldoPendiente: resumen.totalDeuda,
     estadoGeneral: resumen.totalDeuda > 0 ? 'Con deuda' : 'Al día',
   }
+}
+
+// =============================================================================
+// ESTADOS CUENTA INH - INGRESOS RECAUDADOS POR PERIODO
+// Comision, mora, cobranza e IVA solo cuando el arrendatario cancelo el periodo.
+// =============================================================================
+
+const calcularIngresosInhRecaudadosPeriodoEstadoCuentaInh = ({
+  contrato,
+  movimiento,
+  mes,
+  fechaCorteEfectiva = '',
+  contratoDeposito,
+  contratosDeposito = [],
+  contratosArriendo,
+  pagosArriendo,
+  pagosLiquidacionDeposito,
+  incrementosArriendo,
+  ajustesAdministracion,
+  predioPropietarios,
+  propietarios = [],
+  predios = [],
+  gestionesCartera = [],
+}) => {
+  const vacio = {
+    comision: 0,
+    ivaComision: 0,
+    intereses: 0,
+    ivaIntereses: 0,
+    gastosCobranza: 0,
+    ivaGastos: 0,
+  }
+
+  const pagosDetalle = movimiento?.pagosDetalleLiquidacionArriendo || []
+  const totalRecaudoPeriodo = Number(
+    movimiento?.totalPagadoLiquidacionArriendo ?? movimiento?.pagado ?? 0
+  )
+
+  if (totalRecaudoPeriodo <= 0 && pagosDetalle.length === 0) {
+    return vacio
+  }
+
+  const fechaCortePeriodo = obtenerFechaCorteLiquidacionPeriodoArriendo(
+    pagosDetalle,
+    fechaCorteEfectiva
+  )
+  const liquidacion = calcularCargosLiquidadosPeriodoExtractoArriendo({
+    contrato,
+    movimiento,
+    fechaCorte: fechaCortePeriodo,
+  })
+  const pendientes = calcularPendientesDeudaPeriodoEstadoCuentaArriendo(
+    contrato,
+    movimiento,
+    fechaCortePeriodo
+  )
+
+  const moraTotal =
+    Number(liquidacion.moraContrato || 0) + Number(liquidacion.moraGestion || 0)
+  const intereses = Math.max(0, moraTotal - Number(pendientes.pendienteMora || 0))
+  const gastosCobranza = Math.max(
+    0,
+    Number(liquidacion.sancionCobranza || 0) - Number(pendientes.pendienteGastos || 0)
+  )
+  const ivaIntereses = Math.max(
+    0,
+    Number(liquidacion.ivaMora || 0) - Number(pendientes.pendienteIvaMora || 0)
+  )
+  const ivaGastos = Math.max(
+    0,
+    Number(liquidacion.ivaGastosCobranza || 0) - Number(pendientes.pendienteIvaGastos || 0)
+  )
+
+  const { comision, ivaComision } = calcularComisionInhPeriodoContratoEstadoCuenta({
+    contrato,
+    mes,
+    contratoDeposito,
+    contratosDeposito,
+    contratosArriendo,
+    pagosArriendo,
+    pagosLiquidacionDeposito,
+    incrementosArriendo,
+    ajustesAdministracion,
+    predioPropietarios,
+    propietarios,
+    predios,
+    gestionesCartera,
+  })
+
+  return {
+    comision,
+    ivaComision,
+    intereses,
+    ivaIntereses,
+    gastosCobranza,
+    ivaGastos,
+  }
+}
+
+// =============================================================================
+// ESTADOS CUENTA INH - COMISION POR PERIODO
+// Comision INH e IVA segun liquidacion al depositario cuando el arrendatario pago.
+// =============================================================================
+
+const calcularComisionInhPeriodoContratoEstadoCuenta = ({
+  contrato,
+  mes,
+  contratoDeposito,
+  contratosDeposito = [],
+  contratosArriendo,
+  pagosArriendo,
+  pagosLiquidacionDeposito,
+  incrementosArriendo,
+  ajustesAdministracion,
+  predioPropietarios,
+  propietarios = [],
+  predios = [],
+  gestionesCartera = [],
+}) => {
+  if (!contratoDeposito || !contrato || !contratoArriendoActivoEnMes(contrato, mes)) {
+    return { comision: 0, ivaComision: 0 }
+  }
+
+  const idContrato = obtenerIdContrato(contrato)
+  const asignacionPredio = construirAsignacionCanonLiquidacionPredio({
+    codigoPredio: contrato.codigoPredio,
+    contratosArriendo,
+    pagosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera,
+  })
+  const lineasMesUnidad = (asignacionPredio.asignacionGlobalPorMes.get(mes) || []).filter(
+    (linea) => obtenerIdContrato(linea.contrato || linea) === idContrato
+  )
+  const arrendatarioPagoPeriodo = lineasMesUnidad.length > 0
+
+  // La comision INH solo se causa si el arrendatario recaudo canon de la unidad en el periodo.
+  if (!arrendatarioPagoPeriodo) {
+    return { comision: 0, ivaComision: 0 }
+  }
+
+  const beneficiarios = obtenerBeneficiariosLiquidacionContrato(
+    contratoDeposito,
+    predioPropietarios
+  )
+  const beneficiario = beneficiarios[0]
+  if (!beneficiario) {
+    return { comision: 0, ivaComision: 0 }
+  }
+
+  const unidadLiquidacion = {
+    idUnidad: contrato.idUnidad || '',
+    unidad: contrato.nombreUnidad || '',
+    idContratoArriendo: idContrato,
+    claveUnidad: obtenerClaveUnidadLiquidacion({
+      idUnidad: contrato.idUnidad,
+      unidad: contrato.nombreUnidad,
+      idContratoArriendo: idContrato,
+    }),
+  }
+
+  const liquidacion = construirLiquidacionDepositoBeneficiarioMes({
+    contrato: contratoDeposito,
+    beneficiario,
+    mes,
+    propietarios,
+    predios,
+    contratosDeposito,
+    contratosArriendo,
+    pagosArriendo,
+    pagosLiquidacionDeposito,
+    asignacionPredio,
+    unidadLiquidacion,
+    incrementosArriendo,
+    ajustesAdministracion,
+    omitirAbonosInh: true,
+  })
+
+  if (!liquidacion) {
+    return { comision: 0, ivaComision: 0 }
+  }
+
+  const comision = Number(liquidacion.comisionInmobiliariaPredio || 0)
+  return {
+    comision,
+    ivaComision: comision > 0 ? calcularIvaComisionInh(comision) : 0,
+  }
+}
+
+// =============================================================================
+// ESTADOS CUENTA INH - RANGO DE FECHAS
+// Normaliza fecha inicio/fin y filtra periodos YYYY-MM incluidos.
+// =============================================================================
+
+const normalizarRangoFechasEstadoCuentaInh = (fechaInicio = '', fechaFin = '') => {
+  const hoy = obtenerFechaLocalISO()
+  let inicio = String(fechaInicio || '').trim()
+  let fin = String(fechaFin || hoy).trim() || hoy
+
+  if (inicio && fin && inicio > fin) {
+    const temporal = inicio
+    inicio = fin
+    fin = temporal
+  }
+
+  return {
+    fechaInicio: inicio,
+    fechaFin: fin,
+    mesInicio: inicio ? inicio.slice(0, 7) : '',
+    mesFin: fin.slice(0, 7),
+    fechaFinEfectiva: fin || hoy,
+  }
+}
+
+const movimientoDentroRangoEstadoCuentaInh = (mes, mesInicio, mesFin) => {
+  const periodo = String(mes || '')
+  if (!periodo) return false
+  if (mesInicio && periodo < mesInicio) return false
+  if (mesFin && periodo > mesFin) return false
+  return true
+}
+
+const formatearRangoPeriodosEstadoCuentaInh = (fechaInicio = '', fechaFin = '') => {
+  const { mesInicio, mesFin } = normalizarRangoFechasEstadoCuentaInh(fechaInicio, fechaFin)
+  if (mesInicio && mesFin) {
+    return mesInicio === mesFin ? mesInicio : `${mesInicio} a ${mesFin}`
+  }
+  if (mesInicio) return `desde ${mesInicio}`
+  return `hasta ${mesFin || '—'}`
+}
+
+// =============================================================================
+// ESTADOS CUENTA INH - RESUMEN POR PERIODO
+// Comisiones, mora, cobranza e IVA liquidados en el rango seleccionado.
+// =============================================================================
+
+const construirResumenesPeriodoEstadoCuentaInh = ({
+  contrato,
+  movimientos = [],
+  fechaInicio = '',
+  fechaFin = '',
+  contratoDeposito,
+  contratosDeposito = [],
+  contratosArriendo,
+  pagosArriendo,
+  pagosLiquidacionDeposito,
+  incrementosArriendo,
+  ajustesAdministracion,
+  predioPropietarios,
+  propietarios = [],
+  predios = [],
+  gestionesCartera = [],
+}) => {
+  const { mesInicio, mesFin, fechaFinEfectiva } = normalizarRangoFechasEstadoCuentaInh(
+    fechaInicio,
+    fechaFin
+  )
+
+  return movimientos
+    .filter((movimiento) =>
+      movimientoDentroRangoEstadoCuentaInh(movimiento.mes, mesInicio, mesFin)
+    )
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .map((movimiento) => {
+      const {
+        comision,
+        ivaComision,
+        intereses,
+        ivaIntereses,
+        gastosCobranza,
+        ivaGastos,
+      } = calcularIngresosInhRecaudadosPeriodoEstadoCuentaInh({
+        contrato,
+        movimiento,
+        mes: movimiento.mes,
+        fechaCorteEfectiva: fechaFinEfectiva,
+        contratoDeposito,
+        contratosDeposito,
+        contratosArriendo,
+        pagosArriendo,
+        pagosLiquidacionDeposito,
+        incrementosArriendo,
+        ajustesAdministracion,
+        predioPropietarios,
+        propietarios,
+        predios,
+        gestionesCartera,
+      })
+      const pagosDetalle = movimiento.pagosDetalleLiquidacionArriendo || []
+      const fechaCortePeriodo = obtenerFechaCorteLiquidacionPeriodoArriendo(
+        pagosDetalle,
+        fechaFinEfectiva
+      )
+      const totalPeriodo =
+        comision + ivaComision + intereses + ivaIntereses + gastosCobranza + ivaGastos
+
+      return {
+        periodo: movimiento.mes,
+        comision,
+        ivaComision,
+        intereses,
+        ivaIntereses,
+        gastosCobranza,
+        ivaGastos,
+        totalPeriodo,
+        fechaCortePeriodo,
+      }
+    })
+    .filter((item) => item.totalPeriodo > 0)
+}
+
+// =============================================================================
+// ESTADOS CUENTA INH - TOTALES POR PERIODO
+// Suma consolidada de comisiones, mora, cobranza e IVA al corte.
+// =============================================================================
+
+const calcularTotalesResumenesPeriodoEstadoCuentaInh = (resumenes = []) =>
+  (resumenes || []).reduce(
+    (totales, item) => ({
+      comision: totales.comision + Number(item.comision || 0),
+      ivaComision: totales.ivaComision + Number(item.ivaComision || 0),
+      intereses: totales.intereses + Number(item.intereses || 0),
+      ivaIntereses: totales.ivaIntereses + Number(item.ivaIntereses || 0),
+      gastosCobranza: totales.gastosCobranza + Number(item.gastosCobranza || 0),
+      ivaGastos: totales.ivaGastos + Number(item.ivaGastos || 0),
+      totalPeriodo: totales.totalPeriodo + Number(item.totalPeriodo || 0),
+    }),
+    {
+      comision: 0,
+      ivaComision: 0,
+      intereses: 0,
+      ivaIntereses: 0,
+      gastosCobranza: 0,
+      ivaGastos: 0,
+      totalPeriodo: 0,
+    }
+  )
+
+// =============================================================================
+// ESTADOS CUENTA INH - CONSOLIDADO TODOS LOS CONTRATOS
+// Suma comisiones, mora, cobranza e IVA de todos los contratos por periodo.
+// =============================================================================
+
+const construirResumenesPeriodoConsolidadoEstadoCuentaInh = ({
+  contratosArriendo = [],
+  pagosArriendo = [],
+  pagosLiquidacionDeposito = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = [],
+  gestionesCartera = [],
+  contratosDeposito = [],
+  predioPropietarios = [],
+  propietarios = [],
+  predios = [],
+  fechaInicio = '',
+  fechaFin = '',
+}) => {
+  const { fechaFinEfectiva } = normalizarRangoFechasEstadoCuentaInh(fechaInicio, fechaFin)
+  const extractos = construirExtractosArriendoContratos({
+    contratosArriendo,
+    pagosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera,
+    fechaCorte: fechaFinEfectiva,
+  })
+
+  const porPeriodo = new Map()
+
+  extractos.forEach((extracto) => {
+    const contrato = extracto.contrato
+    if (!contrato) return
+
+    const contratoDeposito = obtenerContratoDepositoPredio(
+      contrato.codigoPredio,
+      contratosDeposito
+    )
+    const resumenesContrato = construirResumenesPeriodoEstadoCuentaInh({
+      contrato,
+      movimientos: extracto.movimientos,
+      fechaInicio,
+      fechaFin,
+      contratoDeposito,
+      contratosDeposito,
+      contratosArriendo,
+      pagosArriendo,
+      pagosLiquidacionDeposito,
+      incrementosArriendo,
+      ajustesAdministracion,
+      predioPropietarios,
+      propietarios,
+      predios,
+      gestionesCartera,
+    })
+
+    resumenesContrato.forEach((item) => {
+      const existente = porPeriodo.get(item.periodo) || {
+        periodo: item.periodo,
+        comision: 0,
+        ivaComision: 0,
+        intereses: 0,
+        ivaIntereses: 0,
+        gastosCobranza: 0,
+        ivaGastos: 0,
+        totalPeriodo: 0,
+      }
+
+      porPeriodo.set(item.periodo, {
+        periodo: item.periodo,
+        comision: existente.comision + Number(item.comision || 0),
+        ivaComision: existente.ivaComision + Number(item.ivaComision || 0),
+        intereses: existente.intereses + Number(item.intereses || 0),
+        ivaIntereses: existente.ivaIntereses + Number(item.ivaIntereses || 0),
+        gastosCobranza: existente.gastosCobranza + Number(item.gastosCobranza || 0),
+        ivaGastos: existente.ivaGastos + Number(item.ivaGastos || 0),
+        totalPeriodo: existente.totalPeriodo + Number(item.totalPeriodo || 0),
+      })
+    })
+  })
+
+  return Array.from(porPeriodo.values()).sort((a, b) =>
+    String(a.periodo || '').localeCompare(String(b.periodo || ''))
+  )
 }
 
 // =============================================================================
@@ -9312,6 +9753,90 @@ const construirDesglosePendientePagoArriendoContrato = ({
         totalPendiente: acumulado.totalPendiente + parcial.totalPendiente,
       }
     }, { ...DESGLOSE_PAGO_ARRIENDO_VACIO })
+}
+
+// =============================================================================
+// ARRIENDOS - DESGLOSE RECIBO MES A MES
+// Liquida cada periodo a la fecha del recibo e incluye deudas anteriores impagas.
+// =============================================================================
+
+const construirDesgloseLiquidacionReciboPagoArriendo = ({
+  contrato = null,
+  movimientos = [],
+  fechaCorte = '',
+  mesReferencia = '',
+} = {}) => {
+  if (!contrato || !movimientos.length) {
+    return { ...DESGLOSE_PAGO_ARRIENDO_VACIO, detallePeriodos: [] }
+  }
+
+  const fechaCorteEfectiva = fechaCorte || obtenerFechaLocalISO()
+  const mesLimite =
+    String(fechaCorteEfectiva || '').slice(0, 7) ||
+    String(mesReferencia || '').trim()
+
+  const detallePeriodos = movimientos
+    .filter((movimiento) => !mesLimite || String(movimiento.mes) <= mesLimite)
+    .filter((movimiento) =>
+      movimientoArriendoTieneSaldoPendiente(contrato, movimiento, fechaCorteEfectiva)
+    )
+    .sort((a, b) => String(a.mes).localeCompare(String(b.mes)))
+    .map((movimiento) => {
+      const pendientes = calcularPendientesDeudaPeriodoEstadoCuentaArriendo(
+        contrato,
+        movimiento,
+        fechaCorteEfectiva
+      )
+
+      if (pendientes.saldoPeriodo <= 0) return null
+
+      return {
+        periodo: movimiento.mes,
+        ...pendientesADesglosePagoArriendo(pendientes),
+      }
+    })
+    .filter(Boolean)
+
+  if (detallePeriodos.length === 0) {
+    const mesRef =
+      String(mesReferencia || '').trim() ||
+      mesLimite ||
+      movimientos[movimientos.length - 1]?.mes ||
+      ''
+    const movimientoReferencia =
+      movimientos.find((movimiento) => movimiento.mes === mesRef) ||
+      movimientos[movimientos.length - 1]
+
+    const desgloseReferencia = construirDesglosePendientePagoArriendo({
+      contrato,
+      movimiento: movimientoReferencia,
+      fechaCorte: fechaCorteEfectiva,
+    })
+
+    return {
+      ...desgloseReferencia,
+      detallePeriodos:
+        desgloseReferencia.totalPendiente > 0 && movimientoReferencia
+          ? [{ periodo: movimientoReferencia.mes, ...desgloseReferencia }]
+          : [],
+    }
+  }
+
+  const desglose = detallePeriodos.reduce(
+    (acumulado, parcial) => ({
+      canonIvaPendiente: acumulado.canonIvaPendiente + Number(parcial.canonIvaPendiente || 0),
+      moraPendiente: acumulado.moraPendiente + Number(parcial.moraPendiente || 0),
+      gastosCobranza: acumulado.gastosCobranza + Number(parcial.gastosCobranza || 0),
+      ivaMoraCobranza: acumulado.ivaMoraCobranza + Number(parcial.ivaMoraCobranza || 0),
+      totalPendiente: acumulado.totalPendiente + Number(parcial.totalPendiente || 0),
+    }),
+    { ...DESGLOSE_PAGO_ARRIENDO_VACIO }
+  )
+
+  return {
+    ...desglose,
+    detallePeriodos,
+  }
 }
 
 const calcularMoraSugeridaPagoArriendo = ({
@@ -15725,6 +16250,161 @@ const debePosponerCarteraPorAcuerdo = (gestionesCartera, idContrato, fechaCorte)
   return fechaCorte < promesa.fechaPromesaPago
 }
 
+const obtenerUltimaPromesaPagoCartera = (gestionesCartera, idContrato) =>
+  gestionesCartera
+    .filter(
+      (gestion) =>
+        gestion.idContrato === idContrato &&
+        gestion.fechaPromesaPago &&
+        (gestion.estadoGestion === 'Promesa de pago' ||
+          gestion.estadoGestion === 'Incumplió promesa')
+    )
+    .sort((a, b) => {
+      const diferenciaFechaGestion = new Date(b.fechaGestion) - new Date(a.fechaGestion)
+      if (diferenciaFechaGestion !== 0) return diferenciaFechaGestion
+      return compararFechasISO(b.fechaPromesaPago, a.fechaPromesaPago)
+    })[0] || null
+
+const obtenerFechaPrimerDiaSinPagoArriendoContrato = (
+  contrato,
+  extractoContrato,
+  fechaCorte = ''
+) => {
+  if (!extractoContrato?.movimientos?.length) return ''
+
+  const mesPendiente = obtenerMesPendienteMasAntiguoExtracto({
+    ...extractoContrato,
+    fechaCorte,
+  })
+  if (!mesPendiente) return ''
+
+  const vencimiento = obtenerFechaVencimientoMesArriendo(mesPendiente, contrato)
+  if (!vencimiento || compararFechasISO(fechaCorte, vencimiento) <= 0) return ''
+
+  return agregarDiasFechaISO(vencimiento, 1)
+}
+
+const obtenerUltimaFechaReciboCarteraContrato = ({
+  idContrato,
+  idUnidad = '',
+  codigoPredio = '',
+  pagosArriendo = [],
+  pagosAdministracion = [],
+  pagosServiciosPublicos = [],
+} = {}) => {
+  const fechasRecibo = []
+
+  pagosArriendo
+    .filter(
+      (pago) =>
+        pago.idContrato === idContrato &&
+        pago.fechaPago &&
+        Number(pago.valorPagado || 0) > 0
+    )
+    .forEach((pago) => fechasRecibo.push(pago.fechaPago))
+
+  pagosAdministracion
+    .filter(
+      (pago) =>
+        pago.idContrato === idContrato &&
+        pago.fechaPago &&
+        Number(pago.valorPagado || 0) > 0
+    )
+    .forEach((pago) => fechasRecibo.push(pago.fechaPago))
+
+  if (idUnidad || codigoPredio) {
+    pagosServiciosPublicos
+      .filter(
+        (pago) =>
+          pago.fechaPago &&
+          Number(pago.valorPagado || 0) > 0 &&
+          ((idUnidad && pago.idUnidad === idUnidad) ||
+            (codigoPredio && pago.codigoPredio === codigoPredio))
+      )
+      .forEach((pago) => fechasRecibo.push(pago.fechaPago))
+  }
+
+  if (!fechasRecibo.length) return ''
+
+  return fechasRecibo.sort((a, b) => compararFechasISO(b, a))[0]
+}
+
+const calcularDiasCalendarioDesdeFecha = (fechaBase, fechaReferencia = '') => {
+  if (!fechaBase || !fechaReferencia) return 0
+
+  const fechaCorte = new Date(`${fechaReferencia}T00:00:00`)
+  const fecha = new Date(`${fechaBase}T00:00:00`)
+  fechaCorte.setHours(0, 0, 0, 0)
+
+  const diferencia = fechaCorte - fecha
+  const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24))
+
+  return dias > 0 ? dias : 0
+}
+
+const calcularDiasSinGestionContratoCartera = ({
+  contrato,
+  extractoContrato,
+  gestionesCartera,
+  idContrato,
+  pagosArriendo = [],
+  pagosAdministracion = [],
+  pagosServiciosPublicos = [],
+  idUnidad = '',
+  codigoPredio = '',
+  fechaCorte = '',
+  saldoTotalDeuda = 0,
+}) => {
+  if (Number(saldoTotalDeuda || 0) <= 0) return 0
+
+  const promesaActiva = obtenerPromesaVigenteCartera(gestionesCartera, idContrato)
+  if (
+    promesaActiva?.fechaPromesaPago &&
+    compararFechasISO(fechaCorte, promesaActiva.fechaPromesaPago) <= 0
+  ) {
+    return 0
+  }
+
+  let fechaReferencia = obtenerFechaPrimerDiaSinPagoArriendoContrato(
+    contrato,
+    extractoContrato,
+    fechaCorte
+  )
+  if (!fechaReferencia) return 0
+
+  const ultimaFechaRecibo = obtenerUltimaFechaReciboCarteraContrato({
+    idContrato,
+    idUnidad,
+    codigoPredio,
+    pagosArriendo,
+    pagosAdministracion,
+    pagosServiciosPublicos,
+  })
+
+  if (
+    ultimaFechaRecibo &&
+    compararFechasISO(ultimaFechaRecibo, fechaReferencia) >= 0
+  ) {
+    const diaDespuesRecibo = agregarDiasFechaISO(ultimaFechaRecibo, 1)
+    if (compararFechasISO(diaDespuesRecibo, fechaReferencia) > 0) {
+      fechaReferencia = diaDespuesRecibo
+    }
+  }
+
+  const ultimaPromesa = promesaActiva || obtenerUltimaPromesaPagoCartera(gestionesCartera, idContrato)
+  if (
+    ultimaPromesa?.fechaPromesaPago &&
+    compararFechasISO(fechaCorte, ultimaPromesa.fechaPromesaPago) > 0
+  ) {
+    const diaDespuesPromesa = agregarDiasFechaISO(ultimaPromesa.fechaPromesaPago, 1)
+    if (compararFechasISO(diaDespuesPromesa, fechaReferencia) > 0) {
+      fechaReferencia = diaDespuesPromesa
+    }
+  }
+
+  return calcularDiasCalendarioDesdeFecha(fechaReferencia, fechaCorte)
+}
+
 const calcularEstadoCarteraContrato = ({
   saldoTotalCliente,
   saldoMes,
@@ -15764,6 +16444,377 @@ const obtenerEtiquetaSeguimientoCartera = (item, gestionesCartera, fechaCorte) =
     clase: 'status active',
   }
 }
+
+// =============================================================================
+// CARTERA - DEUDA REGISTRADA EN GESTION
+// Total adeudado al momento de registrar la llamada (sin desglose).
+// =============================================================================
+
+const calcularDeudaTotalDesdeItemCartera = (item, extractosServiciosPublicos = []) => {
+  if (!item) return 0
+
+  const saldoArriendo = Number(
+    item.saldoArriendoCliente ?? item.saldoTotalCliente ?? item.saldo ?? 0
+  )
+  const saldoAdministracion = Number(item.saldoAdministracionCliente ?? 0)
+  const saldoServicios = Number(
+    item.saldoServiciosPublicosCliente ??
+      (() => {
+        const resumenServicios = obtenerResumenServiciosPublicosUnidad(
+          { id: item.idUnidad, codigoPredio: item.codigoPredio },
+          extractosServiciosPublicos
+        )
+        return resumenServicios.tieneServicios ? Number(resumenServicios.saldoTotal || 0) : 0
+      })()
+  )
+
+  return saldoArriendo + saldoAdministracion + saldoServicios
+}
+
+const calcularDeudaTotalContratoGestionCartera = ({
+  idContrato = '',
+  idUnidad = '',
+  codigoPredio = '',
+  item = null,
+  extractosArriendo = [],
+  extractosAdministracion = [],
+  extractosServiciosPublicos = [],
+} = {}) => {
+  const deudaDesdeItem = calcularDeudaTotalDesdeItemCartera(item, extractosServiciosPublicos)
+  if (deudaDesdeItem > 0) return deudaDesdeItem
+
+  const extractoArriendo = extractosArriendo.find(
+    (extracto) => obtenerIdContrato(extracto.contrato) === idContrato
+  )
+  const saldoArriendoExtracto = Number(extractoArriendo?.resumen?.saldoDeudaTotal ?? 0)
+
+  const extractoAdministracion = extractosAdministracion.find(
+    (extracto) => obtenerIdContrato(extracto.contrato) === idContrato
+  )
+  const saldoAdministracionExtracto = Number(
+    extractoAdministracion?.resumen?.saldoDeudaTotal ?? 0
+  )
+
+  const resumenServicios = obtenerResumenServiciosPublicosUnidad(
+    { id: idUnidad, codigoPredio },
+    extractosServiciosPublicos
+  )
+  const saldoServicios = resumenServicios.tieneServicios
+    ? Number(resumenServicios.saldoTotal || 0)
+    : 0
+
+  return saldoArriendoExtracto + saldoAdministracionExtracto + saldoServicios
+}
+
+const obtenerDeudaAlGestionCartera = (gestion = {}) => {
+  const saldoArriendo = Number(
+    gestion.saldoArriendoAlGestion ?? gestion.saldoArriendoCliente ?? 0
+  )
+  const saldoAdministracion = Number(gestion.saldoAdministracionAlGestion ?? 0)
+  const saldoServicios = Number(gestion.saldoServiciosAlGestion ?? 0)
+  const sumaComponentes = saldoArriendo + saldoAdministracion + saldoServicios
+
+  if (sumaComponentes > 0) return sumaComponentes
+
+  const saldoGuardado = gestion.saldoTotalAlGestion
+  if (saldoGuardado !== undefined && saldoGuardado !== null && saldoGuardado !== '') {
+    return Number(saldoGuardado)
+  }
+
+  return Number(gestion.saldoTotalCliente ?? 0)
+}
+
+const prepararContratoGestionCartera = (
+  contratoItem,
+  extractosServiciosPublicos = [],
+  extractosArriendo = []
+) => {
+  const extractoArriendo = extractosArriendo.find(
+    (extracto) => obtenerIdContrato(extracto.contrato) === contratoItem.idContrato
+  )
+  const saldoArriendoCliente = Number(
+    contratoItem.saldoArriendoCliente ??
+      contratoItem.saldoTotalCliente ??
+      contratoItem.saldo ??
+      extractoArriendo?.resumen?.saldoDeudaTotal ??
+      0
+  )
+  const resumenServicios = obtenerResumenServiciosPublicosUnidad(
+    { id: contratoItem.idUnidad, codigoPredio: contratoItem.codigoPredio },
+    extractosServiciosPublicos
+  )
+  const saldoServiciosPublicosCliente = resumenServicios.tieneServicios
+    ? Number(resumenServicios.saldoTotal || 0)
+    : 0
+
+  const itemPreparado = {
+    ...contratoItem,
+    saldoArriendoCliente,
+    saldoTotalCliente: saldoArriendoCliente,
+    saldoAdministracionCliente: Number(contratoItem.saldoAdministracionCliente ?? 0),
+    saldoServiciosPublicosCliente,
+  }
+
+  return {
+    ...itemPreparado,
+    deudaTotalAlGestionar: calcularDeudaTotalDesdeItemCartera(
+      itemPreparado,
+      extractosServiciosPublicos
+    ),
+  }
+}
+
+// =============================================================================
+// COMPONENTE - ULTIMA GESTION CARTERA
+// Resumen de la gestion mas reciente del contrato.
+// =============================================================================
+
+function TarjetaUltimaGestionCartera({ gestion, formatearDinero }) {
+  if (!gestion) return null
+
+  const deudaAlGestion = obtenerDeudaAlGestionCartera(gestion)
+
+  return (
+    <div className="gestion-cartera-ultima-card">
+      <div className="detail-grid gestion-cartera-ultima-grid">
+        <div>
+          <span>Fecha</span>
+          <strong>{formatearFechaLocalHumana(gestion.fechaGestion)}</strong>
+        </div>
+        <div>
+          <span>Usuario</span>
+          <strong>{gestion.usuarioGestion || 'Sin usuario'}</strong>
+        </div>
+        <div>
+          <span>Estado</span>
+          <strong>{gestion.estadoGestion}</strong>
+        </div>
+        <div>
+          <span>Periodo</span>
+          <strong>{gestion.mes || '—'}</strong>
+        </div>
+        <div>
+          <span>Deuda al gestionar</span>
+          <strong className={deudaAlGestion > 0 ? 'saldo-atraso' : ''}>
+            {formatearDinero(deudaAlGestion)}
+          </strong>
+        </div>
+        {gestion.fechaPromesaPago && (
+          <div>
+            <span>Promesa de pago</span>
+            <strong>{formatearFechaLocalHumana(gestion.fechaPromesaPago)}</strong>
+          </div>
+        )}
+      </div>
+      {gestion.observacion && (
+        <p className="gestion-cartera-observacion">
+          <span>Observación</span>
+          {gestion.observacion}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
+// COMPONENTE - EXTRACTO HISTORIAL GESTIONES CARTERA
+// Listado imprimible tipo extracto, ordenado por fecha.
+// =============================================================================
+
+function HistorialGestionesCarteraPrint({
+  gestiones = [],
+  contratoInfo = {},
+  formatearDinero,
+  className = '',
+}) {
+  return (
+    <section
+      className={`estado-cuenta-print gestion-cartera-extracto-print gestion-cartera-historial-print ${className}`.trim()}
+    >
+      <div className="estado-cuenta-header">
+        <div>
+          <h1>INH Constructores</h1>
+          <h2>Extracto de gestiones de cartera</h2>
+          <p>
+            Historial de llamadas y seguimiento del contrato{' '}
+            <strong>{contratoInfo.numeroContrato || '—'}</strong> —{' '}
+            {contratoInfo.arrendatario || 'Sin arrendatario'}.
+          </p>
+        </div>
+
+        <div className="estado-cuenta-logo">
+          <img src={LOGO_INH} alt="INH Constructores" />
+        </div>
+      </div>
+
+      <div className="estado-cuenta-info">
+        <div>
+          <span>Contrato</span>
+          <strong>{contratoInfo.numeroContrato || '—'}</strong>
+        </div>
+        <div>
+          <span>Predio / Unidad</span>
+          <strong>
+            {contratoInfo.codigoPredio || '—'} — {contratoInfo.nombreUnidad || 'Sin unidad'}
+          </strong>
+        </div>
+        <div>
+          <span>Arrendatario</span>
+          <strong>{contratoInfo.arrendatario || '—'}</strong>
+        </div>
+        <div>
+          <span>Total gestiones</span>
+          <strong>{gestiones.length}</strong>
+        </div>
+      </div>
+
+      <div className="estado-cuenta-tabla gestion-cartera-extracto-tabla">
+        <h3>Detalle de gestiones (orden cronológico descendente)</h3>
+        <table className="extracto-table extracto-table-gestiones">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Usuario</th>
+              <th>Periodo</th>
+              <th className="col-monto-predial">Deuda al gestionar</th>
+              <th>Promesa</th>
+              <th>Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            {gestiones.map((gestion, index) => {
+              const deudaAlGestion = obtenerDeudaAlGestionCartera(gestion)
+
+              return (
+                <tr key={gestion.id || `${gestion.fechaGestion}-${index}`}>
+                  <td>{formatearFechaLocalHumana(gestion.fechaGestion)}</td>
+                  <td>{gestion.estadoGestion}</td>
+                  <td>{gestion.usuarioGestion || 'Sin usuario'}</td>
+                  <td>{gestion.mes || '—'}</td>
+                  <td className="col-monto-predial">
+                    <strong>{formatearDinero(deudaAlGestion)}</strong>
+                  </td>
+                  <td>
+                    {gestion.fechaPromesaPago
+                      ? formatearFechaLocalHumana(gestion.fechaPromesaPago)
+                      : '—'}
+                  </td>
+                  <td className="gestion-cartera-extracto-observacion">
+                    {gestion.observacion || '—'}
+                  </td>
+                </tr>
+              )
+            })}
+
+            {gestiones.length === 0 && (
+              <tr>
+                <td colSpan="7">No hay gestiones registradas para este contrato.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function PanelGestionesAnterioresContrato({
+  gestiones = [],
+  contratoInfo = {},
+  formatearDinero,
+  mostrarHistorial = false,
+  onToggleHistorial = null,
+  onImprimir = null,
+  titulo = 'Gestiones anteriores',
+  className = '',
+}) {
+  const ultimaGestion = gestiones[0] || null
+
+  return (
+    <div className={`gestion-cartera-modulo-seccion gestion-cartera-anteriores-seccion ${className}`.trim()}>
+      <div className="form-section-title full">{titulo}</div>
+
+      {ultimaGestion ? (
+        <TarjetaUltimaGestionCartera gestion={ultimaGestion} formatearDinero={formatearDinero} />
+      ) : (
+        <p className="form-description gestion-cartera-sin-modulo">
+          No hay gestiones registradas para este contrato.
+        </p>
+      )}
+
+      <div className="gestion-cartera-anteriores-acciones">
+        {gestiones.length > 0 && onToggleHistorial && (
+          <button type="button" className="btn-secondary" onClick={onToggleHistorial}>
+            {mostrarHistorial ? 'Ocultar gestiones' : 'Ver gestiones'}
+          </button>
+        )}
+      </div>
+
+      {mostrarHistorial && gestiones.length > 0 && (
+        <div className="gestion-cartera-historial-panel">
+          {onImprimir && (
+            <div className="gestion-cartera-historial-toolbar no-print">
+              <button type="button" className="btn-primary" onClick={onImprimir}>
+                Imprimir extracto
+              </button>
+            </div>
+          )}
+
+          <HistorialGestionesCarteraPrint
+            gestiones={gestiones}
+            contratoInfo={contratoInfo}
+            formatearDinero={formatearDinero}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+const filtrarContratosActivosCarteraPorTexto = (
+  contratosArriendo = [],
+  textoBusqueda = '',
+  predios = []
+) => {
+  const texto = textoBusqueda.trim().toLowerCase()
+  const contratosActivos = contratosArriendo.filter((contrato) => contrato.estado === 'Activo')
+
+  if (!texto) return []
+
+  return contratosActivos.filter((contrato) => {
+    const predioContrato = predios.find((predio) => predio.codigo === contrato.codigoPredio)
+
+    return (
+      String(obtenerNumeroContratoVisible(contrato, predios, contratosArriendo) || '')
+        .toLowerCase()
+        .includes(texto) ||
+      String(contrato.codigoPredio || '').toLowerCase().includes(texto) ||
+      String(contrato.nombreUnidad || '').toLowerCase().includes(texto) ||
+      String(contrato.tipoUnidad || '').toLowerCase().includes(texto) ||
+      String(contrato.arrendatario || '').toLowerCase().includes(texto) ||
+      String(contrato.numeroDocumento || '').toLowerCase().includes(texto) ||
+      String(contrato.telefono || '').toLowerCase().includes(texto) ||
+      String(contrato.whatsapp || '').toLowerCase().includes(texto) ||
+      String(contrato.correo || '').toLowerCase().includes(texto) ||
+      String(predioContrato?.direccion || '').toLowerCase().includes(texto) ||
+      String(predioContrato?.barrio || '').toLowerCase().includes(texto)
+    )
+  })
+}
+
+const construirContratoInfoHistorialGestiones = (
+  contrato,
+  predios = [],
+  contratosArriendo = [],
+  mes = ''
+) => ({
+  numeroContrato: obtenerNumeroContratoVisible(contrato, predios, contratosArriendo),
+  arrendatario: contrato?.arrendatario || '',
+  codigoPredio: contrato?.codigoPredio || '',
+  nombreUnidad: contrato?.nombreUnidad || contrato?.idUnidad || '',
+  mes,
+})
 
 const crearFilaTablaCarteraArriendo = ({
   item,
@@ -18071,6 +19122,11 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [codigoPredioEstadoCuenta, setCodigoPredioEstadoCuenta] = useState('')
   const [busquedaEstadoCuentaArriendo, setBusquedaEstadoCuentaArriendo] = useState('')
   const [idContratoEstadoCuenta, setIdContratoEstadoCuenta] = useState('')
+  const [alcanceEstadoCuentaInh, setAlcanceEstadoCuentaInh] = useState('todos')
+  const [fechaInicioEstadoCuentaInh, setFechaInicioEstadoCuentaInh] = useState('')
+  const [fechaFinEstadoCuentaInh, setFechaFinEstadoCuentaInh] = useState(obtenerFechaLocalISO())
+  const [busquedaEstadoCuentaInh, setBusquedaEstadoCuentaInh] = useState('')
+  const [idContratoEstadoCuentaInh, setIdContratoEstadoCuentaInh] = useState('')
   const [busquedaEstadoCuentaServicios, setBusquedaEstadoCuentaServicios] = useState('')
   const [claveExtractoServicioEstadoCuenta, setClaveExtractoServicioEstadoCuenta] = useState('')
 
@@ -18243,6 +19299,16 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
 
   const [vistaCarteraDiaria, setVistaCarteraDiaria] = useState('')
 
+  const [busquedaContratoGestionesRealizadas, setBusquedaContratoGestionesRealizadas] =
+    useState('')
+  const [idContratoGestionesRealizadas, setIdContratoGestionesRealizadas] = useState('')
+  const [
+    mostrarTodosContratosGestionesRealizadas,
+    setMostrarTodosContratosGestionesRealizadas,
+  ] = useState(false)
+  const [mostrarHistorialGestionesRealizadas, setMostrarHistorialGestionesRealizadas] =
+    useState(false)
+
   const [gestionesCartera, setGestionesCartera] = useState([])
 
   const [contratoGestionCartera, setContratoGestionCartera] = useState(null)
@@ -18256,9 +19322,10 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
     mostrarEstadoCuentaAdministracionGestionCartera,
     setMostrarEstadoCuentaAdministracionGestionCartera,
   ] = useState(false)
+  const [mostrarHistorialGestionesCartera, setMostrarHistorialGestionesCartera] =
+    useState(false)
   const [estadoGestionCartera, setEstadoGestionCartera] = useState('Contactado')
   const [fechaPromesaPagoCartera, setFechaPromesaPagoCartera] = useState('')
-  const [moraGestionCartera, setMoraGestionCartera] = useState('')
   const [observacionGestionCartera, setObservacionGestionCartera] = useState('')
   const [fechaPagoArriendo, setFechaPagoArriendo] = useState('')
   const [valorPagadoArriendo, setValorPagadoArriendo] = useState('')
@@ -18515,6 +19582,7 @@ useEffect(() => {
   setMostrarEstadoCuentaGestionCartera(false)
   setMostrarEstadoCuentaServiciosGestionCartera(false)
   setMostrarEstadoCuentaAdministracionGestionCartera(false)
+  setMostrarHistorialGestionesCartera(false)
 }, [contratoGestionCartera?.idContrato])
 
 useEffect(() => {
@@ -19631,6 +20699,11 @@ const guardarEdicionUsuarioAdmin = () => {
         setCodigoPredioEstadoCuenta('')
         setBusquedaEstadoCuentaArriendo('')
         setIdContratoEstadoCuenta('')
+        setAlcanceEstadoCuentaInh('todos')
+        setFechaInicioEstadoCuentaInh('')
+        setFechaFinEstadoCuentaInh(obtenerFechaLocalISO())
+        setBusquedaEstadoCuentaInh('')
+        setIdContratoEstadoCuentaInh('')
         setBusquedaEstadoCuentaServicios('')
         setClaveExtractoServicioEstadoCuenta('')
         setBusquedaLiquidacionDeposito('')
@@ -22451,10 +23524,11 @@ const canonCalculado = calcularCanonArriendo(contratoPagoArriendo, mesPagoArrien
     )
 
     if (tieneSaldoPendiente) {
-      return construirDesglosePendientePagoArriendoContrato({
+      return construirDesgloseLiquidacionReciboPagoArriendo({
         contrato,
         movimientos,
         fechaCorte: fechaCorte || '',
+        mesReferencia: (fechaCorte || '').slice(0, 7),
       })
     }
 
@@ -24578,7 +25652,7 @@ cerrarFormularioContrato({
 
 const construirHtmlAuditoriaLiquidacionReciboArriendoImpresion = (
   auditoria,
-  saldoAlCorteRecibo = 0
+  saldoLiquidadoRecibo = 0
 ) => {
   if (!auditoria) return ''
 
@@ -24589,7 +25663,7 @@ const construirHtmlAuditoriaLiquidacionReciboArriendoImpresion = (
     ['Intereses de mora recalculados', formatearDinero(auditoria.moraRecalculada || 0)],
     ['Gastos de cobranza recalculados', formatearDinero(auditoria.gastosCobranzaRecalculados || 0)],
     ['IVA mora y cobranza recalculado', formatearDinero(auditoria.ivaMoraCobranzaRecalculado || 0)],
-    ['Total liquidado al recibo', formatearDinero(saldoAlCorteRecibo || 0)],
+    ['Total liquidado al recibo', formatearDinero(saldoLiquidadoRecibo || 0)],
   ]
     .map(
       ([etiqueta, valor]) =>
@@ -24602,6 +25676,45 @@ const construirHtmlAuditoriaLiquidacionReciboArriendoImpresion = (
     : ''
 
   return `<div class="obs"><span class="lbl">Trazabilidad de liquidación</span>${filas}${notaRecalculo}</div>`
+}
+
+const construirHtmlDetallePeriodosReciboArriendoImpresion = (
+  detallePeriodos = [],
+  formatearDineroFn = formatearDinero
+) => {
+  if (!detallePeriodos.length) return ''
+
+  const filas = detallePeriodos
+    .map(
+      (item) => `
+        <tr>
+          <td>${escapeHtml(item.periodo || '—')}</td>
+          <td class="num">${escapeHtml(formatearDineroFn(item.canonIvaPendiente || 0))}</td>
+          <td class="num">${escapeHtml(formatearDineroFn(item.moraPendiente || 0))}</td>
+          <td class="num">${escapeHtml(formatearDineroFn(item.gastosCobranza || 0))}</td>
+          <td class="num">${escapeHtml(formatearDineroFn(item.ivaMoraCobranza || 0))}</td>
+          <td class="num"><strong>${escapeHtml(formatearDineroFn(item.totalPendiente || 0))}</strong></td>
+        </tr>`
+    )
+    .join('')
+
+  return `
+    <div class="obs">
+      <span class="lbl">Liquidación mes a mes (a la fecha del recibo)</span>
+      <table class="datos recibo-tabla-periodos">
+        <thead>
+          <tr>
+            <th>Periodo</th>
+            <th class="num">Canon + IVA</th>
+            <th class="num">Mora</th>
+            <th class="num">Cobranza</th>
+            <th class="num">IVA</th>
+            <th class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>`
 }
 
 // =============================================================================
@@ -24644,7 +25757,10 @@ const imprimirReciboPagoArriendo = (recibo) => {
     ''
   const htmlAuditoria = construirHtmlAuditoriaLiquidacionReciboArriendoImpresion(
     recibo.auditoriaLiquidacion,
-    reciboImpresion.saldoPosterior || 0
+    reciboImpresion.saldoAnterior || 0
+  )
+  const htmlDetallePeriodos = construirHtmlDetallePeriodosReciboArriendoImpresion(
+    recibo.auditoriaLiquidacion?.detallePeriodos || []
   )
 
   abrirVentanaReciboMediaCarta(
@@ -24707,8 +25823,9 @@ const imprimirReciboPagoArriendo = (recibo) => {
           <span class="lbl">Valor pagado</span>
           <div class="val">${escapeHtml(formatearDinero(reciboImpresion.valorPagado || 0))}</div>
         </div>
-        <div class="fila-saldo"><span>Saldo pendiente del periodo (antes del pago)</span><strong>${escapeHtml(formatearDinero(reciboImpresion.saldoAnterior || 0))}</strong></div>
-        <div class="fila-saldo"><span>Nuevo saldo del periodo</span><strong>${escapeHtml(formatearDinero(reciboImpresion.saldoPosterior || 0))}</strong></div>
+        <div class="fila-saldo"><span>Saldo pendiente liquidado (antes del pago)</span><strong>${escapeHtml(formatearDinero(reciboImpresion.saldoAnterior || 0))}</strong></div>
+        <div class="fila-saldo"><span>Nuevo saldo pendiente</span><strong>${escapeHtml(formatearDinero(reciboImpresion.saldoPosterior || 0))}</strong></div>
+        ${htmlDetallePeriodos}
         ${htmlAuditoria}
         <div class="obs"><span class="lbl">Observaciones</span>${escapeHtml(observaciones)}</div>
       </div>
@@ -24930,22 +26047,20 @@ if (
   return
 }
 
-  const contratoGestion = contratosArriendo.find(
-    (contrato) => obtenerIdContrato(contrato) === contratoGestionCartera.idContrato
+  const saldoArriendoAlGestion = Number(
+    contratoGestionCartera.saldoArriendoCliente ??
+      contratoGestionCartera.saldoTotalCliente ??
+      contratoGestionCartera.saldo ??
+      0
   )
-  const movimientoGestionCartera = contratoGestion
-    ? calcularMovimientoArriendoMes(contratoGestion, contratoGestionCartera.mes, {
-        idContrato: obtenerIdContrato(contratoGestion),
-        fechaCorteMora: fechaCorteCartera || obtenerFechaLocalISO(),
-        ...construirContextoCalculoArriendo({
-          pagosArriendo,
-          incrementosArriendo,
-          ajustesAdministracion,
-          gestionesCartera,
-        }),
-      })
-    : null
-  const gastosCobranzaGestion = Number(movimientoGestionCartera?.sancionCobranza || 0)
+  const saldoAdministracionAlGestion = Number(
+    contratoGestionCartera.saldoAdministracionCliente ?? 0
+  )
+  const saldoServiciosAlGestion = Number(
+    contratoGestionCartera.saldoServiciosPublicosCliente ?? 0
+  )
+  const saldoTotalAlGestion =
+    saldoArriendoAlGestion + saldoAdministracionAlGestion + saldoServiciosAlGestion
 
   const nuevaGestion = {
     id: `GES-${Date.now()}`,
@@ -24964,8 +26079,10 @@ if (
     whatsapp: contratoGestionCartera.whatsapp || '',
     estadoGestion: estadoGestionCartera,
     fechaPromesaPago: fechaPromesaPagoCartera,
-    mora: Number(moraGestionCartera || 0),
-    sancionCobranza: gastosCobranzaGestion,
+    saldoArriendoAlGestion,
+    saldoAdministracionAlGestion,
+    saldoServiciosAlGestion,
+    saldoTotalAlGestion,
     observacion: observacionGestionCartera.trim(),
   }
 
@@ -24974,7 +26091,6 @@ if (
   setContratoGestionCartera(null)
   setEstadoGestionCartera('Contactado')
   setFechaPromesaPagoCartera('')
-  setMoraGestionCartera('')
   setObservacionGestionCartera('')
 
   if (estadoGestionCartera === 'Promesa de pago' && fechaPromesaPagoCartera) {
@@ -25942,20 +27058,23 @@ const opcionesConceptoPagoArriendo = enAtrasoPagoArriendo
 
 const canonMensualPagoArriendo = Number(canonCalculado?.canonCausado || 0)
 
-const movimientoPagoArriendoMes =
-  contratoPagoArriendo && mesPagoArriendo
-    ? calcularMovimientoArriendoMes(contratoPagoArriendo, mesPagoArriendo, {
-        fechaCorteMora: fechaPagoArriendo || fechaCorteAlertasArriendo,
-        ...contextoCalculoArriendo,
-      })
-    : null
+const movimientosLiquidacionReciboPago =
+  contratoPagoArriendo && fechaPagoArriendo
+    ? generarMesesContrato(contratoPagoArriendo).map((mes) =>
+        calcularMovimientoArriendoMes(contratoPagoArriendo, mes, {
+          fechaCorteMora: fechaPagoArriendo,
+          ...contextoCalculoArriendo,
+        })
+      )
+    : []
 
 const desglosePagoArriendo =
-  contratoPagoArriendo && mesPagoArriendo && movimientoPagoArriendoMes
-    ? construirDesglosePendientePagoArriendo({
+  contratoPagoArriendo && fechaPagoArriendo
+    ? construirDesgloseLiquidacionReciboPagoArriendo({
         contrato: contratoPagoArriendo,
-        movimiento: movimientoPagoArriendoMes,
-        fechaCorte: fechaPagoArriendo || fechaCorteCartera || '',
+        movimientos: movimientosLiquidacionReciboPago,
+        fechaCorte: fechaPagoArriendo,
+        mesReferencia: mesPagoArriendo || fechaPagoArriendo.slice(0, 7),
       })
     : construirDesglosePendientePagoArriendo()
 const totalPendientePeriodoPago = desglosePagoArriendo.totalPendiente
@@ -26070,7 +27189,7 @@ const construirReciboPagoArriendoActual = () => {
 
   if (valorPagado > saldoAnteriorReciboPago) {
     alert(
-      `El valor pagado (${formatearDinero(valorPagado)}) no puede superar el total pendiente del periodo (${formatearDinero(saldoAnteriorReciboPago)}).`
+      `El valor pagado (${formatearDinero(valorPagado)}) no puede superar el total pendiente liquidado (${formatearDinero(saldoAnteriorReciboPago)}).`
     )
     return null
   }
@@ -26409,10 +27528,22 @@ const propietariosContratoSeleccionado = contratoSeleccionado
 
     const fechaLimiteNormal = obtenerFechaVencimientoMesArriendo(mesCarteraArriendos, contrato)
 
-    const fechaBaseGestion =
-      ultimaGestionReal?.fechaGestion || fechaLimiteNormal
+    const saldoTotalDeudaContrato =
+      saldoArriendoCliente + Number(saldoAdministracionCliente || 0)
 
-    const diasSinGestion = calcularDiasSinGestion(fechaBaseGestion, fechaCorteCartera)
+    const diasSinGestion = calcularDiasSinGestionContratoCartera({
+      contrato,
+      extractoContrato,
+      gestionesCartera,
+      idContrato: idContratoActual,
+      pagosArriendo,
+      pagosAdministracion,
+      pagosServiciosPublicos,
+      idUnidad: contrato.idUnidad || '',
+      codigoPredio: contrato.codigoPredio,
+      fechaCorte: fechaCorteCartera,
+      saldoTotalDeuda: saldoTotalDeudaContrato,
+    })
 
     const saldo = saldoArriendoCliente
 
@@ -26847,6 +27978,42 @@ const prediosPagoPredialFiltrados = (textoBusquedaPredioPagoPredial
       })
     : []
 
+  const textoBusquedaEstadoCuentaInh = busquedaEstadoCuentaInh.trim().toLowerCase()
+
+  const contratosEstadoCuentaInhFiltrados = textoBusquedaEstadoCuentaInh
+    ? contratosArriendo.filter((contrato) => {
+        const predioContrato = predios.find(
+          (predio) => predio.codigo === contrato.codigoPredio
+        )
+        const propietariosPredio = obtenerPropietariosEnriquecidos(contrato.codigoPredio)
+        const textoPropietarios = propietariosPredio
+          .map(
+            (propietario) =>
+              `${propietario.nombre} ${propietario.numeroDocumento} ${propietario.telefono} ${propietario.correo}`
+          )
+          .join(' ')
+
+        return (
+          String(obtenerNumeroContratoVisible(contrato, predios, contratosArriendo) || '')
+            .toLowerCase()
+            .includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.idContrato || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.codigoPredio || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.nombreUnidad || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.tipoUnidad || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.arrendatario || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.numeroDocumento || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.telefono || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.correo || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(contrato.whatsapp || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(predioContrato?.direccion || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(predioContrato?.barrio || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          String(predioContrato?.ciudad || '').toLowerCase().includes(textoBusquedaEstadoCuentaInh) ||
+          textoPropietarios.toLowerCase().includes(textoBusquedaEstadoCuentaInh)
+        )
+      })
+    : []
+
   const extractosAdministracion = contratosArriendo
     .filter((contrato) => contratoAplicaAdministracion(contrato))
     .map((contrato) => {
@@ -27030,6 +28197,77 @@ const extractoEstadoCuentaArriendoSeleccionado = idContratoEstadoCuenta
       (extracto) => obtenerIdContrato(extracto.contrato) === idContratoEstadoCuenta
     )
   : null
+
+const extractoEstadoCuentaInhSeleccionado =
+  alcanceEstadoCuentaInh === 'contrato' && idContratoEstadoCuentaInh
+    ? (() => {
+        const contrato = contratosArriendo.find(
+          (item) => obtenerIdContrato(item) === idContratoEstadoCuentaInh
+        )
+        if (!contrato) return null
+        return construirExtractosArriendoContratos({
+          contratosArriendo: [contrato],
+          pagosArriendo,
+          incrementosArriendo,
+          ajustesAdministracion,
+          gestionesCartera,
+          fechaCorte:
+            normalizarRangoFechasEstadoCuentaInh(
+              fechaInicioEstadoCuentaInh,
+              fechaFinEstadoCuentaInh
+            ).fechaFinEfectiva,
+        })[0]
+      })()
+    : null
+
+const resumenesPeriodoEstadoCuentaInh = extractoEstadoCuentaInhSeleccionado
+  ? construirResumenesPeriodoEstadoCuentaInh({
+      contrato: extractoEstadoCuentaInhSeleccionado.contrato,
+      movimientos: extractoEstadoCuentaInhSeleccionado.movimientos,
+      fechaInicio: fechaInicioEstadoCuentaInh,
+      fechaFin: fechaFinEstadoCuentaInh,
+      contratoDeposito: obtenerContratoDepositoPredio(
+        extractoEstadoCuentaInhSeleccionado.contrato.codigoPredio,
+        contratosDeposito
+      ),
+      contratosDeposito,
+      contratosArriendo,
+      pagosArriendo,
+      pagosLiquidacionDeposito,
+      incrementosArriendo,
+      ajustesAdministracion,
+      predioPropietarios,
+      propietarios,
+      predios,
+      gestionesCartera,
+    })
+  : []
+
+const totalesPeriodoEstadoCuentaInh = calcularTotalesResumenesPeriodoEstadoCuentaInh(
+  resumenesPeriodoEstadoCuentaInh
+)
+
+const resumenesPeriodoConsolidadoEstadoCuentaInh =
+  alcanceEstadoCuentaInh === 'todos'
+    ? construirResumenesPeriodoConsolidadoEstadoCuentaInh({
+        contratosArriendo,
+        pagosArriendo,
+        pagosLiquidacionDeposito,
+        incrementosArriendo,
+        ajustesAdministracion,
+        gestionesCartera,
+        contratosDeposito,
+        predioPropietarios,
+        propietarios,
+        predios,
+        fechaInicio: fechaInicioEstadoCuentaInh,
+        fechaFin: fechaFinEstadoCuentaInh,
+      })
+    : []
+
+const totalesPeriodoConsolidadoEstadoCuentaInh = calcularTotalesResumenesPeriodoEstadoCuentaInh(
+  resumenesPeriodoConsolidadoEstadoCuentaInh
+)
 
 const textoBusquedaEstadoCuentaServicios = busquedaEstadoCuentaServicios.trim().toLowerCase()
 
@@ -27966,6 +29204,62 @@ const contratosPagoArriendoFiltrados = textoBusquedaContratoPagoArriendo
   : []
 
 
+  const textoBusquedaContratoGestionesRealizadas =
+    busquedaContratoGestionesRealizadas.trim().toLowerCase()
+
+  const contratosActivosGestionesRealizadas = contratosArriendo.filter(
+    (contrato) => contrato.estado === 'Activo'
+  )
+
+  const contratosGestionesRealizadasFiltrados = textoBusquedaContratoGestionesRealizadas
+    ? filtrarContratosActivosCarteraPorTexto(
+        contratosArriendo,
+        busquedaContratoGestionesRealizadas,
+        predios
+      )
+    : mostrarTodosContratosGestionesRealizadas
+      ? contratosActivosGestionesRealizadas
+      : []
+
+  const contratoGestionesRealizadasSeleccionado = idContratoGestionesRealizadas
+    ? contratosArriendo.find(
+        (contrato) => obtenerIdContrato(contrato) === idContratoGestionesRealizadas
+      )
+    : null
+
+  const gestionesContratoRealizadas = contratoGestionesRealizadasSeleccionado
+    ? obtenerGestionesContratoCartera(
+        gestionesCartera,
+        obtenerIdContrato(contratoGestionesRealizadasSeleccionado)
+      )
+    : []
+
+  const contratoInfoGestionesRealizadas = contratoGestionesRealizadasSeleccionado
+    ? construirContratoInfoHistorialGestiones(
+        contratoGestionesRealizadasSeleccionado,
+        predios,
+        contratosArriendo,
+        mesCarteraArriendos
+      )
+    : null
+
+  const limpiarConsultaGestionesRealizadas = () => {
+    setBusquedaContratoGestionesRealizadas('')
+    setIdContratoGestionesRealizadas('')
+    setMostrarTodosContratosGestionesRealizadas(false)
+    setMostrarHistorialGestionesRealizadas(false)
+  }
+
+  const seleccionarContratoGestionesRealizadas = (contrato) => {
+    setIdContratoGestionesRealizadas(obtenerIdContrato(contrato))
+    setBusquedaContratoGestionesRealizadas(
+      obtenerNumeroContratoVisible(contrato, predios, contratosArriendo)
+    )
+    setMostrarTodosContratosGestionesRealizadas(false)
+    setMostrarHistorialGestionesRealizadas(true)
+  }
+
+
   const textoBusquedaPredial = busquedaPredial.trim().toLowerCase()
 
   const filtrarExtractosPredialesPorTexto = (texto) =>
@@ -28394,6 +29688,19 @@ const resultadosBusqueda = textoBusqueda
       if (tipoEstadoCuentaActivo === 'servicios') {
         return 'Estados de cuenta – buscar servicio'
       }
+      if (tipoEstadoCuentaActivo === 'inh') {
+        if (
+          alcanceEstadoCuentaInh === 'contrato' &&
+          idContratoEstadoCuentaInh &&
+          extractoEstadoCuentaInhSeleccionado
+        ) {
+          return `Estado de cuenta INH – ${obtenerNumeroContratoVisible(extractoEstadoCuentaInhSeleccionado.contrato, predios, contratosArriendo)}`
+        }
+        if (alcanceEstadoCuentaInh === 'contrato') {
+          return 'Estados de cuenta – INH por contrato'
+        }
+        return 'Estado de cuenta INH — todos los contratos'
+      }
       if (tipoEstadoCuentaActivo === 'depositarios') {
         if (extractoLiquidacionDepositoContexto?.desdeEstadoCuentaDepositarios) {
           const primerExtracto =
@@ -28617,6 +29924,38 @@ const resultadosBusqueda = textoBusqueda
   setTimeout(() => imprimirVentanaUnaCarta(ventana), 500)
 }
 
+  const imprimirHistorialGestionesCartera = (origen) => {
+    const historial =
+      origen?.closest?.('.modal-card')?.querySelector('.gestion-cartera-historial-print') ||
+      document.querySelector('.gestion-cartera-historial-print')
+
+    if (!historial) {
+      alert('Primero abra el historial de gestiones para poder imprimirlo.')
+      return
+    }
+
+    const contenido = historial.cloneNode(true)
+    const ventana = window.open('', '_blank', 'width=1200,height=800')
+
+    if (!ventana) {
+      alert('El navegador bloqueó la ventana de impresión. Permita ventanas emergentes para este sitio.')
+      return
+    }
+
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Extracto de gestiones de cartera</title>
+          <style>${ESTILOS_IMPRESION_VENTANA_BANCARIA}${ESTILOS_IMPRESION_UNA_CARTA}</style>
+        </head>
+        <body>${contenido.outerHTML}</body>
+      </html>
+    `)
+    ventana.document.close()
+    setTimeout(() => imprimirVentanaUnaCarta(ventana), 500)
+  }
+
 // =============================================================================
 // VISTA - PANTALLA DE LOGIN
 // Formulario de acceso y restablecimiento de clave.
@@ -28630,17 +29969,18 @@ const resultadosBusqueda = textoBusqueda
           <img src={LOGO_INH} alt="INH Constructores" />
         </div>
 
-       <h1>{mostrarRestablecerClaveLogin ? 'Restablecer clave' : 'Acceso al Sistema'}</h1>
-       <p>
-         {mostrarRestablecerClaveLogin
-           ? 'El administrador debe autorizar el restablecimiento de la clave.'
-           : 'Control interno de predios, arriendos y estados de cuenta.'}
-       </p>
+        <div className="login-card-body">
+          <h1>{mostrarRestablecerClaveLogin ? 'Restablecer clave' : 'Acceso al Sistema'}</h1>
+          <p>
+            {mostrarRestablecerClaveLogin
+              ? 'El administrador debe autorizar el restablecimiento de la clave.'
+              : 'Control interno de predios, arriendos y estados de cuenta.'}
+          </p>
 
-        {!mostrarRestablecerClaveLogin ? (
-        <div className="login-form">
-          <div className="form-group full">
-            <label>ID de usuario</label>
+          {!mostrarRestablecerClaveLogin ? (
+            <div className="login-form">
+              <div className="form-group">
+                <label>ID de usuario</label>
             <input
               type="text"
               value={loginUsuario}
@@ -28649,7 +29989,7 @@ const resultadosBusqueda = textoBusqueda
             />
           </div>
 
-          <div className="form-group full">
+          <div className="form-group">
             <label>Contraseña</label>
             <input
               type="password"
@@ -28682,7 +30022,7 @@ const resultadosBusqueda = textoBusqueda
         </div>
         ) : (
         <div className="login-form login-reset-form">
-          <div className="form-group full">
+          <div className="form-group">
             <label>ID de usuario a restablecer</label>
             <input
               type="text"
@@ -28692,7 +30032,7 @@ const resultadosBusqueda = textoBusqueda
             />
           </div>
 
-          <div className="form-group full">
+          <div className="form-group">
             <label>Nueva clave</label>
             <input
               type="password"
@@ -28702,7 +30042,7 @@ const resultadosBusqueda = textoBusqueda
             />
           </div>
 
-          <div className="form-group full">
+          <div className="form-group">
             <label>Confirmar nueva clave</label>
             <input
               type="password"
@@ -28714,7 +30054,7 @@ const resultadosBusqueda = textoBusqueda
 
           <div className="login-reset-divider">Autorización del administrador</div>
 
-          <div className="form-group full">
+          <div className="form-group">
             <label>ID administrador</label>
             <input
               type="text"
@@ -28724,7 +30064,7 @@ const resultadosBusqueda = textoBusqueda
             />
           </div>
 
-          <div className="form-group full">
+          <div className="form-group">
             <label>Clave del administrador</label>
             <input
               type="password"
@@ -28756,6 +30096,7 @@ const resultadosBusqueda = textoBusqueda
           </button>
         </div>
         )}
+        </div>
       </div>
     </div>
   )
@@ -35174,7 +36515,8 @@ const resultadosBusqueda = textoBusqueda
 
     <p className="form-description">
       Elija el periodo y la fecha de revisión. Luego seleccione si desea consultar las{' '}
-      <strong>Gestiones del día</strong> o la <strong>Cartera en atraso</strong>.
+      <strong>Gestiones del día</strong>, las <strong>Gestiones realizadas</strong> o la{' '}
+      <strong>Cartera en atraso</strong>.
     </p> 
 
          <div className="property-form">
@@ -35207,9 +36549,22 @@ const resultadosBusqueda = textoBusqueda
           onClick={() => {
             setVistaCarteraDiaria('gestiones')
             setContratoGestionCartera(null)
+            limpiarConsultaGestionesRealizadas()
           }}
         >
           Gestiones del día
+        </button>
+
+        <button
+          type="button"
+          className={vistaCarteraDiaria === 'realizadas' ? 'btn-primary' : 'btn-secondary'}
+          onClick={() => {
+            setVistaCarteraDiaria('realizadas')
+            setContratoGestionCartera(null)
+            limpiarConsultaGestionesRealizadas()
+          }}
+        >
+          Gestiones realizadas
         </button>
 
         <button
@@ -35218,6 +36573,7 @@ const resultadosBusqueda = textoBusqueda
           onClick={() => {
             setVistaCarteraDiaria('atraso')
             setContratoGestionCartera(null)
+            limpiarConsultaGestionesRealizadas()
           }}
         >
           Cartera en atraso
@@ -35242,6 +36598,7 @@ const resultadosBusqueda = textoBusqueda
           onClick={() => {
             setVistaCarteraDiaria('')
             setContratoGestionCartera(null)
+            limpiarConsultaGestionesRealizadas()
           }}
         >
           Cambiar consulta
@@ -35283,12 +36640,18 @@ const resultadosBusqueda = textoBusqueda
                 puedeRegistrar,
                 mostrarAccion: true,
                 onGestionar: (contratoItem) => {
-                  setContratoGestionCartera(contratoItem)
+                  setContratoGestionCartera(
+                    prepararContratoGestionCartera(
+                      contratoItem,
+                      extractosServiciosPublicos,
+                      extractosArriendo
+                    )
+                  )
                   setEstadoGestionCartera('Contactado')
                   setFechaPromesaPagoCartera('')
-                  setMoraGestionCartera('')
                   setObservacionGestionCartera('')
                   setMostrarEstadoCuentaGestionCartera(false)
+                  setMostrarHistorialGestionesCartera(false)
                 },
               })
             )}
@@ -35306,6 +36669,194 @@ const resultadosBusqueda = textoBusqueda
     </section>
 )}
 
+{vistaActiva === 'carteraArriendos' && vistaCarteraDiaria === 'realizadas' && (
+  <section className="panel no-print cartera-panel-gestiones-realizadas">
+    <div className="section-title section-title-bar">
+      <div className="section-title-left">
+        <div className="section-icon">☎</div>
+        <h2>Gestiones realizadas</h2>
+      </div>
+      <button
+        type="button"
+        className="btn-small"
+        onClick={() => {
+          setVistaCarteraDiaria('')
+          limpiarConsultaGestionesRealizadas()
+        }}
+      >
+        Cambiar consulta
+      </button>
+    </div>
+
+    <p className="form-description">
+      Busque el contrato para consultar el historial de gestiones registradas. Periodo{' '}
+      <strong>{mesCarteraArriendos}</strong> · Fecha de revisión{' '}
+      <strong>{fechaCorteCartera}</strong>.
+    </p>
+
+    <div className="property-form">
+      <div className="form-section-title full">Buscar contrato</div>
+
+      <div className="search-box compact-search full">
+        <input
+          type="text"
+          value={busquedaContratoGestionesRealizadas}
+          onChange={(e) => {
+            setBusquedaContratoGestionesRealizadas(e.target.value)
+            if (e.target.value.trim()) {
+              setMostrarTodosContratosGestionesRealizadas(false)
+              setIdContratoGestionesRealizadas('')
+              setMostrarHistorialGestionesRealizadas(false)
+            }
+          }}
+          placeholder="Buscar por contrato, predio, unidad, arrendatario, documento, teléfono o dirección"
+        />
+
+        <button type="button" className="btn-secondary" onClick={limpiarConsultaGestionesRealizadas}>
+          Limpiar
+        </button>
+
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => {
+            setBusquedaContratoGestionesRealizadas('')
+            setIdContratoGestionesRealizadas('')
+            setMostrarTodosContratosGestionesRealizadas(true)
+            setMostrarHistorialGestionesRealizadas(false)
+          }}
+        >
+          Ver todos
+        </button>
+      </div>
+
+      {!textoBusquedaContratoGestionesRealizadas &&
+        !mostrarTodosContratosGestionesRealizadas &&
+        !idContratoGestionesRealizadas && (
+          <p className="form-description">
+            Use el buscador o presione <strong>Ver todos</strong> para elegir el contrato a consultar.
+          </p>
+        )}
+
+      {idContratoGestionesRealizadas && (
+        <div className="form-actions form-actions-embedded no-print">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setIdContratoGestionesRealizadas('')
+              setMostrarHistorialGestionesRealizadas(false)
+            }}
+          >
+            Buscar otro contrato
+          </button>
+        </div>
+      )}
+
+      {(textoBusquedaContratoGestionesRealizadas ||
+        mostrarTodosContratosGestionesRealizadas) &&
+        !idContratoGestionesRealizadas && (
+          <>
+            <div className="form-section-title full">Resultados de búsqueda</div>
+
+            <div className="simple-table-wrapper full">
+              <table className="simple-table">
+                <thead>
+                  <tr>
+                    <th>Contrato</th>
+                    <th>Predio</th>
+                    <th>Unidad</th>
+                    <th>Arrendatario</th>
+                    <th>Documento</th>
+                    <th>Teléfono</th>
+                    <th>Gestiones</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contratosGestionesRealizadasFiltrados.map((contrato) => {
+                    const idContratoActual = obtenerIdContrato(contrato)
+                    const totalGestiones = obtenerGestionesContratoCartera(
+                      gestionesCartera,
+                      idContratoActual
+                    ).length
+
+                    return (
+                      <tr key={idContratoActual}>
+                        <td>
+                          {obtenerNumeroContratoVisible(contrato, predios, contratosArriendo)}
+                        </td>
+                        <td>{contrato.codigoPredio}</td>
+                        <td>{contrato.nombreUnidad || 'Sin unidad'}</td>
+                        <td>{contrato.arrendatario}</td>
+                        <td>{contrato.numeroDocumento || '—'}</td>
+                        <td>{contrato.telefono || '—'}</td>
+                        <td>{totalGestiones}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-small"
+                            onClick={() => seleccionarContratoGestionesRealizadas(contrato)}
+                          >
+                            Consultar
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+
+                  {contratosGestionesRealizadasFiltrados.length === 0 && (
+                    <tr>
+                      <td colSpan="8">No se encontraron contratos con ese criterio de búsqueda.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+      {contratoGestionesRealizadasSeleccionado && contratoInfoGestionesRealizadas && (
+        <div className="gestion-cartera-realizadas-detalle">
+          <div className="detail-grid gestion-cartera-realizadas-resumen">
+            <div>
+              <span>Contrato</span>
+              <strong>{contratoInfoGestionesRealizadas.numeroContrato}</strong>
+            </div>
+            <div>
+              <span>Predio / Unidad</span>
+              <strong>
+                {contratoInfoGestionesRealizadas.codigoPredio} —{' '}
+                {contratoInfoGestionesRealizadas.nombreUnidad || 'Sin unidad'}
+              </strong>
+            </div>
+            <div>
+              <span>Arrendatario</span>
+              <strong>{contratoInfoGestionesRealizadas.arrendatario}</strong>
+            </div>
+            <div>
+              <span>Total gestiones</span>
+              <strong>{gestionesContratoRealizadas.length}</strong>
+            </div>
+          </div>
+
+          <PanelGestionesAnterioresContrato
+            gestiones={gestionesContratoRealizadas}
+            contratoInfo={contratoInfoGestionesRealizadas}
+            formatearDinero={formatearDinero}
+            mostrarHistorial={mostrarHistorialGestionesRealizadas}
+            onToggleHistorial={() =>
+              setMostrarHistorialGestionesRealizadas((previo) => !previo)
+            }
+            onImprimir={(evento) => imprimirHistorialGestionesCartera(evento.currentTarget)}
+            titulo="Historial de gestiones"
+          />
+        </div>
+      )}
+    </div>
+  </section>
+)}
+
 {vistaActiva === 'carteraArriendos' && vistaCarteraDiaria === 'atraso' && (
     <section className="panel no-print cartera-panel-atraso">
       <div className="section-title section-title-bar">
@@ -35319,6 +36870,7 @@ const resultadosBusqueda = textoBusqueda
           onClick={() => {
             setVistaCarteraDiaria('')
             setContratoGestionCartera(null)
+            limpiarConsultaGestionesRealizadas()
           }}
         >
           Cambiar consulta
@@ -35385,15 +36937,18 @@ const resultadosBusqueda = textoBusqueda
   <button
     type="button"
     className="modal-close"
-    onClick={() => setContratoGestionCartera(null)}
+    onClick={() => {
+      setContratoGestionCartera(null)
+      setMostrarHistorialGestionesCartera(false)
+    }}
   >
     ×
   </button>
 </div>
 
     <p className="form-description">
-      Registre lo hablado con el arrendatario, la fecha prometida de pago,
-      mora e intereses y observaciones de la gestión.
+      Registre lo hablado con el arrendatario, la fecha prometida de pago y las observaciones de
+      la gestión. La deuda total se tomará al guardar según los saldos actuales del contrato.
     </p>
 
     <div className="detail-grid">
@@ -35478,6 +37033,24 @@ const resultadosBusqueda = textoBusqueda
             return formatearDinero(resumen.saldoTotal)
           })()}
         </strong>
+      </div>
+
+      <div>
+        {(() => {
+          const deudaTotalAGestionar = calcularDeudaTotalDesdeItemCartera(
+            contratoGestionCartera,
+            extractosServiciosPublicos
+          )
+
+          return (
+            <>
+              <span>Deuda total a gestionar</span>
+              <strong className={deudaTotalAGestionar > 0 ? 'saldo-atraso' : ''}>
+                {formatearDinero(deudaTotalAGestionar)}
+              </strong>
+            </>
+          )
+        })()}
       </div>
 
       <div>
@@ -35736,6 +37309,26 @@ const resultadosBusqueda = textoBusqueda
       )
     })()}
 
+    {(() => {
+      const gestionesContrato = obtenerGestionesContratoCartera(
+        gestionesCartera,
+        contratoGestionCartera.idContrato
+      )
+
+      return (
+        <PanelGestionesAnterioresContrato
+          gestiones={gestionesContrato}
+          contratoInfo={contratoGestionCartera}
+          formatearDinero={formatearDinero}
+          mostrarHistorial={mostrarHistorialGestionesCartera}
+          onToggleHistorial={() =>
+            setMostrarHistorialGestionesCartera((previo) => !previo)
+          }
+          onImprimir={(evento) => imprimirHistorialGestionesCartera(evento.currentTarget)}
+        />
+      )
+    })()}
+
     <div className="property-form">
       <div className="form-section-title full">Resultado de la gestión</div>
 
@@ -35779,15 +37372,6 @@ const resultadosBusqueda = textoBusqueda
 )}
       </div>
 
-      <div className="form-group">
-        <label>Mora / intereses</label>
-        <InputValor
-          value={moraGestionCartera}
-          onChange={setMoraGestionCartera}
-          placeholder="Ej: 50.000"
-        />
-      </div>
-
       <div className="form-group full">
         <label>Observación de la llamada</label>
         <textarea
@@ -35805,8 +37389,8 @@ const resultadosBusqueda = textoBusqueda
             setContratoGestionCartera(null)
             setEstadoGestionCartera('Contactado')
             setFechaPromesaPagoCartera('')
-            setMoraGestionCartera('')
             setObservacionGestionCartera('')
+            setMostrarHistorialGestionesCartera(false)
           }}
         >
           Cancelar gestión
@@ -39794,6 +41378,8 @@ const resultadosBusqueda = textoBusqueda
                     onClick={() => {
                       setBusquedaEstadoCuentaPredial('')
                       setCodigoPredioEstadoCuenta('')
+                      setBusquedaEstadoCuentaArriendo('')
+                      setIdContratoEstadoCuenta('')
                       setBusquedaEstadoCuentaServicios('')
                       setClaveExtractoServicioEstadoCuenta('')
                       setTipoEstadoCuentaActivo('servicios')
@@ -39802,6 +41388,31 @@ const resultadosBusqueda = textoBusqueda
                     <span className="estado-cuenta-tipo-icon">⚡</span>
                     <strong>Servicios públicos</strong>
                     <p>Facturas y pagos de servicios por unidad</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="estado-cuenta-tipo-card estado-cuenta-tipo-card-inh"
+                    onClick={() => {
+                      setBusquedaEstadoCuentaPredial('')
+                      setCodigoPredioEstadoCuenta('')
+                      setBusquedaEstadoCuentaArriendo('')
+                      setIdContratoEstadoCuenta('')
+                      setBusquedaEstadoCuentaServicios('')
+                      setClaveExtractoServicioEstadoCuenta('')
+                      setBusquedaEstadoCuentaArriendo('')
+                      setIdContratoEstadoCuenta('')
+                      setAlcanceEstadoCuentaInh('todos')
+                      setFechaInicioEstadoCuentaInh('')
+                      setFechaFinEstadoCuentaInh(obtenerFechaLocalISO())
+                      setBusquedaEstadoCuentaInh('')
+                      setIdContratoEstadoCuentaInh('')
+                      setTipoEstadoCuentaActivo('inh')
+                    }}
+                  >
+                    <span className="estado-cuenta-tipo-icon estado-cuenta-tipo-icon-inh">INH</span>
+                    <strong>INH</strong>
+                    <p>Estado de cuenta por periodos</p>
                   </button>
                 </div>
               </section>
@@ -40154,6 +41765,226 @@ const resultadosBusqueda = textoBusqueda
                   Buscar otro contrato
                 </button>
               </section>
+            )}
+
+            {tipoEstadoCuentaActivo === 'inh' && (
+              <>
+                <div className="panel no-print compact-filter-panel">
+                  <div className="estado-cuenta-inh-filtros">
+                    <div className="form-group">
+                      <label>Consultar por</label>
+                      <select
+                        value={alcanceEstadoCuentaInh}
+                        onChange={(e) => {
+                          setAlcanceEstadoCuentaInh(e.target.value)
+                          setBusquedaEstadoCuentaInh('')
+                          setIdContratoEstadoCuentaInh('')
+                        }}
+                      >
+                        <option value="todos">Todos los contratos</option>
+                        <option value="contrato">Por contrato</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Fecha de inicio</label>
+                      <input
+                        type="date"
+                        value={fechaInicioEstadoCuentaInh}
+                        max={fechaFinEstadoCuentaInh || undefined}
+                        onChange={(e) => setFechaInicioEstadoCuentaInh(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Fecha de fin</label>
+                      <input
+                        type="date"
+                        value={fechaFinEstadoCuentaInh}
+                        min={fechaInicioEstadoCuentaInh || undefined}
+                        onChange={(e) => setFechaFinEstadoCuentaInh(e.target.value)}
+                      />
+                    </div>
+                    <div className="estado-cuenta-inh-filtros-acciones">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setTipoEstadoCuentaActivo('')
+                          setAlcanceEstadoCuentaInh('todos')
+                          setFechaInicioEstadoCuentaInh('')
+                          setFechaFinEstadoCuentaInh(obtenerFechaLocalISO())
+                          setBusquedaEstadoCuentaInh('')
+                          setIdContratoEstadoCuentaInh('')
+                        }}
+                      >
+                        Cambiar tipo
+                      </button>
+                    </div>
+                  </div>
+                  <p className="form-description compact-description">
+                    {alcanceEstadoCuentaInh === 'todos' ? (
+                      <>
+                        Consolidado de <strong>todos los contratos de arriendo</strong> en el rango{' '}
+                        <strong>
+                          {formatearRangoPeriodosEstadoCuentaInh(
+                            fechaInicioEstadoCuentaInh,
+                            fechaFinEstadoCuentaInh
+                          )}
+                        </strong>
+                        . Solo aparecen periodos en los que el arrendatario canceló el arriendo;
+                        cada fila suma comisiones INH, intereses de mora, gastos de cobranza e
+                        IVA efectivamente recaudados de todos los contratos para ese mes.
+                      </>
+                    ) : (
+                      <>
+                        Busque un contrato y consulte comisiones INH, intereses de mora, gastos de
+                        cobranza e IVA recaudados periodo a periodo (solo meses con pago del
+                        arrendatario) en el rango{' '}
+                        <strong>
+                          {formatearRangoPeriodosEstadoCuentaInh(
+                            fechaInicioEstadoCuentaInh,
+                            fechaFinEstadoCuentaInh
+                          )}
+                        </strong>
+                        .
+                      </>
+                    )}
+                  </p>
+                </div>
+
+                {alcanceEstadoCuentaInh === 'contrato' && !idContratoEstadoCuentaInh && (
+                  <section className="panel no-print compact-filter-panel">
+                    <div className="section-title compact-title">
+                      <div className="section-icon">⌕</div>
+                      <h2>Buscar contrato — estado de cuenta INH</h2>
+                    </div>
+
+                    <div className="search-box compact-search">
+                      <input
+                        type="text"
+                        value={busquedaEstadoCuentaInh}
+                        onChange={(e) => setBusquedaEstadoCuentaInh(e.target.value)}
+                        placeholder="Ej: CON-0001, Pedro, Local 101, BOG-CHA..."
+                      />
+
+                      {busquedaEstadoCuentaInh && (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setBusquedaEstadoCuentaInh('')}
+                        >
+                          Limpiar
+                        </button>
+                      )}
+                    </div>
+
+                    {textoBusquedaEstadoCuentaInh && (
+                      <div className="simple-table-wrapper">
+                        <table className="simple-table">
+                          <thead>
+                            <tr>
+                              <th>Número contrato</th>
+                              <th>Predio</th>
+                              <th>Unidad</th>
+                              <th>Arrendatario</th>
+                              <th>Documento</th>
+                              <th>Estado</th>
+                              <th>Acción</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {contratosEstadoCuentaInhFiltrados.map((contrato, index) => (
+                              <tr key={index}>
+                                <td>{obtenerNumeroContratoVisible(contrato, predios, contratosArriendo)}</td>
+                                <td>{contrato.codigoPredio}</td>
+                                <td>{contrato.nombreUnidad || 'Sin unidad'}</td>
+                                <td>{contrato.arrendatario}</td>
+                                <td>{abreviarTipoDocumento(contrato.tipoDocumento)} {contrato.numeroDocumento}</td>
+                                <td>
+                                  <span className={contrato.estado === 'Activo' ? 'status active' : 'status inactive'}>
+                                    {contrato.estado}
+                                  </span>
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="btn-small btn-primary"
+                                    onClick={() => {
+                                      const idContrato = obtenerIdContrato(contrato)
+                                      setIdContratoEstadoCuentaInh(idContrato)
+                                      setBusquedaEstadoCuentaInh(
+                                        `${obtenerNumeroContratoVisible(contrato, predios, contratosArriendo)} - ${contrato.arrendatario} - ${contrato.nombreUnidad || 'Sin unidad'}`
+                                      )
+                                    }}
+                                  >
+                                    Ver extracto INH
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+
+                            {contratosEstadoCuentaInhFiltrados.length === 0 && (
+                              <tr>
+                                <td colSpan="7">No se encontraron contratos con ese criterio.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {alcanceEstadoCuentaInh === 'contrato' && idContratoEstadoCuentaInh && (
+                  <>
+                    {extractoEstadoCuentaInhSeleccionado ? (
+                      <EstadoCuentaInhPorPeriodos
+                        modoAlcance="contrato"
+                        contrato={extractoEstadoCuentaInhSeleccionado.contrato}
+                        resumenes={resumenesPeriodoEstadoCuentaInh}
+                        totales={totalesPeriodoEstadoCuentaInh}
+                        fechaInicio={fechaInicioEstadoCuentaInh}
+                        fechaFin={fechaFinEstadoCuentaInh}
+                        predios={predios}
+                        contratosArriendo={contratosArriendo}
+                        formatearDinero={formatearDinero}
+                        onImprimir={imprimirEstadoCuenta}
+                        accionesExtra={
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => {
+                              setIdContratoEstadoCuentaInh('')
+                              setBusquedaEstadoCuentaInh('')
+                            }}
+                          >
+                            Buscar otro contrato
+                          </button>
+                        }
+                      />
+                    ) : (
+                      <section className="panel no-print">
+                        <p className="form-description">
+                          No se encontró historial para el contrato consultado.
+                        </p>
+                      </section>
+                    )}
+                  </>
+                )}
+
+                {alcanceEstadoCuentaInh === 'todos' && (
+                  <EstadoCuentaInhPorPeriodos
+                    modoAlcance="todos"
+                    resumenes={resumenesPeriodoConsolidadoEstadoCuentaInh}
+                    totales={totalesPeriodoConsolidadoEstadoCuentaInh}
+                    fechaInicio={fechaInicioEstadoCuentaInh}
+                    fechaFin={fechaFinEstadoCuentaInh}
+                    cantidadContratos={contratosArriendo.length}
+                    formatearDinero={formatearDinero}
+                    onImprimir={imprimirEstadoCuenta}
+                  />
+                )}
+              </>
             )}
 
             {tipoEstadoCuentaActivo === 'servicios' && !claveExtractoServicioEstadoCuenta && (
@@ -44370,6 +46201,50 @@ function ReciboServicioPublicoImpresion({ recibo, formatearDinero, onImprimir, o
 }
 
 // =============================================================================
+// COMPONENTE - DETALLE LIQUIDACION PERIODOS RECIBO ARRIENDO
+// Desglose mes a mes liquidado a la fecha del recibo.
+// =============================================================================
+
+function DetalleLiquidacionPeriodosReciboArriendo({
+  detallePeriodos = [],
+  formatearDinero,
+}) {
+  if (!detallePeriodos.length) return null
+
+  return (
+    <div className="recibo-detalle-periodos">
+      <p className="recibo-campo-label">Liquidación mes a mes (a la fecha del recibo)</p>
+      <table className="simple-table recibo-tabla-periodos">
+        <thead>
+          <tr>
+            <th>Periodo</th>
+            <th className="col-monto-predial">Canon + IVA</th>
+            <th className="col-monto-predial">Mora</th>
+            <th className="col-monto-predial">Cobranza</th>
+            <th className="col-monto-predial">IVA</th>
+            <th className="col-monto-predial">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {detallePeriodos.map((item) => (
+            <tr key={item.periodo}>
+              <td>{item.periodo}</td>
+              <td className="col-monto-predial">{formatearDinero(item.canonIvaPendiente || 0)}</td>
+              <td className="col-monto-predial">{formatearDinero(item.moraPendiente || 0)}</td>
+              <td className="col-monto-predial">{formatearDinero(item.gastosCobranza || 0)}</td>
+              <td className="col-monto-predial">{formatearDinero(item.ivaMoraCobranza || 0)}</td>
+              <td className="col-monto-predial">
+                <strong>{formatearDinero(item.totalPendiente || 0)}</strong>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// =============================================================================
 // COMPONENTE - AUDITORIA LIQUIDACION RECIBO ARRIENDO
 // Trazabilidad de fechas y recalculo de mora/cobranza al registrar el pago.
 // =============================================================================
@@ -44377,12 +46252,16 @@ function ReciboServicioPublicoImpresion({ recibo, formatearDinero, onImprimir, o
 function BloqueAuditoriaLiquidacionReciboArriendo({
   auditoria,
   formatearDinero,
-  saldoAlCorteRecibo = 0,
+  saldoLiquidadoRecibo = 0,
 }) {
   if (!auditoria) return null
 
   return (
     <div className="recibo-auditoria-liquidacion">
+      <DetalleLiquidacionPeriodosReciboArriendo
+        detallePeriodos={auditoria.detallePeriodos || []}
+        formatearDinero={formatearDinero}
+      />
       <p className="recibo-campo-label">Trazabilidad de liquidación</p>
       <ul className="recibo-lineas recibo-lineas-auditoria">
         <li>
@@ -44411,7 +46290,7 @@ function BloqueAuditoriaLiquidacionReciboArriendo({
         </li>
         <li className="recibo-linea-total">
           <span>Total liquidado al recibo</span>
-          <strong>{formatearDinero(saldoAlCorteRecibo || 0)}</strong>
+          <strong>{formatearDinero(saldoLiquidadoRecibo || 0)}</strong>
         </li>
       </ul>
       {auditoria.recalculoPorFechaRecibo && (
@@ -44689,7 +46568,7 @@ function FormularioReciboPagoArriendo({
           {mesPagoArriendo && (
             <p className="form-description recibo-desglose-nota">
               Periodo de referencia: <strong>{mesPagoArriendo}</strong>
-              {' · liquidado a la fecha del recibo (solo este periodo).'}
+              {' · cada mes se liquida a la fecha del recibo, incluyendo deudas anteriores impagas.'}
             </p>
           )}
 
@@ -44730,12 +46609,12 @@ function FormularioReciboPagoArriendo({
           </div>
 
           <div className="recibo-nuevo-saldo">
-            <span>Saldo pendiente del periodo (antes del pago)</span>
+            <span>Saldo pendiente liquidado (antes del pago)</span>
             <strong>{formatearDinero(saldoAnterior || 0)}</strong>
           </div>
 
           <div className="recibo-nuevo-saldo">
-            <span>Nuevo saldo del periodo</span>
+            <span>Nuevo saldo pendiente</span>
             <strong className={saldoPosterior > 0 ? 'saldo-atraso' : ''}>
               {formatearDinero(saldoPosterior || 0)}
             </strong>
@@ -44751,7 +46630,7 @@ function FormularioReciboPagoArriendo({
           <BloqueAuditoriaLiquidacionReciboArriendo
             auditoria={auditoriaLiquidacion}
             formatearDinero={formatearDinero}
-            saldoAlCorteRecibo={saldoPosterior || 0}
+            saldoLiquidadoRecibo={saldoAnterior || 0}
           />
 
           <div className="recibo-observaciones-box recibo-campo-editable">
@@ -44953,11 +46832,11 @@ function ReciboPagoArriendoImpresion({
 
           <ul className="recibo-lineas">
             <li>
-              <span>Saldo pendiente del periodo (antes del pago)</span>
+              <span>Saldo pendiente liquidado (antes del pago)</span>
               <strong>{formatearDinero(reciboVisual.saldoAnterior || 0)}</strong>
             </li>
             <li>
-              <span>Nuevo saldo del periodo</span>
+              <span>Nuevo saldo pendiente</span>
               <strong className={(reciboVisual.saldoPosterior || 0) > 0 ? 'saldo-atraso' : ''}>
                 {formatearDinero(reciboVisual.saldoPosterior || 0)}
               </strong>
@@ -44967,7 +46846,7 @@ function ReciboPagoArriendoImpresion({
           <BloqueAuditoriaLiquidacionReciboArriendo
             auditoria={recibo.auditoriaLiquidacion}
             formatearDinero={formatearDinero}
-            saldoAlCorteRecibo={reciboVisual.saldoPosterior || 0}
+            saldoLiquidadoRecibo={reciboVisual.saldoAnterior || 0}
           />
 
           <BloqueHistorialModificacionesReciboArriendo
@@ -45010,6 +46889,270 @@ function ReciboPagoArriendoImpresion({
           )}
         </div>
       )}
+    </section>
+  )
+}
+
+// =============================================================================
+// COMPONENTE - ESTADO DE CUENTA INH POR PERIODOS
+// Extracto imprimible de comisiones, mora, cobranza e IVA por periodo.
+// =============================================================================
+
+function EstadoCuentaInhPorPeriodos({
+  modoAlcance = 'todos',
+  contrato = null,
+  resumenes = [],
+  totales = {},
+  fechaInicio = '',
+  fechaFin = '',
+  cantidadContratos = 0,
+  predios = [],
+  contratosArriendo = [],
+  formatearDinero,
+  onImprimir,
+  accionesExtra = null,
+}) {
+  const { fechaInicio: inicioEfectivo, fechaFin: finEfectivo } =
+    normalizarRangoFechasEstadoCuentaInh(fechaInicio, fechaFin)
+  const rangoPeriodos = formatearRangoPeriodosEstadoCuentaInh(fechaInicio, fechaFin)
+  const esConsolidado = modoAlcance === 'todos'
+  const predioContrato =
+    contrato && predios.find((item) => item.codigo === contrato.codigoPredio)
+  const totalesRango = calcularTotalesResumenesPeriodoEstadoCuentaInh(resumenes)
+  const totalIvaInh =
+    Number(totalesRango.ivaComision || 0) +
+    Number(totalesRango.ivaIntereses || 0) +
+    Number(totalesRango.ivaGastos || 0)
+  const textoRangoSeleccionado = inicioEfectivo
+    ? `${formatearFechaLocalHumana(inicioEfectivo)} — ${formatearFechaLocalHumana(finEfectivo)}`
+    : `Hasta ${formatearFechaLocalHumana(finEfectivo)}`
+
+  return (
+    <section className="estado-cuenta-print estado-cuenta-inh-print">
+      <div className="estado-cuenta-header">
+        <div>
+          <h1>INH Constructores</h1>
+          <h2>Estado de cuenta INH por periodos</h2>
+          <p>
+            {esConsolidado ? (
+              <>
+                Suma de ingresos INH de <strong>todos los contratos</strong> — comisiones, intereses
+                de mora, gastos de cobranza e IVA liquidados{' '}
+                {inicioEfectivo ? (
+                  <>
+                    del {formatearFechaLocalHumana(inicioEfectivo)} al{' '}
+                    {formatearFechaLocalHumana(finEfectivo)}
+                  </>
+                ) : (
+                  <>hasta el {formatearFechaLocalHumana(finEfectivo)}</>
+                )}{' '}
+                (periodos {rangoPeriodos}).
+              </>
+            ) : (
+              <>
+                Comisiones, intereses de mora, gastos de cobranza e IVA liquidados del{' '}
+                {inicioEfectivo ? formatearFechaLocalHumana(inicioEfectivo) : 'inicio'} al{' '}
+                {formatearFechaLocalHumana(finEfectivo)} (periodos {rangoPeriodos}).
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className="estado-cuenta-logo">
+          <img src={LOGO_INH} alt="INH Constructores" />
+        </div>
+      </div>
+
+      {(onImprimir || accionesExtra) && (
+        <div className="estado-cuenta-actions estado-cuenta-inh-acciones no-print">
+          {accionesExtra}
+          {onImprimir && (
+            <button type="button" className="btn-primary" onClick={(evento) => onImprimir(evento.currentTarget)}>
+              Imprimir extracto INH
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="estado-cuenta-info">
+        {esConsolidado ? (
+          <>
+            <div>
+              <span>Alcance</span>
+              <strong>Todos los contratos de arriendo ({cantidadContratos})</strong>
+            </div>
+            <div>
+              <span>Rango consultado</span>
+              <strong>{textoRangoSeleccionado}</strong>
+            </div>
+            <div>
+              <span>Periodos incluidos</span>
+              <strong>{rangoPeriodos}</strong>
+            </div>
+            <div>
+              <span>Total ingresos INH del rango</span>
+              <strong>{formatearDinero(totalesRango.totalPeriodo || 0)}</strong>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <span>Contrato</span>
+              <strong>{obtenerNumeroContratoVisible(contrato, predios, contratosArriendo)}</strong>
+            </div>
+            <div>
+              <span>Predio / Unidad</span>
+              <strong>
+                {contrato.codigoPredio} — {contrato.nombreUnidad || 'Sin unidad'}
+              </strong>
+            </div>
+            <div>
+              <span>Arrendatario</span>
+              <strong>{contrato.arrendatario}</strong>
+            </div>
+            <div>
+              <span>Dirección</span>
+              <strong>{predioContrato?.direccion || 'Sin dirección'}</strong>
+            </div>
+            <div>
+              <span>Rango consultado</span>
+              <strong>{textoRangoSeleccionado}</strong>
+            </div>
+            <div>
+              <span>Total ingresos INH del rango</span>
+              <strong>{formatearDinero(totalesRango.totalPeriodo || 0)}</strong>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="estado-cuenta-tabla estado-cuenta-inh-tabla">
+        <h3>{esConsolidado ? 'Detalle consolidado por periodo' : 'Detalle por periodo'}</h3>
+        <table className="extracto-table extracto-table-inh">
+          <thead>
+            <tr>
+              <th>Periodo</th>
+              <th className="col-monto-predial">Comisión INH</th>
+              <th className="col-monto-predial">IVA comisión</th>
+              <th className="col-monto-predial">Intereses mora</th>
+              <th className="col-monto-predial">IVA intereses</th>
+              <th className="col-monto-predial">Gastos cobranza</th>
+              <th className="col-monto-predial">IVA cobranza</th>
+              <th className="col-monto-predial">Total periodo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {resumenes.map((item) => (
+              <tr key={item.periodo}>
+                <td>{item.periodo}</td>
+                <td className="col-monto-predial">{formatearDinero(item.comision || 0)}</td>
+                <td className="col-monto-predial">{formatearDinero(item.ivaComision || 0)}</td>
+                <td className="col-monto-predial">{formatearDinero(item.intereses || 0)}</td>
+                <td className="col-monto-predial">{formatearDinero(item.ivaIntereses || 0)}</td>
+                <td className="col-monto-predial">{formatearDinero(item.gastosCobranza || 0)}</td>
+                <td className="col-monto-predial">{formatearDinero(item.ivaGastos || 0)}</td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(item.totalPeriodo || 0)}</strong>
+                </td>
+              </tr>
+            ))}
+
+            {resumenes.length === 0 && (
+              <tr>
+                <td colSpan="8">No hay periodos en el rango de fechas seleccionado.</td>
+              </tr>
+            )}
+          </tbody>
+          {resumenes.length > 0 && (
+            <tfoot>
+              <tr>
+                <td>
+                  <strong>Total del rango</strong>
+                </td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(totalesRango.comision || 0)}</strong>
+                </td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(totalesRango.ivaComision || 0)}</strong>
+                </td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(totalesRango.intereses || 0)}</strong>
+                </td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(totalesRango.ivaIntereses || 0)}</strong>
+                </td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(totalesRango.gastosCobranza || 0)}</strong>
+                </td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(totalesRango.ivaGastos || 0)}</strong>
+                </td>
+                <td className="col-monto-predial">
+                  <strong>{formatearDinero(totalesRango.totalPeriodo || 0)}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+
+      {resumenes.length > 0 && (
+        <div className="estado-cuenta-inh-informe">
+          <div className="estado-cuenta-inh-informe-encabezado">
+            <h3>Informe resumen del rango seleccionado</h3>
+            <p>
+              Fechas: <strong>{textoRangoSeleccionado}</strong> · Periodos:{' '}
+              <strong>{rangoPeriodos}</strong> · {resumenes.length} mes
+              {resumenes.length === 1 ? '' : 'es'} incluido{resumenes.length === 1 ? '' : 's'}
+            </p>
+          </div>
+          <div className="estado-cuenta-inh-informe-grid">
+            <div>
+              <span>Comisión INH</span>
+              <strong>{formatearDinero(totalesRango.comision || 0)}</strong>
+            </div>
+            <div>
+              <span>Intereses de mora</span>
+              <strong>{formatearDinero(totalesRango.intereses || 0)}</strong>
+            </div>
+            <div>
+              <span>Gastos de cobranza</span>
+              <strong>{formatearDinero(totalesRango.gastosCobranza || 0)}</strong>
+            </div>
+            <div>
+              <span>IVA total</span>
+              <strong>{formatearDinero(totalIvaInh)}</strong>
+              <small>
+                Comisión {formatearDinero(totalesRango.ivaComision || 0)} · Intereses{' '}
+                {formatearDinero(totalesRango.ivaIntereses || 0)} · Cobranza{' '}
+                {formatearDinero(totalesRango.ivaGastos || 0)}
+              </small>
+            </div>
+          </div>
+          <div className="estado-cuenta-inh-informe-total">
+            <span>Total ingresos INH del rango ({rangoPeriodos})</span>
+            <strong>{formatearDinero(totalesRango.totalPeriodo || 0)}</strong>
+          </div>
+        </div>
+      )}
+
+      <p className="form-description estado-cuenta-inh-nota">
+        {esConsolidado ? (
+          <>
+            Solo se listan periodos en los que el arrendatario canceló el arriendo. Cada fila suma
+            comisiones INH, intereses de mora, gastos de cobranza e IVA efectivamente recaudados de
+            todos los contratos de arriendo registrados.
+          </>
+        ) : (
+          <>
+            Este extracto discrimina los ingresos INH por periodo de arriendo del contrato
+            consultado. Solo aparecen meses en los que el arrendatario canceló el arriendo. La
+            comisión INH y su IVA corresponden al porcentaje acordado con el depositario; intereses
+            de mora y gastos de cobranza reflejan lo recaudado en el pago. No incluye el canon base
+            ni el IVA del canon.
+          </>
+        )}
+      </p>
     </section>
   )
 }
