@@ -109,7 +109,16 @@ npm run db:test
 
 ## GitHub Pages y la nube
 
-La versión publicada en GitHub Pages **no** usa SQL Server todavía (no hay servidor API en internet).  
-Para pruebas con base de datos use el entorno local con `VITE_USE_API=true` en `.env.local`.
+El workflow `.github/workflows/deploy-pages.yml` compila GitHub Pages con:
 
-Cuando quieran conectar la nube a SQL Server, habrá que publicar la API en un hosting (Railway, Render, VPS, etc.) y apuntar `VITE_API_URL` a esa URL.
+- `VITE_USE_API=true`
+- `VITE_API_URL` = secret de GitHub **`VITE_API_URL`**
+
+Pasos completos: **`docs/conectar-nube-sql.md`**
+
+Resumen:
+
+1. Publicar la API (`npm run dev:api` o `scripts/iniciar-api-produccion.bat`) en un servidor con acceso a SQL.
+2. Exponer la API con **HTTPS** (obligatorio: GitHub Pages es HTTPS).
+3. En GitHub → **Settings → Secrets → Actions** → crear `VITE_API_URL` con la URL pública de la API.
+4. Push a `main` o ejecutar el workflow manualmente.
