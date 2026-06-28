@@ -20,6 +20,12 @@ import {
   flushGuardadoDatosLocalesPendiente,
   guardarDatosLocales,
 } from './storage/datosLocales.js'
+import SelectorModulosPlataforma from './modulos/SelectorModulosPlataforma.jsx'
+import ModuloEnDesarrollo from './modulos/ModuloEnDesarrollo.jsx'
+import {
+  DEFINICIONES_MODULOS,
+  MODULOS_PLATAFORMA,
+} from './modulos/constantesModulos.js'
 
 // =============================================================================
 // CONSTANTES GLOBALES
@@ -3441,7 +3447,7 @@ const calcularLiquidacionBeneficiarioPagoArriendo = ({
   const valorAdministracionDescontada =
     contratoArriendo &&
     administracionIncluidaEnCanonContrato(contratoArriendo) &&
-    (esPagoFijoMensualCalculo || mesPagadoEnTotalidad)
+    esPagoFijoMensualCalculo
       ? Number(administracionMes || 0)
       : 0
   const porcentajeAbonoCanon =
@@ -15650,10 +15656,68 @@ const calcularCreditoAdministracionDesdePagoArriendo = (
   return Math.min(Math.round(pagado * (adminMes / canonTotal)), adminMes)
 }
 
-const calcularCreditoAdministracionArriendoMes = () => {
-  // Los abonos de administración se registran solo con pagosAdministracion.
-  // Si va incluida en el canon, el descuento se refleja en la liquidación al depositario.
-  return 0
+// =============================================================================
+// ADMINISTRACION - CREDITO DESDE PAGO DE ARRIENDO
+// Un mes de administracion por periodo cuando el arriendo (canon+IVA) queda cubierto.
+// =============================================================================
+
+const calcularCreditoAdministracionArriendoMes = (
+  contrato,
+  mes,
+  pagosArriendo = [],
+  pagosAdministracion = [],
+  incrementosArriendo = [],
+  ajustesAdministracion = [],
+  gestionesCartera = []
+) => {
+  if (!contratoAplicaAdministracion(contrato)) return 0
+  if (administracionIncluidaEnCanonContrato(contrato)) return 0
+
+  const idContrato = obtenerIdContrato(contrato)
+  const canonInfo = obtenerEstructuraCanonMes({
+    contrato,
+    mes,
+    incrementosArriendo,
+    ajustesAdministracion,
+  })
+  const adminMes = Number(canonInfo.administracionCobro || 0)
+  if (adminMes <= 0) return 0
+
+  const pagadoDirecto = (pagosAdministracion || [])
+    .filter((pago) => pago.idContrato === idContrato && pago.mes === mes)
+    .reduce((total, pago) => total + Number(pago.valorPagado || 0), 0)
+  const creditoPendiente = Math.max(0, adminMes - pagadoDirecto)
+  if (creditoPendiente <= 0) return 0
+
+  const { baseLiquidacion: obligacionArriendoMes } = calcularBaseLiquidacionEstadoCuentaArriendoMes(
+    { canonBase: canonInfo.canonBase },
+    contrato
+  )
+  if (obligacionArriendoMes <= 0) return 0
+
+  const aplicacion = obtenerAplicacionPagosArriendoMes(
+    contrato,
+    mes,
+    pagosArriendo,
+    incrementosArriendo,
+    ajustesAdministracion,
+    gestionesCartera
+  )
+  const pagadoLiquidacionArriendo = Number(aplicacion.totalPagadoLiquidacionArriendo || 0)
+  if (pagadoLiquidacionArriendo <= 0) return 0
+
+  const mesLiquidadoTotal = (aplicacion.pagosDetalleLiquidacionArriendo || []).some(
+    (linea) => linea.periodoLiquidadoTotal
+  )
+
+  if (mesLiquidadoTotal) {
+    return Math.min(creditoPendiente, adminMes)
+  }
+
+  const creditoProporcional = Math.round(
+    adminMes * Math.min(1, pagadoLiquidacionArriendo / obligacionArriendoMes)
+  )
+  return Math.min(creditoPendiente, creditoProporcional)
 }
 
 const calcularMovimientoAdministracionMes = (
@@ -15692,7 +15756,14 @@ const calcularMovimientoAdministracionMes = (
   const pagosArriendoMes = (pagosArriendo || []).filter(
     (pago) => pago.idContrato === idContrato && (pago.mesAsignado || pago.mes) === mes
   )
-  const creditoArriendo = 0
+  const creditoArriendo = calcularCreditoAdministracionArriendoMes(
+    contrato,
+    mes,
+    pagosArriendo,
+    pagosAdministracion,
+    incrementosArriendo,
+    ajustesAdministracion
+  )
 
   const totalPagadoDirecto = pagosDirectos.reduce(
     (total, pago) => total + Number(pago.valorPagado || 0),
@@ -18884,6 +18955,7 @@ function App() {
   const [claveSubmenuActiva, setClaveSubmenuActiva] = useState('')
   const [grupoMenuActivoPersistente, setGrupoMenuActivoPersistente] = useState('')
   const [moduloMenuActivo, setModuloMenuActivo] = useState('')
+  const [moduloPlataformaActivo, setModuloPlataformaActivo] = useState(null)
 
 // =============================================================================
 // PERSISTENCIA - EFECTOS DE CARGA Y GUARDADO
@@ -20158,7 +20230,17 @@ const restablecerClaveDesdeLogin = () => {
 const cerrarSesion = () => {
   if (usaApiRemota()) limpiarTokenSesion()
   setUsuarioActual(null)
+  setModuloPlataformaActivo(null)
   setSeccionActiva('inicio')
+  cerrarFormularios()
+}
+
+const volverSelectorModulos = () => {
+  setModuloPlataformaActivo(null)
+  setSeccionActiva('inicio')
+  setVistaActiva('inicio')
+  setClaveSubmenuActiva('')
+  setMenuAbierto('')
   cerrarFormularios()
 }
 const cambiarClaveUsuario = () => {
@@ -25757,7 +25839,7 @@ const imprimirReciboPagoArriendo = (recibo) => {
     ''
   const htmlAuditoria = construirHtmlAuditoriaLiquidacionReciboArriendoImpresion(
     recibo.auditoriaLiquidacion,
-    reciboImpresion.saldoAnterior || 0
+    reciboImpresion.saldoPosterior || 0
   )
   const htmlDetallePeriodos = construirHtmlDetallePeriodosReciboArriendoImpresion(
     recibo.auditoriaLiquidacion?.detallePeriodos || []
@@ -29974,7 +30056,7 @@ const resultadosBusqueda = textoBusqueda
           <p>
             {mostrarRestablecerClaveLogin
               ? 'El administrador debe autorizar el restablecimiento de la clave.'
-              : 'Control interno de predios, arriendos y estados de cuenta.'}
+              : 'Plataforma integral INH: inmobiliaria, préstamos y obras.'}
           </p>
 
           {!mostrarRestablecerClaveLogin ? (
@@ -30101,6 +30183,39 @@ const resultadosBusqueda = textoBusqueda
     </div>
   )
 }
+
+
+  if (!moduloPlataformaActivo) {
+    return (
+      <SelectorModulosPlataforma
+        usuario={usuarioActual}
+        onSeleccionarModulo={setModuloPlataformaActivo}
+        onCerrarSesion={cerrarSesion}
+      />
+    )
+  }
+
+  if (moduloPlataformaActivo === MODULOS_PLATAFORMA.prestamos) {
+    return (
+      <ModuloEnDesarrollo
+        modulo={DEFINICIONES_MODULOS[MODULOS_PLATAFORMA.prestamos]}
+        usuario={usuarioActual}
+        onVolverModulos={volverSelectorModulos}
+        onCerrarSesion={cerrarSesion}
+      />
+    )
+  }
+
+  if (moduloPlataformaActivo === MODULOS_PLATAFORMA.obras) {
+    return (
+      <ModuloEnDesarrollo
+        modulo={DEFINICIONES_MODULOS[MODULOS_PLATAFORMA.obras]}
+        usuario={usuarioActual}
+        onVolverModulos={volverSelectorModulos}
+        onCerrarSesion={cerrarSesion}
+      />
+    )
+  }
 
 
   return (
@@ -30883,6 +30998,14 @@ const resultadosBusqueda = textoBusqueda
       Usuarios registrados
     </button>
   )}
+
+  <button
+    type="button"
+    className="btn-secondary"
+    onClick={volverSelectorModulos}
+  >
+    Cambiar módulo
+  </button>
 
   <button
     type="button"
@@ -46003,7 +46126,7 @@ function ExtractosAdministracion({
                     <tr key={movimiento.mes}>
                       <td>{movimiento.mes}</td>
                       <td>{formatearDinero(movimiento.valorCausado)}</td>
-                      <td>{formatearDinero(movimiento.pagado)}</td>
+                      <td>{formatearDinero(movimiento.pagadoDirecto)}</td>
                       <td>{formatearDinero(movimiento.creditoArriendo || 0)}</td>
                       <td
                         className={Number(movimiento.saldoDeuda || 0) > 0 ? 'saldo-atraso' : ''}
@@ -46630,7 +46753,7 @@ function FormularioReciboPagoArriendo({
           <BloqueAuditoriaLiquidacionReciboArriendo
             auditoria={auditoriaLiquidacion}
             formatearDinero={formatearDinero}
-            saldoLiquidadoRecibo={saldoAnterior || 0}
+            saldoLiquidadoRecibo={saldoPosterior || 0}
           />
 
           <div className="recibo-observaciones-box recibo-campo-editable">
@@ -46846,7 +46969,7 @@ function ReciboPagoArriendoImpresion({
           <BloqueAuditoriaLiquidacionReciboArriendo
             auditoria={recibo.auditoriaLiquidacion}
             formatearDinero={formatearDinero}
-            saldoLiquidadoRecibo={reciboVisual.saldoAnterior || 0}
+            saldoLiquidadoRecibo={reciboVisual.saldoPosterior || 0}
           />
 
           <BloqueHistorialModificacionesReciboArriendo
