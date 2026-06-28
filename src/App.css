@@ -2460,6 +2460,27 @@ td.saldo-atraso,
   color: #64748b;
 }
 
+.extracto-liquidacion-corte-resumen {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #dbe7f5;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.extracto-liquidacion-corte-resumen span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.extracto-liquidacion-resumen-meses-subtotal-fila td {
+  background: #f1f5f9;
+  border-top: 2px solid #cbd5e1;
+}
+
 .extracto-liquidacion-resumen {
   margin-bottom: 24px;
 }
@@ -7607,25 +7628,25 @@ body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root {
     background: #fff !important;
     color: #000 !important;
     border-bottom: 1px solid #000 !important;
-    font-size: 7pt !important;
+    font-size: 9pt !important;
   }
 
   body.imprimir-estado-cuenta .estado-cuenta-arrendadores td,
   body.imprimir-estado-cuenta .estado-cuenta-tabla td {
-    font-size: 8pt !important;
+    font-size: 10pt !important;
     color: #000 !important;
     background: #fff !important;
     border-bottom: 1px solid #e5e5e5 !important;
   }
 
   body.imprimir-estado-cuenta .estado-cuenta-header h1 {
-    font-size: 9pt !important;
+    font-size: 11pt !important;
     color: #000 !important;
   }
 
   body.imprimir-estado-cuenta .estado-cuenta-header h2,
   body.imprimir-estado-cuenta .estado-cuenta-header p {
-    font-size: 8pt !important;
+    font-size: 10pt !important;
     color: #000 !important;
   }
 
@@ -7656,18 +7677,32 @@ body.imprimiendo-extracto-predios-propietario #extracto-predios-impresion-root {
   }
 
   body.imprimir-estado-cuenta .estado-cuenta-arrendadores th,
-  body.imprimir-estado-cuenta .estado-cuenta-arrendadores td,
-  body.imprimir-estado-cuenta .estado-cuenta-tabla th,
-  body.imprimir-estado-cuenta .estado-cuenta-tabla td {
-    font-size: 8px !important;
+  body.imprimir-estado-cuenta .estado-cuenta-tabla th {
+    font-size: 9pt !important;
     padding: 4px !important;
     white-space: normal !important;
     word-break: break-word !important;
   }
 
-  body.imprimir-estado-cuenta .extracto-table-arriendo th,
-  body.imprimir-estado-cuenta .extracto-table-arriendo td {
-    font-size: 7.5px !important;
+  body.imprimir-estado-cuenta .estado-cuenta-arrendadores td,
+  body.imprimir-estado-cuenta .estado-cuenta-tabla td {
+    font-size: 10pt !important;
+    padding: 4px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  body.imprimir-estado-cuenta .estado-cuenta-tabla-arriendo h3 {
+    font-size: 10pt !important;
+  }
+
+  body.imprimir-estado-cuenta .extracto-table-arriendo th {
+    font-size: 9pt !important;
+  }
+
+  body.imprimir-estado-cuenta .extracto-table-arriendo td,
+  body.imprimir-estado-cuenta .extracto-table-arriendo tfoot td {
+    font-size: 10pt !important;
   }
 
   body.imprimir-estado-cuenta .extracto-table-arriendo th:nth-child(4),

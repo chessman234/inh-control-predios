@@ -3444,12 +3444,21 @@ const calcularLiquidacionBeneficiarioPagoArriendo = ({
   const mesPagadoEnTotalidad =
     datosAsignacionCanon?.esPagoTotalMes === true ||
     Number(datosAsignacionCanon?.porcentajeAbonoCanonAcumulado || 0) >= 100
-  const valorAdministracionDescontada =
+  const ratioAsignacionCanonArriendo =
+    canonArrendamiento > 0
+      ? Math.min(1, valorLiquidable / canonArrendamiento)
+      : valorLiquidable > 0
+      ? 1
+      : 0
+  const incluyeDescuentoAdministracionCanon =
     contratoArriendo &&
     administracionIncluidaEnCanonContrato(contratoArriendo) &&
-    esPagoFijoMensualCalculo
+    Number(administracionMes || 0) > 0
+  const valorAdministracionDescontada = incluyeDescuentoAdministracionCanon
+    ? esPagoFijoMensualCalculo
       ? Number(administracionMes || 0)
-      : 0
+      : Math.round(Number(administracionMes || 0) * ratioAsignacionCanonArriendo)
+    : 0
   const porcentajeAbonoCanon =
     datosAsignacionCanon?.porcentajeAbonoCanonAcumulado ??
     (canonArrendamiento > 0
@@ -3510,6 +3519,14 @@ const calcularLiquidacionBeneficiarioPagoArriendo = ({
     valorBruto = canonBaseBeneficiario + ivaBeneficiario
     ivaLiquidableAsignado = ivaCanonMes
     canonBaseLiquidableAsignado = canonBaseMes
+  } else if (incluyeDescuentoAdministracionCanon) {
+    const canonBaseAsignado = Math.round(canonBaseMes * ratioAsignacionCanonArriendo)
+    const ivaAsignado = Math.round(ivaCanonMes * ratioAsignacionCanonArriendo)
+    canonBaseBeneficiario = Math.round(canonBaseAsignado * (participacion / 100))
+    ivaBeneficiario = Math.round(ivaAsignado * (participacion / 100))
+    valorBruto = canonBaseBeneficiario + ivaBeneficiario
+    ivaLiquidableAsignado = ivaAsignado
+    canonBaseLiquidableAsignado = canonBaseAsignado
   } else {
     valorBruto = Math.round(valorLiquidablePropietario * (participacion / 100))
     const ratioIvaLiquidable =
@@ -3528,12 +3545,11 @@ const calcularLiquidacionBeneficiarioPagoArriendo = ({
   const ivaComisionBeneficiario =
     comisionInmobiliaria > 0 ? calcularIvaComisionInh(comisionInmobiliaria) : 0
 
-  const valorNeto = esPagoFijoMensualCalculo
-    ? valorBruto -
-      comisionInmobiliaria -
-      ivaComisionBeneficiario -
-      valorAdministracionDescontadaBeneficiario
-    : valorBruto - comisionInmobiliaria - ivaComisionBeneficiario
+  const valorNeto =
+    valorBruto -
+    comisionInmobiliaria -
+    ivaComisionBeneficiario -
+    valorAdministracionDescontadaBeneficiario
 
   return {
     valorPagado,
@@ -5332,7 +5348,10 @@ const construirDesgloseCargosCorteLiquidacionDeposito = ({
     porcentajeAbonoCanon,
   })
 
-  const etiquetaCanon = esPagoFijoMensual ? 'Canon de arriendo' : 'Canon base liquidable'
+  const etiquetaCanon =
+    esPagoFijoMensual || descuentoAdministracion > 0
+      ? 'Canon de arriendo'
+      : 'Canon base liquidable'
   const etiquetaIvaCanon = esPagoFijoMensual
     ? 'IVA del canon de arriendo'
     : 'IVA del canon al depositante'
@@ -5751,8 +5770,8 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
               agregarMovimiento({
                 fecha: fechaMovimiento,
                 mesCausado: liquidacion.mes,
-                detalle: esPagoFijo
-                  ? `Canon de arriendo periodo ${liquidacion.mes}`
+                detalle: esPagoFijo || valorAdministracionDescontada > 0
+                  ? `Canon de arriendo periodo ${liquidacion.mes}${!esPagoFijo ? ` – Recibo ${recibo}` : ''}`
                   : `Canon base liquidable periodo ${liquidacion.mes} – Recibo ${recibo}`,
                 tipo: 'canon-base',
                 cargo: canonBaseBeneficiario,
@@ -5820,6 +5839,17 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
           })
           canonBaseBeneficiario = canonIva.canonBaseBeneficiario
           ivaBeneficiario = canonIva.ivaBeneficiario
+        } else if (Number(liquidacion.valorAdministracionDescontadaBeneficiario || 0) > 0) {
+          const ratioCanon = Math.min(
+            1,
+            Number(liquidacion.porcentajeAbonoCanonMes || 0) / 100
+          )
+          const canonIva = obtenerCanonIvaBeneficiarioLiquidacionDepositoMes({
+            liquidacion,
+            participacion,
+          })
+          canonBaseBeneficiario = Math.round(canonIva.canonBaseBeneficiario * ratioCanon)
+          ivaBeneficiario = Math.round(canonIva.ivaBeneficiario * ratioCanon)
         } else {
           const valorBruto = Number(liquidacion.valorBrutoPropietario || 0)
           const montoLiquidable = Number(liquidacion.montoLiquidablePropietarioMes || 0)
@@ -5833,7 +5863,7 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
           agregarMovimiento({
             fecha: fechaRecaudo,
             mesCausado: liquidacion.mes,
-            detalle: esPagoFijo
+            detalle: esPagoFijo || valorAdministracionDescontada > 0
               ? `Canon de arriendo – Corte ${liquidacion.mes}`
               : `Canon base liquidable (${liquidacion.porcentajeAbonoCanonMes || 0}% cubierto)`,
             tipo: 'canon-base',
@@ -6501,6 +6531,7 @@ const construirResumenExtractoLiquidacionDeposito = (extracto = {}) => {
     totalServicios: Number(desglose.totalServiciosFijos || 0),
     totalComision: Number(desglose.totalComision || 0),
     totalIvaComision: Number(desglose.totalIvaComision || 0),
+    descuentoAdministracion: Number(desglose.descuentoAdministracion || 0),
     totalAbonado: Number(extracto.totalAbonado || 0),
     totalPendiente,
     totalDeuda: totalPendiente,
@@ -6877,7 +6908,10 @@ const construirConsolidadoPendienteExtractoLiquidacionDeposito = ({
   )
 
   const items = []
-  const etiquetaCanon = esPagoFijoMensual ? 'Canon de arriendo' : 'Canon base liquidable'
+  const etiquetaCanon =
+    esPagoFijoMensual || totalDescuentoAdministracion > 0
+      ? 'Canon de arriendo'
+      : 'Canon base liquidable'
   const etiquetaIvaCanon = esPagoFijoMensual
     ? 'IVA del canon de arriendo'
     : 'IVA del canon al depositante'
@@ -12271,6 +12305,40 @@ const ESTILOS_IMPRESION_VENTANA_BANCARIA = `
     font-weight: 400 !important;
   }
   .saldo-atraso { color: #000 !important; font-weight: 700 !important; }
+
+  /* Estado de cuenta arriendo — +2 pt en impresión (legibilidad en carta). */
+  .estado-cuenta-print {
+    font-size: 10pt;
+  }
+  .estado-cuenta-print .estado-cuenta-header h1 { font-size: 11pt; }
+  .estado-cuenta-print .estado-cuenta-header h2 { font-size: 10pt; }
+  .estado-cuenta-print .estado-cuenta-header p { font-size: 9pt; }
+  .estado-cuenta-print .estado-cuenta-info span:not(.status) { font-size: 9pt; }
+  .estado-cuenta-print .estado-cuenta-info strong { font-size: 10pt; }
+  .estado-cuenta-print h3 { font-size: 10pt; }
+  .estado-cuenta-print .form-description { font-size: 9pt; }
+  .estado-cuenta-print .estado-cuenta-resumen-deuda .resumen-deuda-arriendo .resumen-deuda-kpi-etiqueta {
+    font-size: 9pt;
+  }
+  .estado-cuenta-print .estado-cuenta-resumen-deuda .resumen-deuda-arriendo .resumen-deuda-kpi-valor,
+  .estado-cuenta-print .estado-cuenta-resumen-deuda .resumen-deuda-arriendo strong.resumen-deuda-kpi-valor {
+    font-size: 10pt;
+  }
+  .estado-cuenta-print .estado-cuenta-tabla-arriendo h3 { font-size: 10pt; }
+  .estado-cuenta-print .estado-cuenta-tabla-arriendo .extracto-table-arriendo th { font-size: 9pt; }
+  .estado-cuenta-print .estado-cuenta-tabla-arriendo .extracto-table-arriendo td,
+  .estado-cuenta-print .estado-cuenta-tabla-arriendo .extracto-table-arriendo tfoot td {
+    font-size: 10pt;
+  }
+  .estado-cuenta-print table th { font-size: 9pt; }
+  .estado-cuenta-print table td { font-size: 10pt; }
+  .estado-cuenta-print .total-doc { font-size: 10pt; }
+  .estado-cuenta-print .status,
+  .estado-cuenta-print .status.active,
+  .estado-cuenta-print .status.inactive,
+  .estado-cuenta-print .status.warning {
+    font-size: 10pt !important;
+  }
 `
 
 // =============================================================================
@@ -17938,6 +18006,19 @@ const formatearPorcentajeCanonLiquidacionDeposito = (porcentaje = 0) => {
 }
 
 // =============================================================================
+// LIQUIDACION DEPOSITO - ETIQUETA CANON RESUMEN
+// Canon bruto de arriendo cuando aplica descuento de administracion en el canon.
+// =============================================================================
+
+const obtenerEtiquetaCanonResumenLiquidacionDeposito = ({
+  esPagoFijoMensual = false,
+  descuentoAdministracion = 0,
+} = {}) =>
+  esPagoFijoMensual || Number(descuentoAdministracion || 0) > 0
+    ? 'Canon de arriendo'
+    : 'Canon base'
+
+// =============================================================================
 // LIQUIDACION DEPOSITO - COMISION PROVISIONAL POR ABONO
 // Etiquetas cuando el canon del mes no esta cubierto al 100%.
 // =============================================================================
@@ -18150,6 +18231,7 @@ const construirFilasResumenPorMesExtractoLiquidacionDeposito = ({
       porcentajeCanonEtiqueta: formatearPorcentajeCanonLiquidacionDeposito(porcentajeCanon),
       canonBase: cuadre.totalCanonBase,
       ivaCanon: cuadre.totalIva,
+      descuentoAdministracion: cuadre.descuentoAdministracion,
       comisionInh: cuadre.totalComision,
       ivaComision: cuadre.totalIvaComision,
       netoDepositario: cuadre.saldoPendiente,
@@ -18239,7 +18321,10 @@ const construirFilasMovimientosCorteExtractoLiquidacionDeposito = ({
   }
 
   const itemsDesglose = (desglose.items || []).filter((item) => item.tipo !== 'pago-inh')
-  const etiquetaCanon = esPagoFijoMensual ? 'Canon de arriendo' : 'Canon base liquidable'
+  const etiquetaCanon =
+    esPagoFijoMensual || Number(cuadre.descuentoAdministracion || 0) > 0
+      ? 'Canon de arriendo'
+      : 'Canon base liquidable'
   const etiquetaIva = esPagoFijoMensual ? 'IVA del canon de arriendo' : 'IVA del canon al depositante'
 
   if (itemsDesglose.length) {
@@ -18485,6 +18570,35 @@ function TablaResumenPorMesExtractoLiquidacionDeposito({
 
   const mesesCortes = cortes.map((corte) => corte.mes).filter(Boolean).sort()
   const rangoCortes = formatearRangoCortesLiquidacion(mesesCortes)
+  const muestraDescuentoAdministracion =
+    esPagoFijoMensual ||
+    filas.some((fila) => Number(fila.descuentoAdministracion || 0) > 0)
+  const etiquetaCanon = obtenerEtiquetaCanonResumenLiquidacionDeposito({
+    esPagoFijoMensual,
+    descuentoAdministracion: filas.reduce(
+      (total, fila) => total + Number(fila.descuentoAdministracion || 0),
+      0
+    ),
+  })
+  const totalesResumen = filas.reduce(
+    (acumulado, fila) => ({
+      canonBase: acumulado.canonBase + Number(fila.canonBase || 0),
+      ivaCanon: acumulado.ivaCanon + Number(fila.ivaCanon || 0),
+      descuentoAdministracion:
+        acumulado.descuentoAdministracion + Number(fila.descuentoAdministracion || 0),
+      comisionInh: acumulado.comisionInh + Number(fila.comisionInh || 0),
+      ivaComision: acumulado.ivaComision + Number(fila.ivaComision || 0),
+      netoDepositario: acumulado.netoDepositario + Number(fila.netoDepositario || 0),
+    }),
+    {
+      canonBase: 0,
+      ivaCanon: 0,
+      descuentoAdministracion: 0,
+      comisionInh: 0,
+      ivaComision: 0,
+      netoDepositario: 0,
+    }
+  )
 
   return (
     <section className="extracto-liquidacion-seccion extracto-liquidacion-seccion--resumen-meses">
@@ -18513,8 +18627,9 @@ function TablaResumenPorMesExtractoLiquidacionDeposito({
             <tr>
               <th>Mes</th>
               <th>% Canon liquidable</th>
-              <th>Canon base</th>
+              <th>{etiquetaCanon}</th>
               <th>IVA canon</th>
+              {muestraDescuentoAdministracion && <th>Desc. administración</th>}
               <th>Comisión INH</th>
               <th>IVA comisión</th>
               <th>Neto depositario</th>
@@ -18536,6 +18651,13 @@ function TablaResumenPorMesExtractoLiquidacionDeposito({
                 <td className="extracto-deuda-corte-valor">{fila.porcentajeCanonEtiqueta}</td>
                 <td className="extracto-deuda-corte-valor">{formatearDinero(fila.canonBase)}</td>
                 <td className="extracto-deuda-corte-valor">{formatearDinero(fila.ivaCanon)}</td>
+                {muestraDescuentoAdministracion && (
+                  <td className="extracto-deuda-corte-valor extracto-deuda-corte-valor--abono">
+                    {Number(fila.descuentoAdministracion || 0) > 0
+                      ? `− ${formatearDinero(fila.descuentoAdministracion)}`
+                      : formatearDinero(0)}
+                  </td>
+                )}
                 <td className="extracto-deuda-corte-valor extracto-deuda-corte-valor--abono">
                   {fila.comisionInh > 0 ? `− ${formatearDinero(fila.comisionInh)}` : formatearDinero(0)}
                 </td>
@@ -18556,8 +18678,46 @@ function TablaResumenPorMesExtractoLiquidacionDeposito({
             ))}
           </tbody>
           <tfoot>
+            <tr className="extracto-liquidacion-resumen-meses-subtotal-fila">
+              <td colSpan="2">
+                <strong>Subtotal periodos</strong>
+              </td>
+              <td className="extracto-deuda-corte-valor">
+                <strong>{formatearDinero(totalesResumen.canonBase)}</strong>
+              </td>
+              <td className="extracto-deuda-corte-valor">
+                <strong>{formatearDinero(totalesResumen.ivaCanon)}</strong>
+              </td>
+              {muestraDescuentoAdministracion && (
+                <td className="extracto-deuda-corte-valor extracto-deuda-corte-valor--abono">
+                  <strong>
+                    {totalesResumen.descuentoAdministracion > 0
+                      ? `− ${formatearDinero(totalesResumen.descuentoAdministracion)}`
+                      : formatearDinero(0)}
+                  </strong>
+                </td>
+              )}
+              <td className="extracto-deuda-corte-valor extracto-deuda-corte-valor--abono">
+                <strong>
+                  {totalesResumen.comisionInh > 0
+                    ? `− ${formatearDinero(totalesResumen.comisionInh)}`
+                    : formatearDinero(0)}
+                </strong>
+              </td>
+              <td className="extracto-deuda-corte-valor extracto-deuda-corte-valor--abono">
+                <strong>
+                  {totalesResumen.ivaComision > 0
+                    ? `− ${formatearDinero(totalesResumen.ivaComision)}`
+                    : formatearDinero(0)}
+                </strong>
+              </td>
+              <td className="extracto-deuda-corte-valor">
+                <strong>{formatearDinero(totalesResumen.netoDepositario)}</strong>
+              </td>
+              <td />
+            </tr>
             <tr className="extracto-liquidacion-resumen-meses-total-fila">
-              <td colSpan="6">
+              <td colSpan={muestraDescuentoAdministracion ? 7 : 6}>
                 <strong>Total pendiente INH</strong>
               </td>
               <td className="extracto-deuda-corte-valor">
@@ -18712,6 +18872,61 @@ function DetalleCortesExtractoLiquidacionDeposito({
                   formatearDinero={formatearDinero}
                   titulo="Pagos del arrendatario que originan este corte"
                 />
+              )}
+
+              {(cuadre.totalCanonBase > 0 ||
+                cuadre.totalIva > 0 ||
+                cuadre.descuentoAdministracion > 0 ||
+                cuadre.totalComision > 0) && (
+                <div className="extracto-liquidacion-corte-resumen detail-grid">
+                  {cuadre.totalCanonBase > 0 && (
+                    <div>
+                      <span>
+                        {obtenerEtiquetaCanonResumenLiquidacionDeposito({
+                          esPagoFijoMensual,
+                          descuentoAdministracion: cuadre.descuentoAdministracion,
+                        })}
+                      </span>
+                      <strong>{formatearDinero(cuadre.totalCanonBase)}</strong>
+                    </div>
+                  )}
+                  {cuadre.totalIva > 0 && (
+                    <div>
+                      <span>IVA del canon</span>
+                      <strong>{formatearDinero(cuadre.totalIva)}</strong>
+                    </div>
+                  )}
+                  {cuadre.descuentoAdministracion > 0 && (
+                    <div>
+                      <span>Descuento administración</span>
+                      <strong className="extracto-deuda-corte-valor--abono">
+                        − {formatearDinero(cuadre.descuentoAdministracion)}
+                      </strong>
+                    </div>
+                  )}
+                  {cuadre.totalComision > 0 && (
+                    <div>
+                      <span>Comisión INH</span>
+                      <strong className="extracto-deuda-corte-valor--abono">
+                        − {formatearDinero(cuadre.totalComision)}
+                      </strong>
+                    </div>
+                  )}
+                  {cuadre.totalIvaComision > 0 && (
+                    <div>
+                      <span>IVA comisión</span>
+                      <strong className="extracto-deuda-corte-valor--abono">
+                        − {formatearDinero(cuadre.totalIvaComision)}
+                      </strong>
+                    </div>
+                  )}
+                  <div>
+                    <span>Neto al depositario</span>
+                    <strong className={saldoPendienteVisible > 0 ? 'saldo-atraso' : ''}>
+                      {formatearDinero(cuadre.totalAPagar)}
+                    </strong>
+                  </div>
+                </div>
               )}
 
               <div className="extracto-movimientos-wrapper">
