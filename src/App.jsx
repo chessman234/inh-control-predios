@@ -3048,15 +3048,21 @@ const calcularTotalCargosFilasLiquidacionPeriodoArriendo = (liquidacion, movimie
   const ivaMora = Number(liquidacion?.ivaMora || 0)
   const sancionCobranza = Number(liquidacion?.sancionCobranza || 0)
   const ivaGastosCobranza = Number(liquidacion?.ivaGastosCobranza || 0)
+  const totalRetenciones = Number(
+    liquidacion?.totalRetenciones ??
+      Number(liquidacion?.retencionFuente || 0) + Number(liquidacion?.reteIva || 0)
+  )
 
-  return (
+  return Math.max(
+    0,
     canonBase +
-    ivaCanonMes +
-    moraContrato +
-    moraGestion +
-    ivaMora +
-    sancionCobranza +
-    ivaGastosCobranza
+      ivaCanonMes +
+      moraContrato +
+      moraGestion +
+      ivaMora +
+      sancionCobranza +
+      ivaGastosCobranza -
+      totalRetenciones
   )
 }
 
@@ -3545,8 +3551,36 @@ const calcularLiquidacionBeneficiarioPagoArriendo = ({
   const ivaComisionBeneficiario =
     comisionInmobiliaria > 0 ? calcularIvaComisionInh(comisionInmobiliaria) : 0
 
+  const canonBaseRetencionPredio =
+    esPagoFijoMensualCalculo || incluyeDescuentoAdministracionCanon
+      ? Math.round(
+          Number(canonBaseMes || 0) *
+            (incluyeDescuentoAdministracionCanon ? ratioAsignacionCanonArriendo : 1)
+        )
+      : Number(canonBaseLiquidableAsignado || 0)
+  const ivaRetencionPredio =
+    esPagoFijoMensualCalculo || incluyeDescuentoAdministracionCanon
+      ? Math.round(
+          Number(ivaCanonMes || 0) *
+            (incluyeDescuentoAdministracionCanon ? ratioAsignacionCanonArriendo : 1)
+        )
+      : Number(ivaLiquidableAsignado || 0)
+  const retencionFuentePredio = calcularRetencionFuenteArriendo(
+    canonBaseRetencionPredio,
+    contratoArriendo
+  )
+  const reteIvaPredio = calcularReteIvaArriendo(ivaRetencionPredio, contratoArriendo)
+  const retencionFuenteBeneficiario = Math.round(
+    retencionFuentePredio * (participacion / 100)
+  )
+  const reteIvaBeneficiario = Math.round(reteIvaPredio * (participacion / 100))
+  const porcentajeRetencionFuente = obtenerPorcentajeRetencionFuenteContrato(contratoArriendo)
+  const porcentajeReteIva = obtenerPorcentajeReteIvaContrato(contratoArriendo)
+
   const valorNeto =
     valorBruto -
+    retencionFuenteBeneficiario -
+    reteIvaBeneficiario -
     comisionInmobiliaria -
     ivaComisionBeneficiario -
     valorAdministracionDescontadaBeneficiario
@@ -3564,6 +3598,12 @@ const calcularLiquidacionBeneficiarioPagoArriendo = ({
     ivaBeneficiario,
     canonBaseBeneficiario,
     valorAdministracionDescontada,
+    retencionFuentePredio,
+    reteIvaPredio,
+    retencionFuenteBeneficiario,
+    reteIvaBeneficiario,
+    porcentajeRetencionFuente,
+    porcentajeReteIva,
     baseComisionAsignada,
     mesAsignado: datosAsignacionCanon?.mesAsignado || pagoArriendo.mes,
     mesPagoOriginal: datosAsignacionCanon?.mesPagoOriginal || pagoArriendo.mes,
@@ -4386,6 +4426,16 @@ const construirLiquidacionDepositoBeneficiarioMes = ({
     valorBrutoPropietario,
     valorAdministracionDescontadaPredio,
     valorAdministracionDescontadaBeneficiario,
+    retencionFuenteBeneficiario: detallePagos.reduce(
+      (total, pago) => total + Number(pago.retencionFuenteBeneficiario || 0),
+      0
+    ),
+    reteIvaBeneficiario: detallePagos.reduce(
+      (total, pago) => total + Number(pago.reteIvaBeneficiario || 0),
+      0
+    ),
+    porcentajeRetencionFuente: obtenerPorcentajeRetencionFuenteContrato(contratoArriendoReferencia),
+    porcentajeReteIva: obtenerPorcentajeReteIvaContrato(contratoArriendoReferencia),
     comisionInmobiliariaPropietario,
     valorNetoPropietario: valorNetoTotal,
     valorNetoTotal,
@@ -5337,6 +5387,29 @@ const construirDesgloseCargosCorteLiquidacionDeposito = ({
   const descuentoAdministracion = Number(
     liquidacion?.valorAdministracionDescontadaBeneficiario || 0
   )
+  const detallePagosRetencion = liquidacion?.detallePagos || []
+  const totalRetencionFuente =
+    detallePagosRetencion.length > 0
+      ? detallePagosRetencion.reduce(
+          (total, pago) => total + Number(pago.retencionFuenteBeneficiario || 0),
+          0
+        )
+      : Number(liquidacion?.retencionFuenteBeneficiario || 0)
+  const totalReteIva =
+    detallePagosRetencion.length > 0
+      ? detallePagosRetencion.reduce(
+          (total, pago) => total + Number(pago.reteIvaBeneficiario || 0),
+          0
+        )
+      : Number(liquidacion?.reteIvaBeneficiario || 0)
+  const porcentajeRetencionFuente = Number(
+    liquidacion?.porcentajeRetencionFuente ??
+      detallePagosRetencion[0]?.porcentajeRetencionFuente ??
+      0
+  )
+  const porcentajeReteIva = Number(
+    liquidacion?.porcentajeReteIva ?? detallePagosRetencion[0]?.porcentajeReteIva ?? 0
+  )
   const totalServiciosFijos = serviciosFijos.reduce(
     (total, servicio) => total + Number(servicio.valorBeneficiario || 0),
     0
@@ -5402,6 +5475,26 @@ const construirDesgloseCargosCorteLiquidacionDeposito = ({
     })
   }
 
+  if (totalRetencionFuente > 0) {
+    items.push({
+      concepto: `Retención en la fuente (${formatearPorcentajeRetencionArriendo(
+        porcentajeRetencionFuente
+      )})`,
+      tipo: 'retencion-fuente',
+      cargo: 0,
+      abono: totalRetencionFuente,
+    })
+  }
+
+  if (totalReteIva > 0) {
+    items.push({
+      concepto: `ReteIVA (${formatearPorcentajeRetencionArriendo(porcentajeReteIva)} del IVA)`,
+      tipo: 'retencion-iva',
+      cargo: 0,
+      abono: totalReteIva,
+    })
+  }
+
   if (totalComision > 0) {
     items.push({
       concepto: esPagoFijoMensual
@@ -5435,14 +5528,21 @@ const construirDesgloseCargosCorteLiquidacionDeposito = ({
 
   const totalCargo = totalCanonBase + totalIva + totalServiciosFijos
   const totalAbono =
-    totalComision + totalIvaComision + descuentoAdministracion + abonoRealizado
+    totalComision +
+    totalIvaComision +
+    descuentoAdministracion +
+    totalRetencionFuente +
+    totalReteIva +
+    abonoRealizado
   const totalAPagarCorte =
     totalCanonBase +
     totalIva +
     totalServiciosFijos -
     totalComision -
     totalIvaComision -
-    descuentoAdministracion
+    descuentoAdministracion -
+    totalRetencionFuente -
+    totalReteIva
 
   return {
     items,
@@ -5452,6 +5552,10 @@ const construirDesgloseCargosCorteLiquidacionDeposito = ({
     totalIvaComision,
     totalServiciosFijos,
     descuentoAdministracion,
+    retencionFuente: totalRetencionFuente,
+    reteIva: totalReteIva,
+    porcentajeRetencionFuente,
+    porcentajeReteIva,
     totalCargo,
     totalAbono,
     totalAPagarCorte,
@@ -5809,6 +5913,33 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
               })
             }
 
+            const retencionFuentePago = Number(pago.retencionFuenteBeneficiario || 0)
+            const reteIvaPago = Number(pago.reteIvaBeneficiario || 0)
+            if (retencionFuentePago > 0) {
+              agregarMovimiento({
+                fecha: fechaMovimiento,
+                mesCausado: liquidacion.mes,
+                detalle: `Retención en la fuente (${formatearPorcentajeRetencionArriendo(
+                  pago.porcentajeRetencionFuente
+                )}) – Recibo ${recibo}`,
+                tipo: 'retencion-fuente',
+                cargo: 0,
+                abono: retencionFuentePago,
+              })
+            }
+            if (reteIvaPago > 0) {
+              agregarMovimiento({
+                fecha: fechaMovimiento,
+                mesCausado: liquidacion.mes,
+                detalle: `ReteIVA (${formatearPorcentajeRetencionArriendo(
+                  pago.porcentajeReteIva
+                )} del IVA) – Recibo ${recibo}`,
+                tipo: 'retencion-iva',
+                cargo: 0,
+                abono: reteIvaPago,
+              })
+            }
+
             agregarDescuentosComision(
               fechaMovimiento,
               valorComision,
@@ -5897,6 +6028,33 @@ const construirMovimientosExtractoLiquidacionDeposito = ({
             tipo: 'descuento-administracion',
             cargo: 0,
             abono: valorAdministracionDescontada,
+          })
+        }
+
+        const retencionFuenteLiquidacion = Number(liquidacion.retencionFuenteBeneficiario || 0)
+        const reteIvaLiquidacion = Number(liquidacion.reteIvaBeneficiario || 0)
+        if (retencionFuenteLiquidacion > 0) {
+          agregarMovimiento({
+            fecha: fechaRecaudo,
+            mesCausado: liquidacion.mes,
+            detalle: `Retención en la fuente (${formatearPorcentajeRetencionArriendo(
+              liquidacion.porcentajeRetencionFuente
+            )})`,
+            tipo: 'retencion-fuente',
+            cargo: 0,
+            abono: retencionFuenteLiquidacion,
+          })
+        }
+        if (reteIvaLiquidacion > 0) {
+          agregarMovimiento({
+            fecha: fechaRecaudo,
+            mesCausado: liquidacion.mes,
+            detalle: `ReteIVA (${formatearPorcentajeRetencionArriendo(
+              liquidacion.porcentajeReteIva
+            )} del IVA)`,
+            tipo: 'retencion-iva',
+            cargo: 0,
+            abono: reteIvaLiquidacion,
           })
         }
 
@@ -6870,6 +7028,8 @@ const construirConsolidadoPendienteExtractoLiquidacionDeposito = ({
   let totalComision = 0
   let totalIvaComision = 0
   let totalDescuentoAdministracion = 0
+  let totalRetencionFuente = 0
+  let totalReteIva = 0
 
   const cortesIncluidos = cortesPendientes.map((corte) => {
     const pendiente = Number(corte.saldoPendiente || 0)
@@ -6885,6 +7045,8 @@ const construirConsolidadoPendienteExtractoLiquidacionDeposito = ({
     const descuentoAdminPendiente = Math.round(
       Number(desglose.descuentoAdministracion || 0) * ratio
     )
+    const retencionFuentePendiente = Math.round(Number(desglose.retencionFuente || 0) * ratio)
+    const reteIvaPendiente = Math.round(Number(desglose.reteIva || 0) * ratio)
 
     totalCanonBase += canonPendiente
     totalIva += ivaPendiente
@@ -6892,6 +7054,8 @@ const construirConsolidadoPendienteExtractoLiquidacionDeposito = ({
     totalComision += comisionPendiente
     totalIvaComision += ivaComisionPendiente
     totalDescuentoAdministracion += descuentoAdminPendiente
+    totalRetencionFuente += retencionFuentePendiente
+    totalReteIva += reteIvaPendiente
 
     return {
       mes: corte.mes,
@@ -6954,6 +7118,24 @@ const construirConsolidadoPendienteExtractoLiquidacionDeposito = ({
     })
   }
 
+  if (totalRetencionFuente > 0) {
+    items.push({
+      concepto: 'Retención en la fuente',
+      tipo: 'retencion-fuente',
+      cargo: 0,
+      abono: totalRetencionFuente,
+    })
+  }
+
+  if (totalReteIva > 0) {
+    items.push({
+      concepto: 'ReteIVA',
+      tipo: 'retencion-iva',
+      cargo: 0,
+      abono: totalReteIva,
+    })
+  }
+
   if (totalComision > 0) {
     items.push({
       concepto: esPagoFijoMensual
@@ -6978,7 +7160,11 @@ const construirConsolidadoPendienteExtractoLiquidacionDeposito = ({
 
   const totalCargo = totalCanonBase + totalIva + totalServiciosFijos
   const totalAbono =
-    totalComision + totalIvaComision + totalDescuentoAdministracion
+    totalComision +
+    totalIvaComision +
+    totalDescuentoAdministracion +
+    totalRetencionFuente +
+    totalReteIva
   const mesesPendientes = cortesIncluidos.map((corte) => corte.mes)
   const rangoCortes = formatearRangoCortesLiquidacion(mesesPendientes)
 
@@ -7000,6 +7186,8 @@ const construirConsolidadoPendienteExtractoLiquidacionDeposito = ({
       totalIvaComision,
       totalServiciosFijos,
       descuentoAdministracion: totalDescuentoAdministracion,
+      retencionFuente: totalRetencionFuente,
+      reteIva: totalReteIva,
       totalCargo,
       totalAbono,
       totalAPagarCorte: totalPendiente,
@@ -7181,6 +7369,10 @@ const construirInformacionContratosExtractoLiquidacionDeposito = ({
       barrioCiudad: [predio?.barrio, predio?.ciudad].filter(Boolean).join(' — ') || '—',
       canonMensualContrato: Number(contratoArriendo.canonMensual || 0),
       aplicaIva: contratoArriendo.aplicaIva === 'Sí' ? 'Sí' : 'No',
+      aplicaRetencionFuente: contratoArriendo.aplicaRetencionFuente === 'Sí' ? 'Sí' : 'No',
+      porcentajeRetencionFuente: Number(contratoArriendo.porcentajeRetencionFuente || 0),
+      aplicaReteIva: contratoArriendo.aplicaReteIva === 'Sí' ? 'Sí' : 'No',
+      porcentajeReteIva: Number(contratoArriendo.porcentajeReteIva || 0),
       aplicaAdministracion:
         contratoArriendo.aplicaAdministracion === 'Sí' ? 'Sí' : 'No',
       interesMora: Number(contratoArriendo.porcentajeInteresMora || 0),
@@ -7807,6 +7999,48 @@ const obtenerDiaVencimientoCanonContrato = (contrato = null) => {
 const calcularIvaArriendo = (base, contrato = null) =>
   contratoAplicaIvaArriendo(contrato) ? Math.round(Number(base || 0) * 0.19) : 0
 
+const PORCENTAJE_RETE_IVA_DEFECTO = 15
+
+// =============================================================================
+// ARRIENDOS - RETENCION EN LA FUENTE Y RETEIVA
+// Porcentajes del contrato aplicados sobre canon base e IVA del canon.
+// =============================================================================
+
+const contratoAplicaRetencionFuente = (contrato) =>
+  contrato?.aplicaRetencionFuente === 'Sí'
+
+const contratoAplicaReteIva = (contrato) =>
+  contrato?.aplicaReteIva === 'Sí' && contratoAplicaIvaArriendo(contrato)
+
+const obtenerPorcentajeRetencionFuenteContrato = (contrato) =>
+  contratoAplicaRetencionFuente(contrato)
+    ? Number(contrato?.porcentajeRetencionFuente || 0)
+    : 0
+
+const obtenerPorcentajeReteIvaContrato = (contrato) =>
+  contratoAplicaReteIva(contrato)
+    ? Number(contrato?.porcentajeReteIva ?? PORCENTAJE_RETE_IVA_DEFECTO)
+    : 0
+
+const calcularRetencionFuenteArriendo = (canonBase, contrato, ratio = 1) => {
+  const porcentaje = obtenerPorcentajeRetencionFuenteContrato(contrato)
+  if (porcentaje <= 0) return 0
+  return Math.round(Number(canonBase || 0) * Math.max(0, Number(ratio || 0)) * (porcentaje / 100))
+}
+
+const calcularReteIvaArriendo = (ivaCanon, contrato, ratio = 1) => {
+  const porcentaje = obtenerPorcentajeReteIvaContrato(contrato)
+  if (porcentaje <= 0) return 0
+  return Math.round(Number(ivaCanon || 0) * Math.max(0, Number(ratio || 0)) * (porcentaje / 100))
+}
+
+const formatearPorcentajeRetencionArriendo = (porcentaje = 0) => {
+  const valor = Number(porcentaje || 0)
+  if (valor <= 0) return '0%'
+  if (Number.isInteger(valor)) return `${valor}%`
+  return `${valor.toFixed(2).replace('.', ',')}%`
+}
+
 // =============================================================================
 // LIQUIDACION DEPOSITO - CANON E IVA BENEFICIARIO POR MES
 // Canon completo e IVA del mes para extracto y desglose (pago fijo mensual).
@@ -7970,6 +8204,8 @@ const construirAuditoriaLiquidacionReciboPagoArriendo = ({
       : [],
     liquidacionResultante: {
       canonIvaPendiente: Number(desglosePago.canonIvaPendiente || 0),
+      retencionFuentePendiente: Number(desglosePago.retencionFuentePendiente || 0),
+      reteIvaPendiente: Number(desglosePago.reteIvaPendiente || 0),
       moraPendiente: Number(desglosePago.moraPendiente || 0),
       gastosCobranza: Number(desglosePago.gastosCobranza || 0),
       ivaMoraCobranza: Number(desglosePago.ivaMoraCobranza || 0),
@@ -8414,6 +8650,9 @@ const calcularCargosLiquidadosPeriodoExtractoArriendo = ({
   const { sancionCobranza, porcentajeGastosCobranza, baseGastosCobranza } =
     gastosCobranzaPeriodo
   const porcentajeInteresMora = Number(contrato?.porcentajeInteresMora || 0)
+  const retencionFuente = calcularRetencionFuenteArriendo(canonBase, contrato)
+  const reteIva = calcularReteIvaArriendo(ivaCanonMes, contrato)
+  const totalRetenciones = retencionFuente + reteIva
   const ivaMora = aplicaIva ? calcularIvaArriendo(moraLiquidada.moraTotal, contrato) : 0
   const ivaGastosCobranza = aplicaIva ? calcularIvaArriendo(sancionCobranza, contrato) : 0
   const rangoFechasMora = formatearRangoFechasLiquidacionMoraExtractoArriendo({
@@ -8433,6 +8672,11 @@ const calcularCargosLiquidadosPeriodoExtractoArriendo = ({
     rangoFechasMora,
     porcentajeGastosCobranza,
     porcentajeInteresMora,
+    porcentajeRetencionFuente: obtenerPorcentajeRetencionFuenteContrato(contrato),
+    porcentajeReteIva: obtenerPorcentajeReteIvaContrato(contrato),
+    retencionFuente,
+    reteIva,
+    totalRetenciones,
     aplicaIva,
     fechaCorteEfectiva,
     canonPendienteGastosCobranza: baseGastosCobranza,
@@ -8455,6 +8699,7 @@ const calcularCargosLiquidadosPeriodoExtractoArriendo = ({
         ivaMora +
         sancionCobranza +
         ivaGastosCobranza -
+        totalRetenciones -
         totalDescuentoMes -
         totalPagadoMes
     ),
@@ -8954,6 +9199,8 @@ const calcularPendientesDeudaPeriodoEstadoCuentaArriendo = (
       pendienteGastos: 0,
       pendienteIvaMora: 0,
       pendienteIvaGastos: 0,
+      retencionFuente: 0,
+      reteIva: 0,
       saldoPeriodo: 0,
     }
   }
@@ -8976,9 +9223,11 @@ const calcularPendientesDeudaPeriodoEstadoCuentaArriendo = (
   )
   const pagadoIvaCanon = Math.max(0, pagadoCapitalTotal - pagadoCanonBase)
   const descuento = Number(movimiento?.descuento || 0)
+  const retencionFuente = calcularRetencionFuenteArriendo(canonBase, contrato)
+  const reteIva = calcularReteIvaArriendo(ivaCanonMes, contrato)
 
-  const pendienteCanon = Math.max(0, canonBase - descuento - pagadoCanonBase)
-  const pendienteIvaCanon = Math.max(0, ivaCanonMes - pagadoIvaCanon)
+  const pendienteCanon = Math.max(0, canonBase - retencionFuente - descuento - pagadoCanonBase)
+  const pendienteIvaCanon = Math.max(0, ivaCanonMes - reteIva - pagadoIvaCanon)
   const pendienteMora = Math.max(
     0,
     liquidacion.moraContrato + liquidacion.moraGestion - pagadoMora
@@ -9001,6 +9250,8 @@ const calcularPendientesDeudaPeriodoEstadoCuentaArriendo = (
     pendienteGastos,
     pendienteIvaMora,
     pendienteIvaGastos,
+    retencionFuente,
+    reteIva,
     saldoPeriodo: liquidacion.saldoPeriodo,
   }
 }
@@ -9020,6 +9271,8 @@ const calcularResumenDeudaEstadoCuentaArriendo = ({
     totalIvaDeuda: 0,
     totalMoraDeuda: 0,
     totalGastosCobranzaDeuda: 0,
+    totalRetencionFuenteDeuda: 0,
+    totalReteIvaDeuda: 0,
     totalDeuda: 0,
   }
 
@@ -9036,6 +9289,8 @@ const calcularResumenDeudaEstadoCuentaArriendo = ({
       pendientes.pendienteIvaGastos
     resumen.totalMoraDeuda += pendientes.pendienteMora
     resumen.totalGastosCobranzaDeuda += pendientes.pendienteGastos
+    resumen.totalRetencionFuenteDeuda += Number(pendientes.retencionFuente || 0)
+    resumen.totalReteIvaDeuda += Number(pendientes.reteIva || 0)
     resumen.totalDeuda += pendientes.saldoPeriodo
   })
 
@@ -9714,6 +9969,8 @@ const calcularMoraAcumuladaMesArriendo = ({
 
 const DESGLOSE_PAGO_ARRIENDO_VACIO = {
   canonIvaPendiente: 0,
+  retencionFuentePendiente: 0,
+  reteIvaPendiente: 0,
   moraPendiente: 0,
   gastosCobranza: 0,
   ivaMoraCobranza: 0,
@@ -9723,6 +9980,8 @@ const DESGLOSE_PAGO_ARRIENDO_VACIO = {
 const pendientesADesglosePagoArriendo = (pendientes = {}) => {
   const canonIvaPendiente =
     Number(pendientes.pendienteCanon || 0) + Number(pendientes.pendienteIvaCanon || 0)
+  const retencionFuentePendiente = Number(pendientes.retencionFuente || 0)
+  const reteIvaPendiente = Number(pendientes.reteIva || 0)
   const moraPendiente = Number(pendientes.pendienteMora || 0)
   const gastosCobranza = Number(pendientes.pendienteGastos || 0)
   const ivaMoraCobranza =
@@ -9730,6 +9989,8 @@ const pendientesADesglosePagoArriendo = (pendientes = {}) => {
 
   return {
     canonIvaPendiente,
+    retencionFuentePendiente,
+    reteIvaPendiente,
     moraPendiente,
     gastosCobranza,
     ivaMoraCobranza,
@@ -9787,6 +10048,9 @@ const construirDesglosePendientePagoArriendoContrato = ({
 
       return {
         canonIvaPendiente: acumulado.canonIvaPendiente + parcial.canonIvaPendiente,
+        retencionFuentePendiente:
+          acumulado.retencionFuentePendiente + parcial.retencionFuentePendiente,
+        reteIvaPendiente: acumulado.reteIvaPendiente + parcial.reteIvaPendiente,
         moraPendiente: acumulado.moraPendiente + parcial.moraPendiente,
         gastosCobranza: acumulado.gastosCobranza + parcial.gastosCobranza,
         ivaMoraCobranza: acumulado.ivaMoraCobranza + parcial.ivaMoraCobranza,
@@ -9865,6 +10129,9 @@ const construirDesgloseLiquidacionReciboPagoArriendo = ({
   const desglose = detallePeriodos.reduce(
     (acumulado, parcial) => ({
       canonIvaPendiente: acumulado.canonIvaPendiente + Number(parcial.canonIvaPendiente || 0),
+      retencionFuentePendiente:
+        acumulado.retencionFuentePendiente + Number(parcial.retencionFuentePendiente || 0),
+      reteIvaPendiente: acumulado.reteIvaPendiente + Number(parcial.reteIvaPendiente || 0),
       moraPendiente: acumulado.moraPendiente + Number(parcial.moraPendiente || 0),
       gastosCobranza: acumulado.gastosCobranza + Number(parcial.gastosCobranza || 0),
       ivaMoraCobranza: acumulado.ivaMoraCobranza + Number(parcial.ivaMoraCobranza || 0),
@@ -10647,6 +10914,24 @@ function PanelInformacionContratosExtractoLiquidacion({
             <div>
               <span>Aplica IVA canon</span>
               <strong>{arriendo.aplicaIva}</strong>
+            </div>
+            <div>
+              <span>Retención en la fuente</span>
+              <strong>
+                {arriendo.aplicaRetencionFuente === 'Sí'
+                  ? `${formatearPorcentajeRetencionArriendo(arriendo.porcentajeRetencionFuente)} sobre canon base`
+                  : 'No aplica'}
+              </strong>
+            </div>
+            <div>
+              <span>ReteIVA</span>
+              <strong>
+                {arriendo.aplicaReteIva === 'Sí'
+                  ? `${formatearPorcentajeRetencionArriendo(
+                      arriendo.porcentajeReteIva ?? PORCENTAJE_RETE_IVA_DEFECTO
+                    )} sobre IVA del canon`
+                  : 'No aplica'}
+              </strong>
             </div>
             <div>
               <span>Administración de edificio</span>
@@ -14495,6 +14780,30 @@ const construirFilasEstadoCuentaArriendo = (contrato, movimientos, fechaCorte = 
         agregarCargo(`IVA canon periodo ${movimiento.mes}`, ivaCanonMes)
       }
 
+      if (Number(liquidacion.retencionFuente || 0) > 0) {
+        filas.push({
+          mes: movimiento.mes,
+          fecha: fechaVencimiento,
+          detalle: `Retención en la fuente (${formatearPorcentajeRetencionArriendo(
+            liquidacion.porcentajeRetencionFuente
+          )}) periodo ${movimiento.mes}`,
+          valorMovimiento: -Number(liquidacion.retencionFuente || 0),
+          tipo: 'retencion-fuente',
+        })
+      }
+
+      if (Number(liquidacion.reteIva || 0) > 0) {
+        filas.push({
+          mes: movimiento.mes,
+          fecha: fechaVencimiento,
+          detalle: `ReteIVA (${formatearPorcentajeRetencionArriendo(
+            liquidacion.porcentajeReteIva
+          )} del IVA) periodo ${movimiento.mes}`,
+          valorMovimiento: -Number(liquidacion.reteIva || 0),
+          tipo: 'retencion-iva',
+        })
+      }
+
       agregarCargo(
         `Intereses de mora periodo ${movimiento.mes} (${porcentajeInteresMora}% mensual${sufijoRangoMora})`,
         moraContrato,
@@ -17518,6 +17827,10 @@ function ResumenEstadoCuentaArriendo({
   const totalDeuda = Number(
     resumenDeuda.totalDeuda ?? resumenDeuda.saldoDeudaTotal ?? 0
   )
+  const totalRetencionFuente = Number(
+    resumenDeuda.totalRetencionFuenteDeuda ?? resumenDeuda.totalRetencionFuente ?? 0
+  )
+  const totalReteIva = Number(resumenDeuda.totalReteIvaDeuda ?? resumenDeuda.totalReteIva ?? 0)
   const claseDeuda =
     opcionesAtraso && obtenerClaseSaldo ? obtenerClaseSaldo(opcionesAtraso) : ''
   const claseEstado =
@@ -17565,6 +17878,22 @@ function ResumenEstadoCuentaArriendo({
             )}
           </strong>
         </div>
+
+        {totalRetencionFuente > 0 && (
+          <div className="resumen-deuda-kpi">
+            <span className="resumen-deuda-kpi-etiqueta">Retención en la fuente</span>
+            <strong className="resumen-deuda-kpi-valor">
+              - {formatearDinero(totalRetencionFuente)}
+            </strong>
+          </div>
+        )}
+
+        {totalReteIva > 0 && (
+          <div className="resumen-deuda-kpi">
+            <span className="resumen-deuda-kpi-etiqueta">ReteIVA</span>
+            <strong className="resumen-deuda-kpi-valor">- {formatearDinero(totalReteIva)}</strong>
+          </div>
+        )}
 
         <div className="resumen-deuda-kpi">
           <span className="resumen-deuda-kpi-etiqueta">Total deuda arriendo</span>
@@ -17808,6 +18137,26 @@ function EstadoCuentaArrendamiento({
           <span>Gastos de cobranza</span>
           <strong>{textoGastos}</strong>
         </div>
+        <div>
+          <span>Retención en la fuente</span>
+          <strong>
+            {contratoAplicaRetencionFuente(contrato)
+              ? `${formatearPorcentajeRetencionArriendo(
+                  contrato.porcentajeRetencionFuente
+                )} sobre canon base`
+              : 'No aplica'}
+          </strong>
+        </div>
+        <div>
+          <span>ReteIVA</span>
+          <strong>
+            {contratoAplicaReteIva(contrato)
+              ? `${formatearPorcentajeRetencionArriendo(
+                  contrato.porcentajeReteIva ?? PORCENTAJE_RETE_IVA_DEFECTO
+                )} sobre IVA del canon`
+              : 'No aplica'}
+          </strong>
+        </div>
       </div>
 
       <ResumenEstadoCuentaArriendo
@@ -17966,10 +18315,13 @@ const construirResumenCuadreCorteLiquidacionDeposito = (desglose = {}, corte = {
   const totalIva = Number(desglose.totalIva || 0)
   const totalServicios = Number(desglose.totalServiciosFijos || 0)
   const descuentoAdministracion = Number(desglose.descuentoAdministracion || 0)
+  const retencionFuente = Number(desglose.retencionFuente || 0)
+  const reteIva = Number(desglose.reteIva || 0)
   const totalComision = Number(desglose.totalComision || 0)
   const totalIvaComision = Number(desglose.totalIvaComision || 0)
   const totalCargos = Number(desglose.totalCargo || totalCanonBase + totalIva + totalServicios)
-  const totalDescuentos = totalComision + totalIvaComision + descuentoAdministracion
+  const totalDescuentos =
+    totalComision + totalIvaComision + descuentoAdministracion + retencionFuente + reteIva
   const totalAPagarExplicito = corte.totalAPagarCorte ?? desglose.totalAPagarCorte
   const totalAPagar =
     totalAPagarExplicito !== undefined && totalAPagarExplicito !== null
@@ -17983,6 +18335,8 @@ const construirResumenCuadreCorteLiquidacionDeposito = (desglose = {}, corte = {
     totalIva,
     totalServicios,
     descuentoAdministracion,
+    retencionFuente,
+    reteIva,
     totalComision,
     totalIvaComision,
     totalCargos,
@@ -18345,6 +18699,20 @@ const construirFilasMovimientosCorteExtractoLiquidacionDeposito = ({
       0,
       Number(cuadre.descuentoAdministracion || 0),
       'descuento-administracion'
+    )
+    agregarFila(
+      `Retención en la fuente (${formatearPorcentajeRetencionArriendo(
+        desglose.porcentajeRetencionFuente
+      )})`,
+      0,
+      Number(cuadre.retencionFuente || 0),
+      'retencion-fuente'
+    )
+    agregarFila(
+      `ReteIVA (${formatearPorcentajeRetencionArriendo(desglose.porcentajeReteIva)} del IVA)`,
+      0,
+      Number(cuadre.reteIva || 0),
+      'retencion-iva'
     )
     agregarFila(
       esPagoFijoMensual
@@ -18877,6 +19245,8 @@ function DetalleCortesExtractoLiquidacionDeposito({
               {(cuadre.totalCanonBase > 0 ||
                 cuadre.totalIva > 0 ||
                 cuadre.descuentoAdministracion > 0 ||
+                cuadre.retencionFuente > 0 ||
+                cuadre.reteIva > 0 ||
                 cuadre.totalComision > 0) && (
                 <div className="extracto-liquidacion-corte-resumen detail-grid">
                   {cuadre.totalCanonBase > 0 && (
@@ -18901,6 +19271,22 @@ function DetalleCortesExtractoLiquidacionDeposito({
                       <span>Descuento administración</span>
                       <strong className="extracto-deuda-corte-valor--abono">
                         − {formatearDinero(cuadre.descuentoAdministracion)}
+                      </strong>
+                    </div>
+                  )}
+                  {cuadre.retencionFuente > 0 && (
+                    <div>
+                      <span>Retención en la fuente</span>
+                      <strong className="extracto-deuda-corte-valor--abono">
+                        − {formatearDinero(cuadre.retencionFuente)}
+                      </strong>
+                    </div>
+                  )}
+                  {cuadre.reteIva > 0 && (
+                    <div>
+                      <span>ReteIVA</span>
+                      <strong className="extracto-deuda-corte-valor--abono">
+                        − {formatearDinero(cuadre.reteIva)}
                       </strong>
                     </div>
                   )}
@@ -19560,6 +19946,10 @@ const [edicionUsuarioConfirmarClave, setEdicionUsuarioConfirmarClave] = useState
   const [canonMensual, setCanonMensual] = useState('')
   const [incrementoAnual, setIncrementoAnual] = useState('')
   const [aplicaIva, setAplicaIva] = useState('No')
+  const [aplicaRetencionFuente, setAplicaRetencionFuente] = useState('No')
+  const [porcentajeRetencionFuente, setPorcentajeRetencionFuente] = useState('')
+  const [aplicaReteIva, setAplicaReteIva] = useState('No')
+  const [porcentajeReteIva, setPorcentajeReteIva] = useState(String(PORCENTAJE_RETE_IVA_DEFECTO))
   const [porcentajeInteresMoraContrato, setPorcentajeInteresMoraContrato] = useState('')
   const [porcentajeGastosCobranzaContrato, setPorcentajeGastosCobranzaContrato] = useState('10')
   const [fechaInicioContrato, setFechaInicioContrato] = useState('')
@@ -25591,6 +25981,16 @@ const editarContrato = (contrato) => {
   setCanonMensual(contrato.canonMensual || '')
   setIncrementoAnual(contrato.incrementoAnual || '')
   setAplicaIva(contrato.aplicaIva || 'No')
+  setAplicaRetencionFuente(contrato.aplicaRetencionFuente || 'No')
+  setPorcentajeRetencionFuente(
+    contrato.aplicaRetencionFuente === 'Sí' ? String(contrato.porcentajeRetencionFuente ?? '') : ''
+  )
+  setAplicaReteIva(contrato.aplicaReteIva || 'No')
+  setPorcentajeReteIva(
+    contrato.aplicaReteIva === 'Sí'
+      ? String(contrato.porcentajeReteIva ?? PORCENTAJE_RETE_IVA_DEFECTO)
+      : String(PORCENTAJE_RETE_IVA_DEFECTO)
+  )
   setPorcentajeInteresMoraContrato(contrato.porcentajeInteresMora || '')
   setPorcentajeGastosCobranzaContrato(
     String(obtenerPorcentajeGastosCobranzaContrato(contrato))
@@ -25625,6 +26025,10 @@ const editarContrato = (contrato) => {
     setCanonMensual('')
     setIncrementoAnual('')
     setAplicaIva('No')
+    setAplicaRetencionFuente('No')
+    setPorcentajeRetencionFuente('')
+    setAplicaReteIva('No')
+    setPorcentajeReteIva(String(PORCENTAJE_RETE_IVA_DEFECTO))
     setPorcentajeInteresMoraContrato('')
     setPorcentajeGastosCobranzaContrato(String(PORCENTAJE_GASTOS_COBRANZA_DEFECTO))
     setFechaInicioContrato('')
@@ -25732,9 +26136,30 @@ if (
   return
 }
 
+if (aplicaRetencionFuente === 'Sí' && Number(porcentajeRetencionFuente || 0) <= 0) {
+  alert('Indique el porcentaje de retención en la fuente sobre el canon de arriendo.')
+  return
+}
+
+if (aplicaIva === 'Sí' && aplicaReteIva === 'Sí' && Number(porcentajeReteIva || 0) <= 0) {
+  alert('Indique el porcentaje de ReteIVA sobre el IVA del canon.')
+  return
+}
+
 const datosAseguradoraContrato = {
   aseguradora: requiereDatosAseguradora ? aseguradoraContrato.trim() : '',
   numeroPoliza: requiereDatosAseguradora ? numeroPolizaContrato.trim() : '',
+}
+
+const datosRetencionContrato = {
+  aplicaRetencionFuente,
+  porcentajeRetencionFuente:
+    aplicaRetencionFuente === 'Sí' ? Number(porcentajeRetencionFuente || 0) : 0,
+  aplicaReteIva: aplicaIva === 'Sí' ? aplicaReteIva : 'No',
+  porcentajeReteIva:
+    aplicaIva === 'Sí' && aplicaReteIva === 'Sí'
+      ? Number(porcentajeReteIva || PORCENTAJE_RETE_IVA_DEFECTO)
+      : 0,
 }
 
 if (contratoEditando) {
@@ -25791,6 +26216,7 @@ if (contratoEditando) {
           estado: estadoContrato,
           observaciones: observacionesContrato.trim(),
           ...datosAseguradoraContrato,
+          ...datosRetencionContrato,
         }
       : contrato
   )
@@ -25885,6 +26311,7 @@ if (contratoEditando) {
   estadoRenovacion: 'Pendiente',
   observaciones: observacionesContrato.trim(),
   ...datosAseguradoraContrato,
+  ...datosRetencionContrato,
 }
 
    const contratosActualizadosNuevo = [nuevoContrato, ...contratosArriendo]
@@ -25987,6 +26414,8 @@ const construirHtmlDetallePeriodosReciboArriendoImpresion = (
         <tr>
           <td>${escapeHtml(item.periodo || '—')}</td>
           <td class="num">${escapeHtml(formatearDineroFn(item.canonIvaPendiente || 0))}</td>
+          <td class="num">${escapeHtml(formatearDineroFn(item.retencionFuentePendiente || 0))}</td>
+          <td class="num">${escapeHtml(formatearDineroFn(item.reteIvaPendiente || 0))}</td>
           <td class="num">${escapeHtml(formatearDineroFn(item.moraPendiente || 0))}</td>
           <td class="num">${escapeHtml(formatearDineroFn(item.gastosCobranza || 0))}</td>
           <td class="num">${escapeHtml(formatearDineroFn(item.ivaMoraCobranza || 0))}</td>
@@ -26003,6 +26432,8 @@ const construirHtmlDetallePeriodosReciboArriendoImpresion = (
           <tr>
             <th>Periodo</th>
             <th class="num">Canon + IVA</th>
+            <th class="num">Ret. fuente</th>
+            <th class="num">ReteIVA</th>
             <th class="num">Mora</th>
             <th class="num">Cobranza</th>
             <th class="num">IVA</th>
@@ -38326,7 +38757,17 @@ const resultadosBusqueda = textoBusqueda
           <div className="fila-datos-economicos-contrato-linea2 full">
             <div className="form-group cajon-aplica-iva-contrato">
               <label>Aplica IVA</label>
-              <select value={aplicaIva} onChange={(e) => setAplicaIva(e.target.value)}>
+              <select
+                value={aplicaIva}
+                onChange={(e) => {
+                  const valor = e.target.value
+                  setAplicaIva(valor)
+                  if (valor !== 'Sí') {
+                    setAplicaReteIva('No')
+                    setPorcentajeReteIva(String(PORCENTAJE_RETE_IVA_DEFECTO))
+                  }
+                }}
+              >
                 <option>No</option>
                 <option>Sí</option>
               </select>
@@ -38335,6 +38776,67 @@ const resultadosBusqueda = textoBusqueda
             <div className="form-group cajon-iva-aplicado-contrato">
               <label>IVA aplicado</label>
               <input type="text" value={aplicaIva === 'Sí' ? '19%' : 'No aplica'} readOnly />
+            </div>
+          </div>
+
+          <div className="fila-datos-economicos-contrato-linea-retenciones full">
+            <div className="form-group cajon-retencion-fuente-contrato">
+              <label>Practica retención en la fuente</label>
+              <select
+                value={aplicaRetencionFuente}
+                onChange={(e) => {
+                  const valor = e.target.value
+                  setAplicaRetencionFuente(valor)
+                  if (valor !== 'Sí') setPorcentajeRetencionFuente('')
+                }}
+              >
+                <option value="No">No</option>
+                <option value="Sí">Sí</option>
+              </select>
+            </div>
+
+            <div className="form-group campo-porcentaje">
+              <label>% retención fuente</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={porcentajeRetencionFuente}
+                onChange={(e) => setPorcentajeRetencionFuente(e.target.value)}
+                placeholder="Ej: 3,5"
+                disabled={aplicaRetencionFuente !== 'Sí'}
+              />
+            </div>
+
+            <div className="form-group cajon-rete-iva-contrato">
+              <label>Retenedor de IVA (ReteIVA)</label>
+              <select
+                value={aplicaReteIva}
+                disabled={aplicaIva !== 'Sí'}
+                onChange={(e) => {
+                  const valor = e.target.value
+                  setAplicaReteIva(valor)
+                  if (valor !== 'Sí') {
+                    setPorcentajeReteIva(String(PORCENTAJE_RETE_IVA_DEFECTO))
+                  }
+                }}
+              >
+                <option value="No">No</option>
+                <option value="Sí">Sí</option>
+              </select>
+            </div>
+
+            <div className="form-group campo-porcentaje">
+              <label>% ReteIVA</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={porcentajeReteIva}
+                onChange={(e) => setPorcentajeReteIva(e.target.value)}
+                placeholder={`${PORCENTAJE_RETE_IVA_DEFECTO}`}
+                disabled={aplicaIva !== 'Sí' || aplicaReteIva !== 'Sí'}
+              />
             </div>
           </div>
 
@@ -46557,6 +47059,8 @@ function DetalleLiquidacionPeriodosReciboArriendo({
           <tr>
             <th>Periodo</th>
             <th className="col-monto-predial">Canon + IVA</th>
+            <th className="col-monto-predial">Ret. fuente</th>
+            <th className="col-monto-predial">ReteIVA</th>
             <th className="col-monto-predial">Mora</th>
             <th className="col-monto-predial">Cobranza</th>
             <th className="col-monto-predial">IVA</th>
@@ -46568,6 +47072,10 @@ function DetalleLiquidacionPeriodosReciboArriendo({
             <tr key={item.periodo}>
               <td>{item.periodo}</td>
               <td className="col-monto-predial">{formatearDinero(item.canonIvaPendiente || 0)}</td>
+              <td className="col-monto-predial">
+                {formatearDinero(item.retencionFuentePendiente || 0)}
+              </td>
+              <td className="col-monto-predial">{formatearDinero(item.reteIvaPendiente || 0)}</td>
               <td className="col-monto-predial">{formatearDinero(item.moraPendiente || 0)}</td>
               <td className="col-monto-predial">{formatearDinero(item.gastosCobranza || 0)}</td>
               <td className="col-monto-predial">{formatearDinero(item.ivaMoraCobranza || 0)}</td>

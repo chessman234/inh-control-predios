@@ -10400,6 +10400,28 @@ body.imprimiendo-extracto .extracto-predios-propietario-print .extracto-predios-
   padding-right: 8px;
 }
 
+.fila-datos-economicos-contrato-linea-retenciones {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.fila-datos-economicos-contrato-linea-retenciones .form-group label {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.cajon-retencion-fuente-contrato select,
+.cajon-rete-iva-contrato select,
+.fila-datos-economicos-contrato-linea-retenciones .campo-porcentaje input {
+  width: 100%;
+  max-width: 100%;
+  font-size: 13px;
+}
+
 .fila-datos-economicos-contrato-linea-admin {
   display: grid;
   grid-template-columns: minmax(0, 0.4fr) minmax(0, 1.6fr);
